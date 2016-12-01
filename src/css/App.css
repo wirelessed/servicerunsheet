@@ -1,0 +1,40 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Roboto, sans-serif;
+}
+
+.ExpandedPlayer {
+    animation-name: slideIn;
+    animation-iteration-count: 1;
+    animation-timing-function: ease-in-out;
+    animation-duration: 0.3s;
+    animation-delay: 0;
+}
+
+@keyframes slideIn {
+    0% {
+        transform: translateY(1000px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+.CollapsedPlayer {
+    position: absolute;
+    animation-name: slideOut;
+    animation-iteration-count: 1;
+    animation-timing-function: ease-in-out;
+    animation-duration: 0.15s;
+    animation-delay: 0;
+}
+
+@keyframes slideOut {
+    0% {
+        bottom: 0;
+    }
+    100% {
+        bottom: 56px;
+    }
+}
