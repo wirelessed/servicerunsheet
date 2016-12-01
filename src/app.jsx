@@ -8,6 +8,8 @@ import EditRunsheet from './components/EditRunsheet.jsx';
 import './css/App.css';
 import {white, black, indigo500} from 'material-ui/styles/colors';
 import MediaQuery from 'react-responsive';
+import {Tabs, Tab} from 'material-ui/Tabs';
+
 
 const AppBarStyle = {
     position: 'fixed',
@@ -64,8 +66,15 @@ class App extends React.Component {
         return (
             <div>
                 {AppBarType}
-                <div style={{paddingTop: '56px', paddingBottom: '56px'}}>
-                    {this.state.page}
+                <div style={{paddingTop: '56px'}}>
+                    <Tabs>
+                        <Tab label="View" >
+                            <View />
+                        </Tab>
+                        <Tab label="Edit" >
+                            <EditRunsheet />
+                        </Tab>
+                    </Tabs>
                 </div>
             </div>
         );

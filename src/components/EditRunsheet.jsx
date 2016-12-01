@@ -169,9 +169,8 @@ class EditRunsheet extends Component {
 
                             return (
                                 <div key={index}>
-                                    <div style={{ paddingLeft: '32px', color: grey500 }}>{printDuration}</div>
                                     <ListItem
-                                        leftAvatar={<TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} />}
+                                        leftAvatar={<TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} />}
                                         primaryText={<TextField name="Description" hintText="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={9} />}
                                         href="#"
                                         innerDivStyle={listItemStyle}

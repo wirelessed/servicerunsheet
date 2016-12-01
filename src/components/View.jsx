@@ -1,299 +1,155 @@
 import React, {Component} from 'react';
-import FontIcon from 'material-ui/FontIcon';
-import Avatar from 'material-ui/Avatar';
+import update from 'react-addons-update';
 import {List, ListItem} from 'material-ui/List';
-import Checkbox from 'material-ui/Checkbox';
-import {lightBlue500, grey100, grey900, green500} from 'material-ui/styles/colors';
-import Subheader from 'material-ui/Subheader';
-import Paper from 'material-ui/Paper';
+import MobileDetect from 'mobile-detect';
+import * as firebase from "firebase";
+import ReactFireMixin from 'reactfire';
+import reactMixin from 'react-mixin';
+import TimePicker from 'material-ui/TimePicker';
+import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
-import Popup from '../components/Popup.jsx';
 import Divider from 'material-ui/Divider';
-import MediaQuery from 'react-responsive';
+import {grey200, grey500} from 'material-ui/styles/colors';
 
-const InstructionsStyle = {
-    lineHeight: '16px',
-    color: grey900,
-    padding: '16px'
-}
-
-const SubheaderStyle = {
-    lineHeight: '16px',
-    textTransform: 'uppercase',
-    paddingTop: '16px',
-    paddingRight: '16px'
-}
-
-const AvatarStyle = {
-    borderRadius: 0
-};
 
 const listItemStyle = {
-    paddingLeft: '88px'
+    padding: '4px 16px 4px 120px'
 }
 
-const listItemDisabledStyle = {
-    opacity: 0.3
+const TimePickerStyle = {
+    width: '100px',
+    top: 'inherit'
 }
 
-const primaryTextStyle = {
-    lineHeight: '20px',
-}
 
-const IconStyle = {
-    fontSize: '32px',
-    width: '32px',
-    height: '32px',
-    right: '0px'
-}
+class EditRunsheet extends Component {
 
-const IconUnchecked = <FontIcon className='material-icons' style={IconStyle} color={lightBlue500}>radio_button_unchecked</FontIcon>;
-
-const IconChecked = <FontIcon className='material-icons' style={IconStyle} color={lightBlue500}>check_circle</FontIcon>;
-
-const CounterBarStyle = {
-    backgroundColor: grey100,
-    position: 'fixed',
-    bottom: '56px',
-    padding: '8px 16px 16px 16px',
-    width: '100%',
-    textAlign: 'center',
-    boxShadow: 'rgba(0, 0, 0, 0.15) 0px -1px 10px'
-}
-
-const CounterBarDesktopStyle = {
-    backgroundColor: grey100,
-    position: 'fixed',
-    bottom: '0px',
-    right: '0px',
-    padding: '8px 16px 16px 16px',
-    width: '100%',
-    textAlign: 'center',
-    boxShadow: 'rgba(0, 0, 0, 0.298039) 0px -1px 10px, rgba(0, 0, 0, 0.219608) 0px -1px 10px'
-}
-
-class Redeem extends Component {
     constructor(props) {
         super(props);
+
         this.state = {
-            numSelected: 0,
-            maxSelected: 2,
-            isEmpty: false,
-            isErrorPopupOpen: false,
-            isConfirmPopupOpen: false
+            isPopupOpen: false,
+            thePopup: null,
+            time: new Date().toString(),
+            text: "",
+            currentKey: null,
+            items: []
         };
-        // need to bind this for ES6
-        this.handleCheck = this.handleCheck.bind(this);
-        this.handleOpenPopup = this.handleOpenPopup.bind(this);
-        this.handleClosePopup = this.handleClosePopup.bind(this);
-        this.handleConfirm = this.handleConfirm.bind(this);
-        this.handleSubmit = this.handleSubmit.bind(this);
 
-        this.PopupTitle = "";
-        this.PopupMessage = "";
-        this.PopupActions = 1;
     }
 
-    handleCheck(refName, ev, isInputChecked){
-        // ADD SELECTION LOGIC HERE
+    componentWillMount() {
+        var ref = firebase.database().ref("final4");
+        this.bindAsArray(ref, "items");
+    }
 
-        // increase counter or decrease
-        if(isInputChecked){
-            // if >2 selected, show error popup, uncheck the current selection
-            if ((this.state.numSelected + 1) > 2){
-                this.handleOpenPopup();
-                // need to uncheck the box
-                this.refs[refName].setChecked(false);
-            // else increment
+    componentWillUnmount() {
+        this.firebaseRef.off();
+    }
+
+    sendWhatsapp = () => {
+        var composeMessage = "";
+        var previousTime = new Date();
+
+        this.state.items.map((item, index) => {
+
+            if (item.time !== null){
+                var theTime = new Date(item.time);
+                var hours = theTime.getHours().toString();
+                var minutes = theTime.getMinutes().toString();
+                if (minutes === "0") minutes = "00";
+
+                var printDuration = "";
+                if (index > 0){
+                    printDuration = "(" + this.timeDifference(theTime, previousTime) + " min)";
+                    composeMessage += printDuration + "\n";
+                }
+                previousTime = theTime;
+
+
+                composeMessage +=  hours + minutes + ": ";
             } else {
-                this.setState((prevState) => {
-                    return {numSelected: prevState.numSelected + 1};
-                });
+                composeMessage += "      ";
             }
-        // else decrease
-        } else {
-            this.setState((prevState) => {
-                return {numSelected: prevState.numSelected - 1};
-            });
-        }
+
+
+            if (item.text !== null)
+                composeMessage += item.text + "\n";
+
+            return composeMessage;
+        });
+        composeMessage=encodeURIComponent(composeMessage);
+        console.log(composeMessage);
+        window.location = "whatsapp://send?text=" + composeMessage;
     }
 
-    handleOpenPopup = () => {
-        this.PopupTitle = "Oops";
-        this.PopupMessage = "You can only select up to 2 sermons per month.";
-        this.PopupActions = 1;
-        this.setState({isErrorPopupOpen: true});
-    };
+    timeDifference(date1,date2) {
+        var difference = date1.getTime() - date2.getTime();
 
-    handleClosePopup = () => {
-        this.setState({isErrorPopupOpen: false});
-    };
+        var daysDifference = Math.floor(difference/1000/60/60/24);
+        difference -= daysDifference*1000*60*60*24
 
-    handleConfirm(){
-        // ADD CONFIRM LOGIC HERE
-        this.PopupTitle = "Confirmation";
-        this.PopupMessage = "You are redeeming "+this.state.numSelected+" sermon(s)";
-        this.PopupActions = 2;
-        this.setState({isConfirmPopupOpen: true});
-    }
+        var hoursDifference = Math.floor(difference/1000/60/60);
+        difference -= hoursDifference*1000*60*60
 
-    handleCloseConfirmPopup = () => {
-        this.setState({isConfirmPopupOpen: false});
-    };
+        var minutesDifference = Math.floor(difference/1000/60);
+        difference -= minutesDifference*1000*60
 
-    handleSubmit(){
-        // ADD REDEEM LOGIC HERE
+        var totalMinutesDifference = hoursDifference*60 + minutesDifference;
 
-        // Go to Library tab and show new sermons toast
-        this.props.showNewSermons();
-    }
-
-    componentDidMount() {
-        // @TODO: check if redemption list is empty and set state
+        return totalMinutesDifference;
     }
 
     render() {
 
-        let ConfirmButton = null;
+        var previousTime = new Date();
 
-        // Enable redeem only if 2 selected
-        if(this.state.numSelected !== 2){
-            ConfirmButton = <RaisedButton label="Redeem Now" primary={true} style={{width: '100%', maxWidth: '480px'}} disabled />
-        } else {
-            ConfirmButton = <RaisedButton label="Redeem Now" primary={true} style={{width: '100%', maxWidth: '480px'}} onTouchTap={this.handleConfirm} />
-        }
+        return (
+            <div style={{marginBottom: '170px'}}>
+                <List>
+                    {
 
-        let CounterBar =
-        <div>
-            <div style={{textAlign: 'center', height: '24px'}}>
-                <span style={{fontSize: '16px', color: lightBlue500}}>{this.state.numSelected}</span>
-                <span style={{fontSize: '14px', paddingLeft: '4px', paddingRight: '4px'}}>of</span>
-                <span style={{fontSize: '16px', color: lightBlue500}}>{this.state.maxSelected}</span>
-                <span style={{fontSize: '14px', paddingLeft: '4px'}}>sermons selected. <br/></span>
+                        this.state.items.map((item, index) => {
+                            var theDate = new Date(item.time);
+                            var key = item[".key"];
+
+                            var printDuration;
+                            if (index > 0){
+                                printDuration = "(" + this.timeDifference(theDate, previousTime) + " min)";
+                            }
+                            previousTime = theDate;
+
+                            var hours = theDate.getHours().toString();
+                            var minutes = theDate.getMinutes().toString();
+                            if (minutes === "0") minutes = "00";
+
+                            var printTime =  hours + minutes + ": ";
+
+                            return (
+                                <div key={index}>
+                                    <div style={{ paddingLeft: '32px', color: grey500 }}>{printDuration}</div>
+                                    <ListItem
+                                        leftAvatar={ <TimePicker disabled={true} value={theDate} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /> }
+                                        primaryText={<TextField disabled={true} value={ item.text } multiLine={true} rowsMax={9} textareaStyle={{ color: '#000' }} underlineShow={false} />}
+                                        href="#"
+                                        innerDivStyle={listItemStyle}
+                                        disableTouchRipple
+                                        >
+                                    </ListItem>
+                                </div>
+                            );
+                        })
+                    }
+
+                </List>
+                <RaisedButton label="SEND TO Whatsapp" type="submit" style={{ margin: '16px', color: '#fff'}} backgroundColor={'#4DC247'} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share" />
+                {/*<div>Or send this page as a link:</div>
+                <div className="addthis_inline_share_toolbox" style={{ padding: '16px', marginTop: '16px'}}></div>*/}
             </div>
-            <MediaQuery maxWidth={1023}>
-                {ConfirmButton}
-            </MediaQuery>
-            <MediaQuery minWidth={1024} style={{ maxWidth: '640px', minWidth: '320px' }}>
-                {ConfirmButton}
-            </MediaQuery>
-        </div>;
-
-        // display empty state
-        if (this.state.isEmpty){
-            return (
-                <div style={{marginBottom: '100px'}}>
-                    <div style={{textAlign: 'center', padding: '16px', display: 'table-cell'}}>
-                    <p>You have redeemed all your sermons this month. Please check again next month!</p>
-                    </div>
-                </div>
-            )
-        }
-        // else redeem
-        else {
-            return (
-                <div style={{marginBottom: '100px'}}>
-                    <List>
-                        <Subheader style={InstructionsStyle}>Select 2 sermons below. <br/> Latest two sermons will be
-    added to your library if you do not redeem by 31 Dec 2016.</Subheader>
-                        <Divider />
-                        <Subheader style={SubheaderStyle}>Latest Sermons</Subheader>
-                        <ListItem
-                            leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon1.jpg'} size={56} style={AvatarStyle} />}
-                            primaryText={<div style={primaryTextStyle}>Psalm 91</div>}
-                            rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item0')} ref="item0" />}
-                            secondaryText={<div>Pastor Joseph Prince <br/> 30 Nov 2016</div>}
-                            secondaryTextLines={2}
-                            innerDivStyle={listItemStyle}
-                            >
-                        </ListItem>
-                        <ListItem
-                            leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon2.jpg'} size={56} style={AvatarStyle} />}
-                            primaryText={<div style={primaryTextStyle}>The Power of Holy Communion in Your Daily Life</div>}
-                            rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item1')} ref="item1" />}
-                            secondaryText={<div>Pastor Joseph Prince <br/> 30 Nov 2016</div>}
-                            secondaryTextLines={2}
-                            innerDivStyle={listItemStyle}
-                            >
-                        </ListItem>
-                        {/* Already Redeemed: no rightToggle, disableTouchRipple, style={listItemDisabledStyle} */ }
-                        <ListItem
-                            leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon3.jpg'} size={56} style={AvatarStyle} />}
-                            primaryText={<div style={primaryTextStyle}>The Law Demands, Grace Supplies</div>}
-                            secondaryText={<div>Pastor Joseph Prince <br/> <span style={{color: green500}}>Already Redeemed</span></div>}
-                            secondaryTextLines={2}
-                            innerDivStyle={listItemStyle}
-                            disableTouchRipple
-                            style={listItemDisabledStyle}
-                            >
-                        </ListItem>
-                        <ListItem
-                            leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon3.jpg'} size={56} style={AvatarStyle} />}
-                            primaryText={<div style={primaryTextStyle}>The Law Demands, Grace Supplies</div>}
-                            rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item3')} ref="item3" />}
-                            secondaryText={<div>Pastor Joseph Prince <br/> 30 Nov 2016</div>}
-                            secondaryTextLines={2}
-                            innerDivStyle={listItemStyle}
-                            >
-                        </ListItem>
-                        <ListItem
-                            leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon3.jpg'} size={56} style={AvatarStyle} />}
-                            primaryText={<div style={primaryTextStyle}>The Law Demands, Grace Supplies</div>}
-                            rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item4')} ref="item4" />}
-                            secondaryText={<div>Pastor Joseph Prince <br/> 30 Nov 2016</div>}
-                            secondaryTextLines={2}
-                            innerDivStyle={listItemStyle}
-                            >
-                        </ListItem>
-                        <ListItem
-                            leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon3.jpg'} size={56} style={AvatarStyle} />}
-                            primaryText={<div style={primaryTextStyle}>The Law Demands, Grace Supplies</div>}
-                            rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item5')} ref="item5" />}
-                            secondaryText={<div>Pastor Joseph Prince <br/> 30 Nov 2016</div>}
-                            secondaryTextLines={2}
-                            innerDivStyle={listItemStyle}
-                            >
-                        </ListItem>
-                        <Divider />
-                        <Subheader style={SubheaderStyle}>Latest NCC Sermons</Subheader>
-                        {/* @TODO: If NCC sermon selected is same as above, then one of them should be disabled. */}
-                            <ListItem
-                                leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon3.jpg'} size={56} style={AvatarStyle} />}
-                                primaryText={<div style={primaryTextStyle}>The Law Demands, Grace Supplies</div>}
-                                rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item6')} ref="item6" />}
-                                secondaryText={<div>Pastor Mark <br/> 30 Nov 2016</div>}
-                                secondaryTextLines={2}
-                                innerDivStyle={listItemStyle}
-                                >
-                            </ListItem>
-                            <ListItem
-                                leftAvatar={<Avatar src={process.env.PUBLIC_URL + 'images/sermon3.jpg'} size={56} style={AvatarStyle} />}
-                                primaryText={<div style={primaryTextStyle}>The Law Demands, Grace Supplies</div>}
-                                rightToggle={<Checkbox labelPosition="left" uncheckedIcon={IconUnchecked} checkedIcon={IconChecked} onCheck={this.handleCheck.bind(this, 'item7')} ref="item7" />}
-                                secondaryText={<div>Pastor Lawrence <br/> 30 Nov 2016</div>}
-                                secondaryTextLines={2}
-                                innerDivStyle={listItemStyle}
-                                >
-                            </ListItem>
-                    </List>
-                    <Popup isPopupOpen={this.state.isErrorPopupOpen} handleClosePopup={this.handleClosePopup} title={this.PopupTitle} message={this.PopupMessage} numActions={this.PopupActions} />
-                    <Popup isPopupOpen={this.state.isConfirmPopupOpen} handleClosePopup={this.handleCloseConfirmPopup} handleSubmit={this.handleSubmit} title={this.PopupTitle} message={this.PopupMessage} numActions={this.PopupActions} />
-
-                    <MediaQuery maxWidth={1023}>
-                        <Paper style={CounterBarStyle} zDepth={1} rounded={false}>
-                            {CounterBar}
-                        </Paper>
-                    </MediaQuery>
-                    <MediaQuery minWidth={1024}>
-                        <Paper style={CounterBarDesktopStyle} zDepth={1} rounded={false}>
-                            {CounterBar}
-                        </Paper>
-                    </MediaQuery>
-                </div>
-            );
-        }
+        );
     }
 }
 
+reactMixin(EditRunsheet.prototype, ReactFireMixin);
 
-export default Redeem;
+export default EditRunsheet;
