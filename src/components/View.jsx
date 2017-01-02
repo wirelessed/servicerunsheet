@@ -10,7 +10,7 @@ import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import Divider from 'material-ui/Divider';
 import {grey200, grey500} from 'material-ui/styles/colors';
-
+import moment from 'moment';
 
 const listItemStyle = {
     padding: '4px 16px 4px 120px'
@@ -39,65 +39,47 @@ class EditRunsheet extends Component {
     }
 
     componentWillMount() {
-        var ref = firebase.database().ref("final4");
+        console.log(this.props.serviceKey);
+        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items");
         this.bindAsArray(ref, "items");
     }
 
     componentWillUnmount() {
-        this.firebaseRef.off();
+        //this.firebaseRef.off();
     }
 
     sendWhatsapp = () => {
         var composeMessage = "";
-        var previousTime = new Date();
+        var previousTime = moment();
 
         this.state.items.map((item, index) => {
 
             if (item.time !== null){
-                var theTime = new Date(item.time);
-                var hours = theTime.getHours().toString();
-                var minutes = theTime.getMinutes().toString();
-                if (minutes === "0") minutes = "00";
+                var theTime = moment(item.time);
 
-                var printDuration = "";
+                // get duration
+                var printDuration;
                 if (index > 0){
-                    printDuration = "(" + this.timeDifference(theTime, previousTime) + " min)";
+                    printDuration = "(" + theTime.diff(previousTime, 'minutes') + " min)";
                     composeMessage += printDuration + "\n";
                 }
                 previousTime = theTime;
 
-
-                composeMessage +=  hours + minutes + ": ";
+                // print time
+                composeMessage +=  theTime.format("h:mm a") + ": ";
             } else {
                 composeMessage += "      ";
             }
 
 
             if (item.text !== null)
-                composeMessage += item.text + "\n";
+                composeMessage += item.text + "\n\n";
 
             return composeMessage;
         });
         composeMessage=encodeURIComponent(composeMessage);
         console.log(composeMessage);
         window.location = "whatsapp://send?text=" + composeMessage;
-    }
-
-    timeDifference(date1,date2) {
-        var difference = date1.getTime() - date2.getTime();
-
-        var daysDifference = Math.floor(difference/1000/60/60/24);
-        difference -= daysDifference*1000*60*60*24
-
-        var hoursDifference = Math.floor(difference/1000/60/60);
-        difference -= hoursDifference*1000*60*60
-
-        var minutesDifference = Math.floor(difference/1000/60);
-        difference -= minutesDifference*1000*60
-
-        var totalMinutesDifference = hoursDifference*60 + minutesDifference;
-
-        return totalMinutesDifference;
     }
 
     render() {
@@ -110,27 +92,23 @@ class EditRunsheet extends Component {
                     {
 
                         this.state.items.map((item, index) => {
-                            var theDate = new Date(item.time);
+                            var theDate = moment(item.time);
                             var key = item[".key"];
 
+                            // get duration
                             var printDuration;
                             if (index > 0){
-                                printDuration = "(" + this.timeDifference(theDate, previousTime) + " min)";
+                                printDuration = "(" + theDate.diff(previousTime, 'minutes') + " min)";
                             }
                             previousTime = theDate;
 
-                            var hours = theDate.getHours().toString();
-                            var minutes = theDate.getMinutes().toString();
-                            if (minutes === "0") minutes = "00";
-
-                            var printTime =  hours + minutes + ": ";
-
                             return (
                                 <div key={index}>
-                                    <div style={{ paddingLeft: '32px', color: grey500 }}>{printDuration}</div>
+                                    <div style={{ paddingLeft: '120px', marginBottom: '16px', color: grey500 }}>{printDuration}</div>
+                                    <Divider />
                                     <ListItem
-                                        leftAvatar={ <TimePicker disabled={true} value={theDate} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /> }
-                                        primaryText={<TextField disabled={true} value={ item.text } multiLine={true} rowsMax={9} textareaStyle={{ color: '#000' }} underlineShow={false} />}
+                                        leftAvatar={ <TimePicker disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /> }
+                                        primaryText={<TextField disabled={true} value={ item.text } multiLine={true} rowsMax={99} textareaStyle={{ color: '#000' }} underlineShow={false} /> }
                                         href="#"
                                         innerDivStyle={listItemStyle}
                                         disableTouchRipple

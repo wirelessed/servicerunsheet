@@ -4,6 +4,8 @@ import AppBar from 'material-ui/AppBar';
 import IconButton from 'material-ui/IconButton';
 import FontIcon from 'material-ui/FontIcon';
 import View from './components/View.jsx';
+import Select from './components/Select.jsx';
+import TabView from './components/TabView.jsx';
 import EditRunsheet from './components/EditRunsheet.jsx';
 import './css/App.css';
 import {white, black, indigo500} from 'material-ui/styles/colors';
@@ -23,6 +25,7 @@ class App extends React.Component {
         this.state = {
             page: null,
             title: null,
+            currentServiceKey: null,
         };
         this.changePage = this.changePage.bind(this);
     }
@@ -30,16 +33,27 @@ class App extends React.Component {
     changePage = (index) => {
         if (index === 1){
             this.setState({
-                page: <View />,
-            title: "View Service Runsheet"
+                page: <TabView serviceKey={this.state.currentServiceKey} />,
+                title: "View Service Runsheet",
+                currentServiceKey: null
             });
+            console.log(this.state.currentServiceKey);
         }
         if (index === 0){
             this.setState({
-                page: <EditRunsheet />,
-                title: "Service Runsheet (Beta)"
+                page: <Select goToService={(key) => this.goToService(key)} />,
+                title: "Service Runsheet (Beta)",
+                currentServiceKey: null
             });
         }
+    }
+
+    goToService = (key) => {
+        this.setState({
+            page: <TabView serviceKey={key} />,
+            title: "View Service Runsheet",
+            currentServiceKey: key
+        });
     }
 
     handleBackToHome = () => {
@@ -56,7 +70,7 @@ class App extends React.Component {
         let AppBarType = null;
 
         // show back button
-        if(this.state.title === "Edit"){
+        if(this.state.title === "View Service Runsheet"){
             AppBarType = <AppBar title={this.state.title} iconElementLeft={<IconButton
                     onTouchTap={this.handleBackToHome}><FontIcon className="material-icons">arrow_back</FontIcon></IconButton>} style={AppBarStyle} />;
         } else {
@@ -67,14 +81,7 @@ class App extends React.Component {
             <div>
                 {AppBarType}
                 <div style={{paddingTop: '56px'}}>
-                    <Tabs>
-                        <Tab label="View" >
-                            <View />
-                        </Tab>
-                        <Tab label="Edit" >
-                            <EditRunsheet />
-                        </Tab>
-                    </Tabs>
+                    {this.state.page}
                 </div>
             </div>
         );
