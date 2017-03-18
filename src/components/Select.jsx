@@ -37,7 +37,6 @@ class Select extends Component {
 
     componentWillMount() {
         var ref = firebase.database().ref("services");
-        console.log(ref);
         this.bindAsArray(ref, "items");
     }
 
@@ -74,12 +73,11 @@ class Select extends Component {
                         this.state.items.map((item, index) => {
                             return (
                                 <div key={index}>
-                                    <div style={{ paddingLeft: '120px', marginBottom: '16px', color: grey500 }}></div>
-                                    <Divider />
                                     <ListItem primaryText={item.name}
                                         onTouchTap={() => this.goToService(item.name)}
                                         >
                                     </ListItem>
+                                    <Divider />
                                 </div>
                             );
                         })

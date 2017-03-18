@@ -6,10 +6,11 @@ import * as firebase from "firebase";
 import ReactFireMixin from 'reactfire';
 import reactMixin from 'react-mixin';
 import TimePicker from 'material-ui/TimePicker';
+import DatePicker from 'material-ui/DatePicker';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500} from 'material-ui/styles/colors';
+import {grey200, grey500, cyan500} from 'material-ui/styles/colors';
 import moment from 'moment';
 
 const listItemStyle = {
@@ -19,6 +20,14 @@ const listItemStyle = {
 const TimePickerStyle = {
     width: '100px',
     top: 'inherit'
+}
+
+const TextFieldStyle = {
+    backgroundColor: cyan500,
+    borderRadius: '3px',
+    padding: '4px 8px',
+    color: '#fff',
+    width: '95%'
 }
 
 
@@ -31,6 +40,7 @@ class EditRunsheet extends Component {
             isPopupOpen: false,
             thePopup: null,
             time: new Date().toString(),
+            serviceDate: {},
             text: "",
             currentKey: null,
             items: []
@@ -40,6 +50,12 @@ class EditRunsheet extends Component {
 
     componentWillMount() {
         console.log(this.props.serviceKey);
+
+        // get date from firebase
+        var serviceDate = firebase.database().ref("services/"+this.props.serviceKey+"/date");
+        this.bindAsObject(serviceDate, "serviceDate");
+
+        // get items from firebase
         var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items");
         this.bindAsArray(ref, "items");
     }
@@ -55,7 +71,7 @@ class EditRunsheet extends Component {
         this.state.items.map((item, index) => {
 
             if (item.time !== null){
-                var theTime = moment(item.time);
+                var theTime = moment(item.time,"HHmm");
 
                 // get duration
                 var printDuration;
@@ -85,14 +101,23 @@ class EditRunsheet extends Component {
     render() {
 
         var previousTime = new Date();
+        var serviceDate = moment(this.state.serviceDate[".value"]).format("dddd, D MMMM YYYY");
 
         return (
             <div style={{marginBottom: '170px'}}>
+                <ListItem
+                    leftAvatar={<div>Date</div>}
+                    primaryText={<div>{serviceDate}</div>}
+                    href="#"
+                    innerDivStyle={listItemStyle}
+                    disableTouchRipple
+                    >
+                </ListItem>
                 <List>
                     {
 
                         this.state.items.map((item, index) => {
-                            var theDate = moment(item.time);
+                            var theDate = moment(item.time,"HHmm");
                             var key = item[".key"];
 
                             // get duration
@@ -105,10 +130,9 @@ class EditRunsheet extends Component {
                             return (
                                 <div key={index}>
                                     <div style={{ paddingLeft: '120px', marginBottom: '16px', color: grey500 }}>{printDuration}</div>
-                                    <Divider />
                                     <ListItem
                                         leftAvatar={ <TimePicker disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /> }
-                                        primaryText={<TextField disabled={true} value={ item.text } multiLine={true} rowsMax={99} textareaStyle={{ color: '#000' }} underlineShow={false} /> }
+                                        primaryText={<TextField disabled={true} value={ item.text } multiLine={true} rowsMax={99} underlineShow={false} textareaStyle={TextFieldStyle} /> }
                                         href="#"
                                         innerDivStyle={listItemStyle}
                                         disableTouchRipple

@@ -8,9 +8,12 @@ import reactMixin from 'react-mixin';
 import TimePicker from 'material-ui/TimePicker';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
+import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500} from 'material-ui/styles/colors';
+import {grey200, grey500, indigo500, cyan500} from 'material-ui/styles/colors';
 import moment from 'moment';
+import NavigationClose from 'material-ui/svg-icons/navigation/close';
+import DatePicker from 'material-ui/DatePicker';
 
 moment().format();
 
@@ -21,10 +24,26 @@ const listItemStyle = {
 }
 
 const TimePickerStyle = {
-    width: '100px',
-    top: 'inherit'
+    width: '72px',
+    marginTop: '-4px',
+    float: 'left'
 }
 
+const deleteButtonStyle = {
+    float: 'left',
+    height: '48px',
+    lineHeight: '48px',
+    paddingRight: '8px',
+    marginTop: '2px'
+}
+
+const TextFieldStyle = {
+    backgroundColor: cyan500,
+    borderRadius: '3px',
+    padding: '4px 8px',
+    color: '#fff',
+    width: '95%'
+}
 
 class EditRunsheet extends Component {
 
@@ -35,6 +54,7 @@ class EditRunsheet extends Component {
             isPopupOpen: false,
             thePopup: null,
             time: new Date().toString(),
+            serviceDate: {},
             text: "",
             currentKey: null,
             items: []
@@ -43,6 +63,11 @@ class EditRunsheet extends Component {
     }
 
     componentWillMount() {
+        // get date from firebase
+        var serviceDate = firebase.database().ref("services/"+this.props.serviceKey+"/date");
+        this.bindAsObject(serviceDate, "serviceDate");
+
+        // get items from firebase
         var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items");
         this.bindAsArray(ref, "items");
     }
@@ -73,8 +98,19 @@ class EditRunsheet extends Component {
     }
 
     onTimeChange = (e, time) => {
-        var newtime = time.toString();
+        var newtime = moment(time).format("HHmm");
         this.setState({time: newtime});
+    }
+
+    submitServiceDate = (e, time) => {
+        var newTime = time.toString();
+        console.log(newTime);
+
+        var newServiceDate = firebase.database().ref("services/"+this.props.serviceKey);
+
+        newServiceDate.update({
+            date: newTime
+        })
     }
 
     onExistingTextChange = (key, e) => {
@@ -82,11 +118,8 @@ class EditRunsheet extends Component {
     }
 
     onExistingTimeChange = (e, time) => {
-        var newTime = time.toString();
-        // var newItems = update(this.state.items, {
-        //     time: {$set: newTime}
-        // });
-        // this.setState({items: newItems}); // Update the items.
+        // save the time as a string only (no date)
+        var newTime = moment(time).format("HHmm");
         this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
     }
 
@@ -96,7 +129,7 @@ class EditRunsheet extends Component {
 
         this.state.items.map((item, index) => {
              if (index > 0){
-                 var oldTime = moment(item.time);
+                 var oldTime = moment(item.time,"HHmm");
                  var newTime = oldTime.add(durationChange);
                  var key = item[".key"];
                  this.firebaseRefs.items.child(key).update({time: newTime.toString()});
@@ -123,7 +156,7 @@ class EditRunsheet extends Component {
         this.state.items.map((item, index) => {
 
             if (item.time !== null){
-                var theTime = moment(item.time);
+                var theTime = moment(item.time,"HHmm");
 
                 // get duration
                 var printDuration;
@@ -153,15 +186,25 @@ class EditRunsheet extends Component {
     render() {
 
         var previousTime = moment();
+        var serviceDate = moment(this.state.serviceDate[".value"]);
 
         return (
             <div style={{marginBottom: '170px'}}>
+                <ListItem
+                    leftAvatar={<div>Date</div>}
+                    primaryText={<DatePicker onChange={this.submitServiceDate} value={serviceDate.toDate()} /> }
+                    href="#"
+                    innerDivStyle={listItemStyle}
+                    disableTouchRipple
+                    >
+                </ListItem>
                 <List>
                     {
 
                         this.state.items.map((item, index) => {
-                            var theDate = moment(item.time);
+                            var theDate = moment(item.time,"HHmm");
                             var key = item[".key"];
+                            var deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>;
 
                             // get duration
                             var printDuration;
@@ -171,10 +214,11 @@ class EditRunsheet extends Component {
                             previousTime = theDate;
 
                             var timePick;
+                            // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} />;
+                                timePick  = <div>{deleteButton}<TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
                             } else {
-                                timePick  = <TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} />;
+                                timePick  = <div>{deleteButton}<TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
                             }
 
                             return (
@@ -182,7 +226,7 @@ class EditRunsheet extends Component {
                                     <div style={{ paddingLeft: '120px', marginBottom: '16px', color: grey500 }}>{printDuration}</div>
                                     <ListItem
                                         leftAvatar={timePick}
-                                        primaryText={<TextField name="Description" hintText="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={99} />}
+                                        primaryText={<TextField name="Description" hintText="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} underlineShow={false} />}
                                         href="#"
                                         innerDivStyle={listItemStyle}
                                         disableTouchRipple
@@ -196,7 +240,7 @@ class EditRunsheet extends Component {
                     <Divider style={{ marginTop: '16px'}}/>
                     <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
                         <ListItem
-                        leftAvatar={<TimePicker defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(this.state.time) } hintText="Time" style={TimePickerStyle} />}
+                        leftAvatar={<TimePicker defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" style={TimePickerStyle} />}
                         primaryText={<TextField onChange={ this.onTextChange } value={ this.state.text } hintText="Description" multiLine={true} rowsMax={99} />}
                         innerDivStyle={listItemStyle}
                         disableTouchRipple
