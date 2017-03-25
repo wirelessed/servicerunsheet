@@ -11,6 +11,11 @@ import './css/App.css';
 import {white, black, indigo500} from 'material-ui/styles/colors';
 import MediaQuery from 'react-responsive';
 import {Tabs, Tab} from 'material-ui/Tabs';
+import {
+  BrowserRouter as Router,
+  Route,
+  Link
+} from 'react-router-dom';
 
 
 const AppBarStyle = {
@@ -30,10 +35,11 @@ class App extends React.Component {
         this.changePage = this.changePage.bind(this);
     }
 
+
     changePage = (index) => {
         if (index === 1){
             this.setState({
-                page: <TabView serviceKey={this.state.currentServiceKey} />,
+                // page: <TabView serviceKey={this.state.currentServiceKey} />,
                 title: "View Service Runsheet",
                 currentServiceKey: null
             });
@@ -41,7 +47,7 @@ class App extends React.Component {
         }
         if (index === 0){
             this.setState({
-                page: <Select goToService={(key) => this.goToService(key)} />,
+                // page: <Select goToService={(key) => this.goToService(key)} />,
                 title: "Service Runsheet (Beta)",
                 currentServiceKey: null
             });
@@ -50,7 +56,7 @@ class App extends React.Component {
 
     goToService = (key) => {
         this.setState({
-            page: <TabView serviceKey={key} />,
+            // page: <TabView serviceKey={key} />,
             title: "View Service Runsheet",
             currentServiceKey: key
         });
@@ -78,14 +84,26 @@ class App extends React.Component {
         }
 
         return (
-            <div>
-                {AppBarType}
-                <div style={{paddingTop: '56px'}}>
-                    {this.state.page}
+            <Router>
+                <div>
+                    {AppBarType}
+                    <div style={{paddingTop: '56px'}}>
+                        <Route exact path="/" component={Home}/>
+                        <Route path="/:id" component={Child}/>
+                    </div>
                 </div>
-            </div>
+            </Router>
         );
     }
+
 }
+
+const Home = () => (
+     <Select />
+)
+
+const Child = ({match}) => (
+     <TabView serviceKey={match.params.id} />
+)
 
 export default App;

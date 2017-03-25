@@ -11,6 +11,11 @@ import RaisedButton from 'material-ui/RaisedButton';
 import Divider from 'material-ui/Divider';
 import {grey200, grey500} from 'material-ui/styles/colors';
 import moment from 'moment';
+import {
+  BrowserRouter as Router,
+  Route,
+  Link
+} from 'react-router-dom'
 
 const listItemStyle = {
     padding: '4px 16px 4px 16px'
@@ -20,7 +25,6 @@ const TimePickerStyle = {
     width: '100px',
     top: 'inherit'
 }
-
 
 class Select extends Component {
 
@@ -34,6 +38,7 @@ class Select extends Component {
         };
 
     }
+
 
     componentWillMount() {
         var ref = firebase.database().ref("services");
@@ -57,14 +62,15 @@ class Select extends Component {
         })
     }
 
-    goToService = (key) => {
-        console.log(key);
-        this.props.goToService(key);
+    contextTypes: {
+        router: React.PropTypes.object
     }
 
     render() {
 
         var previousTime = new Date();
+        //
+        // const { router } = this.context;
 
         return (
             <div style={{marginBottom: '170px'}}>
@@ -72,13 +78,15 @@ class Select extends Component {
                     {
                         this.state.items.map((item, index) => {
                             return (
+                                <Link to={item.name}>
                                 <div key={index}>
                                     <ListItem primaryText={item.name}
-                                        onTouchTap={() => this.goToService(item.name)}
+
                                         >
                                     </ListItem>
                                     <Divider />
                                 </div>
+                                </Link>
                             );
                         })
                     }
@@ -99,6 +107,10 @@ class Select extends Component {
         );
     }
 }
+
+// Select.contextTypes = {
+//   router: React.PropTypes.object
+// }
 
 reactMixin(Select.prototype, ReactFireMixin);
 
