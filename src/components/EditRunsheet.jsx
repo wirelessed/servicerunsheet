@@ -53,7 +53,7 @@ class EditRunsheet extends Component {
         this.state = {
             isPopupOpen: false,
             thePopup: null,
-            time: new Date().toString(),
+            time: moment().format("HHmm"),
             serviceDate: {},
             text: "",
             currentKey: null,
@@ -98,8 +98,9 @@ class EditRunsheet extends Component {
     }
 
     onTimeChange = (e, time) => {
-        var newtime = moment(time).format("HHmm");
-        this.setState({time: newtime});
+        var newTime = moment(time).format("HHmm");
+        this.setState({time: newTime});
+        console.log(newTime);
     }
 
     submitServiceDate = (e, time) => {

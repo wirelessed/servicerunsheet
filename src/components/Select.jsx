@@ -58,7 +58,8 @@ class Select extends Component {
 
         var newService = firebase.database().ref('services/' + this.state.text);
         newService.update({
-            name: this.state.text
+            name: this.state.text,
+            date: new Date().toString()
         })
     }
 
