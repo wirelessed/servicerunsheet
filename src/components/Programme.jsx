@@ -8,15 +8,22 @@ import reactMixin from 'react-mixin';
 import TimePicker from 'material-ui/TimePicker';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
+import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
 import {grey200, grey500, indigo500, cyan500} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
+import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 
 moment().format();
 
+
+const listItemViewStyle = {
+    padding: '4px 16px 4px 100px',
+    height: 'auto'
+}
 
 const listItemStyle = {
     padding: '4px 16px 4px 120px',
@@ -37,15 +44,24 @@ const deleteButtonStyle = {
     marginTop: '2px'
 }
 
-const TextFieldStyle = {
+const TextFieldViewStyle = {
     backgroundColor: cyan500,
     borderRadius: '3px',
     padding: '4px 8px',
     color: '#fff',
-    width: '95%'
+    width: '98%'
 }
 
-class EditRunsheet extends Component {
+const TextFieldStyle = {
+    border: '1px solid #ccc',
+    marginTop: '8px',
+    borderRadius: '0px',
+    padding: '4px 8px',
+    color: '#000',
+    width: '90%'
+}
+
+class Programme extends Component {
 
     constructor(props) {
         super(props);
@@ -53,6 +69,7 @@ class EditRunsheet extends Component {
         this.state = {
             isPopupOpen: false,
             thePopup: null,
+            editMode: false,
             time: moment().format("HHmm"),
             serviceDate: {},
             text: "",
@@ -64,6 +81,7 @@ class EditRunsheet extends Component {
 
     componentWillMount() {
         // get date from firebase
+        console.log(this.props.serviceKey);
         var serviceDate = firebase.database().ref("services/"+this.props.serviceKey+"/date");
         this.bindAsObject(serviceDate, "serviceDate");
 
@@ -184,80 +202,141 @@ class EditRunsheet extends Component {
         window.location = "whatsapp://send?text=" + composeMessage;
     }
 
-    render() {
+    toggleEditMode = () => {
+        if (this.state.editMode) {
+            this.setState({
+                editMode: false
+            });
+        } else {
+            this.setState({
+                editMode: true
+            });
+        }
+    }
 
+    render() {
         var previousTime = moment();
         var serviceDate = moment(this.state.serviceDate[".value"]);
 
+        // show date depending on editMode
+        let showDate = <ListItem
+            leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
+            primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px'}}>{serviceDate.format("dddd, MMMM Do YYYY")}</div>}
+            href="#"
+            innerDivStyle={listItemViewStyle}
+            disableTouchRipple
+            ></ListItem>;
+        if (this.state.editMode){
+            showDate = <ListItem
+                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
+                primaryText={<DatePicker name="Date" onChange={this.submitServiceDate} value={serviceDate.toDate()} /> }
+                href="#"
+                innerDivStyle={listItemStyle}
+                disableTouchRipple
+                ></ListItem>;
+        }
+
         return (
             <div style={{marginBottom: '170px'}}>
-                <ListItem
-                    leftAvatar={<div>Date</div>}
-                    primaryText={<DatePicker onChange={this.submitServiceDate} value={serviceDate.toDate()} /> }
-                    href="#"
-                    innerDivStyle={listItemStyle}
-                    disableTouchRipple
-                    >
-                </ListItem>
+
+                <div style={{height: '56px'}}>
+                    {showDate}
+                </div>
+
                 <List>
+
                     {
 
                         this.state.items.map((item, index) => {
                             var theDate = moment(item.time,"HHmm");
                             var key = item[".key"];
-                            var deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>;
+
+                            var deleteButton = null;
+                            if(this.state.editMode) {
+                                deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                            }
 
                             // get duration
-                            var printDuration;
+                            var theDuration;
                             if (index > 0){
-                                printDuration = "(" + theDate.diff(previousTime, 'minutes') + " min)";
+                                theDuration = "(" + theDate.diff(previousTime, 'minutes') + " min)";
                             }
                             previousTime = theDate;
+
+                            var showDuration = null;
+                            if (index > 0){
+                                showDuration = <div style={{ paddingLeft: '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
+                            }
 
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TimePicker autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
+                            }
+
+                            var listItem = <ListItem
+                                leftAvatar={ <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /> }
+                                primaryText={<TextField name="Description" disabled={true} value={ item.text } multiLine={true} rowsMax={99} underlineShow={false} textareaStyle={TextFieldViewStyle} /> }
+                                href="#"
+                                innerDivStyle={listItemViewStyle}
+                                disableTouchRipple
+                                >
+                                </ListItem>;
+
+                            if (this.state.editMode){
+                                listItem = <ListItem
+                                    leftAvatar={timePick}
+                                    primaryText={<TextField name="Description" hintText="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} underlineShow={false} />}
+                                    href="#"
+                                    innerDivStyle={listItemStyle}
+                                    disableTouchRipple
+                                    >
+                                </ListItem>
                             }
 
                             return (
                                 <div key={index}>
-                                    <div style={{ paddingLeft: '120px', marginBottom: '16px', color: grey500 }}>{printDuration}</div>
-                                    <ListItem
-                                        leftAvatar={timePick}
-                                        primaryText={<TextField name="Description" hintText="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} underlineShow={false} />}
-                                        href="#"
-                                        innerDivStyle={listItemStyle}
-                                        disableTouchRipple
-                                        >
-                                    </ListItem>
+                                    {showDuration}
+                                    {listItem}
                                 </div>
                             );
                         })
                     }
-
-                    <Divider style={{ marginTop: '16px'}}/>
-                    <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
-                        <ListItem
-                        leftAvatar={<TimePicker defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" style={TimePickerStyle} />}
-                        primaryText={<TextField onChange={ this.onTextChange } value={ this.state.text } hintText="Description" multiLine={true} rowsMax={99} />}
-                        innerDivStyle={listItemStyle}
-                        disableTouchRipple
-                        >
-                        </ListItem>
-                        <RaisedButton label="Add" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
-                    </form>
+                    { (this.state.editMode) ?
+                        <div>
+                        <Divider style={{ marginTop: '16px'}}/>
+                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
+                            <ListItem
+                            leftAvatar={<TimePicker name="Time" defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" style={TimePickerStyle} />}
+                            primaryText={<TextField name="Description" onChange={ this.onTextChange } value={ this.state.text } hintText="Description" multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} />}
+                            innerDivStyle={listItemStyle}
+                            disableTouchRipple
+                            >
+                            </ListItem>
+                            <RaisedButton label="Add" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
+                        </form>
+                        </div>
+                        :  <div></div>
+                    }
                 </List>
                 <RaisedButton label="SEND TO Whatsapp" type="submit" style={{ margin: '16px', color: '#fff'}} backgroundColor={'#4DC247'} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share" />
                 {/*<div>Or send this page as a link:</div>
                 <div className="addthis_inline_share_toolbox" style={{ padding: '16px', marginTop: '16px'}}></div>*/}
-            </div>
+
+                { (!this.state.editMode) ?
+                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px'}} onTouchTap={this.toggleEditMode}>
+                            <ModeEdit />
+                       </FloatingActionButton>
+                       :
+                       <FlatButton label="SAVE" style={{position: 'fixed', top: '10px', right: '0', zIndex: '99999'}} labelStyle={{color: '#fff'}} onTouchTap={this.toggleEditMode} />
+                }
+        </div>
         );
     }
 }
 
-reactMixin(EditRunsheet.prototype, ReactFireMixin);
+reactMixin(Programme.prototype, ReactFireMixin);
 
-export default EditRunsheet;
+export default Programme;

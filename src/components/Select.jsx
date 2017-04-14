@@ -79,14 +79,13 @@ class Select extends Component {
                     {
                         this.state.items.map((item, index) => {
                             return (
-                                <Link to={item.name}>
-                                <div key={index}>
-                                    <ListItem primaryText={item.name}
-
-                                        >
-                                    </ListItem>
-                                    <Divider />
-                                </div>
+                                <Link to={item.name+"/Programme"} key={index}>
+                                    <div key={index}>
+                                        <ListItem primaryText={item.name}
+                                            >
+                                        </ListItem>
+                                        <Divider />
+                                    </div>
                                 </Link>
                             );
                         })
@@ -95,7 +94,7 @@ class Select extends Component {
                     <Divider style={{ marginTop: '16px'}}/>
                     <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
                         <ListItem
-                        primaryText={<TextField onChange={ this.onTextChange } value={ this.state.text } hintText="Service Name" multiLine={false} />}
+                        primaryText={<TextField onChange={ this.onTextChange } value={ this.state.text } hintText="Service Name" multiLine={false}/>}
                         innerDivStyle={listItemStyle}
                         disableTouchRipple
                         >

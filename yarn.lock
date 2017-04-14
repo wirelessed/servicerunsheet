@@ -4536,9 +4536,9 @@ react-mixin@^2.0.2:
     object-assign "^2.0.0"
     smart-mixin "^1.2.0"
 
-react-responsive@^1.2.5:
-  version "1.2.6"
-  resolved "https://registry.yarnpkg.com/react-responsive/-/react-responsive-1.2.6.tgz#0173b3a59ef094011f79464ce618e2e26fe117fc"
+react-responsive:
+  version "1.2.7"
+  resolved "https://registry.yarnpkg.com/react-responsive/-/react-responsive-1.2.7.tgz#c6fa23f7a28652d04dbf4d10e60ddbd46fc191a5"
   dependencies:
     hyphenate-style-name "^1.0.0"
     matchmedia "^0.1.2"
