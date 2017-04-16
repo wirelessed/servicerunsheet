@@ -47,18 +47,18 @@ const LyricsTab = ({ match }) => (
     <Programme serviceKey={`${match.params.id}`} />
 )
 
-const Service = ({ match }) => {
+const Service = ({ match, location }) => {
     return (
 
-        <div>
+        <div className="Service">
             {routes.map((route, i) => (
                 <RouteWithSubRoutes key={i} {...route}/>
             ))}
             <MediaQuery maxWidth={1023}>
-                <BottomNav serviceKey={match.url} />
+                <BottomNav serviceKey={match.url} currLocation={location.pathname} />
             </MediaQuery>
             <MediaQuery minWidth={1024}>
-                <BottomNav serviceKey={match.url} isDesktop={true} />
+                <BottomNav serviceKey={match.url} isDesktop={true} currLocation={location.pathname}/>
             </MediaQuery>
         </div>
 

@@ -310,7 +310,7 @@ class Programme extends Component {
                         <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
                             <ListItem
                             leftAvatar={<TimePicker name="Time" defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" style={TimePickerStyle} />}
-                            primaryText={<TextField name="Description" onChange={ this.onTextChange } value={ this.state.text } hintText="Description" multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} />}
+                            primaryText={<TextField name="Description" onChange={ this.onTextChange } value={ this.state.text } hintText="Description" underlineShow={false} multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} />}
                             innerDivStyle={listItemStyle}
                             disableTouchRipple
                             >
@@ -326,7 +326,7 @@ class Programme extends Component {
                 <div className="addthis_inline_share_toolbox" style={{ padding: '16px', marginTop: '16px'}}></div>*/}
 
                 { (!this.state.editMode) ?
-                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px'}} onTouchTap={this.toggleEditMode}>
+                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
                             <ModeEdit />
                        </FloatingActionButton>
                        :

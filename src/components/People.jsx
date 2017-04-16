@@ -21,7 +21,7 @@ moment().format();
 
 
 const listItemStyle = {
-    padding: '4px 16px 4px 120px',
+    padding: '4px 16px 4px 160px',
     height: 'auto'
 }
 
@@ -44,9 +44,44 @@ const TextFieldStyle = {
 }
 
 const TextFieldViewStyle = {
-    padding: '4px 8px',
+    padding: '0',
+    color: '#000',
+    width: '120px',
+    height: '40px',
+    fontSize: '14px'
+}
+
+const DescriptionViewStyle = {
+    padding: '0px',
     color: '#000',
     width: '98%'
+}
+
+const DescriptionViewWrapper = {
+    width: '100%'
+}
+
+const TextFieldEditStyle = {
+    color: '#000',
+    width: '96px',
+    height: '36px',
+    fontSize: '14px'
+}
+
+const TextFieldEditWrapper = {
+    paddingTop: '4px',
+    width: '96px',
+    height: '40px'
+}
+
+const DescriptionEditStyle = {
+    padding: '0px',
+    color: '#000',
+    width: '98%'
+}
+
+const DescriptionEditWrapper = {
+    width: '100%'
 }
 
 class People extends Component {
@@ -128,14 +163,8 @@ class People extends Component {
     render() {
 
         return (
-            <div style={{marginBottom: '170px'}}>
-
-                <div style={{height: '56px'}}>
-                    <ListItem primaryText="People"></ListItem>
-                </div>
-
+            <div>
                 <List>
-
                     {
 
                         this.state.items.map((item, index) => {
@@ -148,8 +177,8 @@ class People extends Component {
 
 
                             var listItem = <ListItem
-                                leftAvatar={<TextField name="Text" disabled={true} value={ item.text } multiLine={false} rowsMax={99} underlineShow={false} textareaStyle={TextFieldViewStyle} /> }
-                                primaryText={<TextField name="Description" disabled={true} value={ item.description } multiLine={false} rowsMax={99} underlineShow={false}  textareaStyle={TextFieldViewStyle} /> }
+                                leftAvatar={<TextField name="Text" disabled={true} value={ item.text } multiLine={false} rowsMax={99} underlineShow={false} inputStyle={TextFieldViewStyle} /> }
+                                primaryText={<TextField name="Description" disabled={true} value={ item.description } multiLine={false} rowsMax={99} underlineShow={false}  inputStyle={DescriptionViewStyle} style={DescriptionViewWrapper} /> }
                                 href="#"
                                 innerDivStyle={listItemStyle}
                                 disableTouchRipple
@@ -157,8 +186,8 @@ class People extends Component {
                                 </ListItem>;
                             if (this.state.editMode){
                                 listItem = <ListItem
-                                    leftAvatar={<TextField name="Text" hintText="Role" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={false} rowsMax={99} underlineShow={true} />}
-                                    primaryText={<TextField name="Description" hintText="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } multiLine={false} rowsMax={99} underlineShow={true} />}
+                                    leftAvatar={<div>{deleteButton}<TextField name="Text" hintText="Role" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={false} rowsMax={99} underlineShow={true} inputStyle={TextFieldEditStyle} style={TextFieldEditWrapper} /></div>}
+                                    primaryText={<TextField name="Description" hintText="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } multiLine={false} rowsMax={99} underlineShow={true} inputStyle={DescriptionEditStyle} style={DescriptionEditWrapper}/>}
                                     href="#"
                                     innerDivStyle={listItemStyle}
                                     disableTouchRipple
@@ -179,8 +208,8 @@ class People extends Component {
                         <Divider style={{ marginTop: '16px'}}/>
                         <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
                             <ListItem
-                            leftAvatar={<TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Role" multiLine={false} rowsMax={99} />}
-                            primaryText={<TextField name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } hintText="Person" multiLine={false} rowsMax={99} textareaStyle={TextFieldStyle} />}
+                            leftAvatar={<TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Role" multiLine={false} rowsMax={99} inputStyle={TextFieldEditStyle} style={TextFieldEditWrapper} />}
+                            primaryText={<TextField name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } hintText="Person" multiLine={false} rowsMax={99} underlineShow={true} inputStyle={DescriptionEditStyle} style={DescriptionEditWrapper} />}
                             innerDivStyle={listItemStyle}
                             disableTouchRipple
                             >
@@ -193,7 +222,7 @@ class People extends Component {
                 </List>
 
                 { (!this.state.editMode) ?
-                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px'}} onTouchTap={this.toggleEditMode}>
+                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
                             <ModeEdit />
                        </FloatingActionButton>
                        :

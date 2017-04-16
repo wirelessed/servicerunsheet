@@ -20,6 +20,7 @@ const BottomNavStyle = {
     position: 'fixed',
     bottom: '0',
     width: '100%',
+    zIndex: '100',
     boxShadow: 'rgba(0, 0, 0, 0.298039) 0px -1px 20px, rgba(0, 0, 0, 0.219608) 0px -1px 20px'
 }
 
@@ -28,7 +29,7 @@ const BottomNavStyleDesktop = {
     left: '0',
     top: '0',
     height: '100%',
-    width: '104px',
+    width: '200px',
     paddingTop: '56px'
 }
 
@@ -38,25 +39,76 @@ const BottomNavStyleDesktop = {
  * state (for instance, by the URL).
  */
  class BottomNav extends Component {
-     static propTypes = {
-         match: React.PropTypes.object,
-         location: React.PropTypes.object,
-         history: React.PropTypes.object
+
+    //  static propTypes = {
+    //      match: React.PropTypes.object.isRequired,
+    //      location: React.PropTypes.object.isRequired,
+    //      history: React.PropTypes.object.isRequired
+    //  }
+    static contextTypes = {
+        router: React.PropTypes.shape({
+            history: React.PropTypes.shape({
+                push: React.PropTypes.func.isRequired,
+                replace: React.PropTypes.func.isRequired
+            }).isRequired,
+            staticContext: React.PropTypes.object
+        }).isRequired
+    };
+
+     constructor(props) {
+         super(props);
+         this.state = {
+             selectedIndex: 0
+         };
      }
 
-     _getSelectedIndex = () => {
-         const currentRoute = this.props.history;
-         // console.log(currentRoute);
-         switch (currentRoute) {
-
+     select = (index) => {
+         this.setState({selectedIndex: index});
+         switch(index){
+             case 0:
+                this.context.router.history.push(this.props.serviceKey + "/Programme");
+                break;
+             case 1:
+                this.context.router.history.push(this.props.serviceKey + "/People");
+                break;
+             case 2:
+                this.context.router.history.push(this.props.serviceKey + "/Songlist");
+                break;
+             case 3:
+                this.context.router.history.push(this.props.serviceKey + "/Copyrights");
+                break;
+             case 4:
+                this.context.router.history.push(this.props.serviceKey + "/Lyrics");
+                break;
+             default:
+                this.context.router.history.push(this.props.serviceKey + "/Programme");
+                break;
          }
-         return 0;
+
+     }
+
+     getSelectedIndex = (currentRoute) => {
+         if(currentRoute.endsWith("Programme")){
+             return 0;
+         } else if(currentRoute.endsWith("People")){
+             return 1;
+         } else if(currentRoute.endsWith("Songlist")){
+             return 2;
+         } else if(currentRoute.endsWith("Copyrights")){
+             return 3;
+         } else if(currentRoute.endsWith("Lyrics")){
+             return 4;
+         }
+     }
+
+     componentDidMount() {
+         this.setState({selectedIndex: this.getSelectedIndex(this.props.currLocation)});
      }
 
      render() {
 
          // check if desktop required
-         let TheBottomNavStyle, TheBottomNavItemStyle, TheInnerNavStyle = null;
+         let TheBottomNavStyle, TheBottomNavItemStyle, TheInnerNavStyle = {};
          if (this.props.isDesktop){
              TheBottomNavStyle = BottomNavStyleDesktop;
              TheBottomNavItemStyle = { float: 'left', width: '200px', maxWidth: '104px', height: '80px' };
@@ -66,45 +118,52 @@ const BottomNavStyleDesktop = {
              TheInnerNavStyle = { backgroundColor: grey200 };
          }
 
+         console.log(this.state.selectedIndex);
 
          return (
              <Paper zDepth={2} style={TheBottomNavStyle}>
-                 <BottomNavigation selectedIndex={this._getSelectedIndex()} style={TheInnerNavStyle}>
-                     <Link to={this.props.serviceKey + "/Programme"}>
+                 <BottomNavigation selectedIndex={this.state.selectedIndex} style={TheInnerNavStyle}>
+
                          <BottomNavigationItem
-                             label="Program"
+                             label="Prog"
                              icon={listIcon}
+                             onTouchTap={() => this.select(0)}
                              style={TheBottomNavItemStyle}
+                             className="BottomNavItem"
                              />
-                     </Link>
-                     <Link to={this.props.serviceKey + "/People"}>
+
                          <BottomNavigationItem
                              label="People"
                              icon={peopleIcon}
+                             onTouchTap={() => this.select(1)}
                              style={TheBottomNavItemStyle}
+                             className="BottomNavItem"
                              />
-                     </Link>
-                     <Link to={this.props.serviceKey + "/Songlist"}>
+
                          <BottomNavigationItem
-                             label="Song List"
+                             label="Songs"
                              icon={musicIcon}
+                             onTouchTap={() => this.select(2)}
                              style={TheBottomNavItemStyle}
+                             className="BottomNavItem"
                              />
-                     </Link>
-                     <Link to={this.props.serviceKey + "/Copyrights"}>
+
                          <BottomNavigationItem
                              label="Copyrights"
                              icon={copyrightIcon}
+                             onTouchTap={() => this.select(3)}
                              style={TheBottomNavItemStyle}
+                             className="BottomNavItem"
                              />
-                     </Link>
-                     <Link to={this.props.serviceKey + "/Lyrics"}>
+
                          <BottomNavigationItem
                              label="Lyrics"
                              icon={lyricsIcon}
+                             onTouchTap={() => this.select(4)}
                              style={TheBottomNavItemStyle}
+                             className="BottomNavItem"
                              />
-                     </Link>
+
                  </BottomNavigation>
 
              </Paper>

@@ -35,6 +35,30 @@ a {
     animation-delay: 0;
 }
 
+
+@media screen and (min-width: 1024px){
+    .BottomNavItem {
+        height: 50px !important;
+        max-width: 200px !important;
+        text-align: left;
+    }
+
+    .BottomNavItem > div > span.material-icons {
+        float: left;
+        width: 24px !important;
+    }
+
+    .BottomNavItem > div > div {
+        line-height: 24px !important;
+        padding-left: 32px;
+    }
+
+    .Service {
+        padding-left: 200px;
+    }
+}
+
+
 @keyframes slideOut {
     0% {
         bottom: 0;
