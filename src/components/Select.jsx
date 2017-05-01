@@ -9,7 +9,12 @@ import TimePicker from 'material-ui/TimePicker';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import Divider from 'material-ui/Divider';
+import IconMenu from 'material-ui/IconMenu';
+import MenuItem from 'material-ui/MenuItem';
+import IconButton from 'material-ui/IconButton';
+import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
 import {grey200, grey500} from 'material-ui/styles/colors';
+import Dialog from 'material-ui/Dialog';
 import moment from 'moment';
 import {
   BrowserRouter as Router,
@@ -63,8 +68,23 @@ class Select extends Component {
         })
     }
 
+    // creates a duplicate of the service
+    duplicateService = (item) => {
+        var newItem = item;
+        newItem.name = item.name + " copy";
+        delete newItem['.key']; // important as need firebase to generate its own key
+        var newDuplicateService = firebase.database().ref('services/' + newItem.name);
+        newDuplicateService.update(newItem);
+    }
+
     contextTypes: {
         router: React.PropTypes.object
+    }
+
+    // remove a serviceKey
+    removeService = (key) => {
+        var firebaseRef = firebase.database().ref("services/");
+        firebaseRef.child(key).remove();
     }
 
     render() {
@@ -79,14 +99,22 @@ class Select extends Component {
                     {
                         this.state.items.map((item, index) => {
                             return (
-                                <Link to={item.name+"/Programme"} key={index}>
+
                                     <div key={index}>
-                                        <ListItem primaryText={item.name}
+                                        <ListItem primaryText={<Link to={item.name+"/Programme"} key={index} style={{width: '100%', display: 'inline-block', color: '#000'}}>{item.name}</Link>}
+                                            rightIconButton={<IconMenu
+                                                  iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
+                                                  anchorOrigin={{horizontal: 'right', vertical: 'top'}}
+                                                  targetOrigin={{horizontal: 'right', vertical: 'top'}}
+                                                >
+                                                  <MenuItem primaryText="Rename" />
+                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeService(item['.key'])} />
+                                                  <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateService(item)} />
+                                                </IconMenu>}
                                             >
                                         </ListItem>
                                         <Divider />
                                     </div>
-                                </Link>
                             );
                         })
                     }
