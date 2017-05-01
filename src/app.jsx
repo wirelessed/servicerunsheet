@@ -7,6 +7,9 @@ import View from './components/View.jsx';
 import Select from './components/Select.jsx';
 import Programme from './components/Programme.jsx';
 import People from './components/People.jsx';
+import Songs from './components/Songs.jsx';
+import Copyrights from './components/Copyrights.jsx';
+import Lyrics from './components/Lyrics.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import './css/App.css';
 import {white, black, indigo500} from 'material-ui/styles/colors';
@@ -36,15 +39,15 @@ const PeopleTab = ({ match }) => (
 )
 
 const SonglistTab = ({ match }) => (
-    <Programme serviceKey={`${match.params.id}`} />
+    <Songs serviceKey={`${match.params.id}`} />
 )
 
 const CopyrightsTab = ({ match }) => (
-    <Programme serviceKey={`${match.params.id}`} />
+    <Copyrights serviceKey={`${match.params.id}`} />
 )
 
 const LyricsTab = ({ match }) => (
-    <Programme serviceKey={`${match.params.id}`} />
+    <Lyrics serviceKey={`${match.params.id}`} />
 )
 
 const Service = ({ match, location }) => {
@@ -142,16 +145,6 @@ class App extends React.Component {
     }
 
     render(){
-
-        let AppBarType = null;
-
-        // show back button
-        if(this.state.title === "View Service Runsheet"){
-            AppBarType = <AppBar title={this.state.title} iconElementLeft={<IconButton
-                    onTouchTap={this.handleBackToHome}><FontIcon className="material-icons">arrow_back</FontIcon></IconButton>} style={AppBarStyle} />;
-        } else {
-            AppBarType = <AppBar title={this.state.title} showMenuIconButton={false} style={AppBarStyle} />;
-        }
 
         return (
             <Router>

@@ -53,7 +53,7 @@ const TextFieldViewStyle = {
 }
 
 const TextFieldStyle = {
-    border: '1px solid #ccc',
+    backgroundColor: '#e8e8e8',
     marginTop: '8px',
     borderRadius: '0px',
     padding: '4px 8px',
