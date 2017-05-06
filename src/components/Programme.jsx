@@ -11,12 +11,14 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan500} from 'material-ui/styles/colors';
+import {grey200, grey500, indigo500, cyan500, white} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
-
+import ShareIcon from 'material-ui/svg-icons/social/share';
+import DoneIcon from 'material-ui/svg-icons/action/done';
+import Snackbar from 'material-ui/Snackbar';
 moment().format();
 
 
@@ -70,6 +72,7 @@ class Programme extends Component {
             isPopupOpen: false,
             thePopup: null,
             editMode: false,
+            snackbarOpen: false,
             time: moment().format("HHmm"),
             serviceDate: {},
             text: "",
@@ -221,7 +224,7 @@ class Programme extends Component {
         // show date depending on editMode
         let showDate = <ListItem
             leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
-            primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px'}}>{serviceDate.format("dddd, MMMM Do YYYY")}</div>}
+            primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px'}}>{serviceDate.format("dddd, D MMMM YYYY")}</div>}
             href="#"
             innerDivStyle={listItemViewStyle}
             disableTouchRipple
@@ -321,16 +324,22 @@ class Programme extends Component {
                         :  <div></div>
                     }
                 </List>
-                <RaisedButton label="SEND TO Whatsapp" type="submit" style={{ margin: '16px', color: '#fff'}} backgroundColor={'#4DC247'} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share" />
-                {/*<div>Or send this page as a link:</div>
-                <div className="addthis_inline_share_toolbox" style={{ padding: '16px', marginTop: '16px'}}></div>*/}
+
+                <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '99999', minWidth: '48px'}} labelStyle={{color: '#fff'}} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share"  />
 
                 { (!this.state.editMode) ?
                        <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
                             <ModeEdit />
                        </FloatingActionButton>
                        :
-                       <FlatButton label="SAVE" style={{position: 'fixed', top: '10px', right: '0', zIndex: '99999'}} labelStyle={{color: '#fff'}} onTouchTap={this.toggleEditMode} />
+
+                       <Snackbar
+                       open={true}
+                       message="Editing (All changes are auto saved)"
+                       action="DONE"
+                       onActionTouchTap={this.toggleEditMode}
+                       onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                       style={{bottom: '57px'}} />
                 }
         </div>
         );

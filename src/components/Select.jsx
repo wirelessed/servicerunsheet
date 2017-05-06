@@ -13,14 +13,17 @@ import IconMenu from 'material-ui/IconMenu';
 import MenuItem from 'material-ui/MenuItem';
 import IconButton from 'material-ui/IconButton';
 import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
+import AddIcon from 'material-ui/svg-icons/content/add';
 import {grey200, grey500} from 'material-ui/styles/colors';
-import Dialog from 'material-ui/Dialog';
+import Popup from './Popup.jsx';
 import moment from 'moment';
 import {
   BrowserRouter as Router,
   Route,
   Link
-} from 'react-router-dom'
+} from 'react-router-dom';
+import FloatingActionButton from 'material-ui/FloatingActionButton';
+import updateArray from 'immutability-helper';
 
 const listItemStyle = {
     padding: '4px 16px 4px 16px'
@@ -39,11 +42,12 @@ class Select extends Component {
         this.state = {
             text: "",
             currentKey: null,
+            thePopup: null,
+            newName: null,
             items: []
         };
 
     }
-
 
     componentWillMount() {
         var ref = firebase.database().ref("services");
@@ -54,37 +58,110 @@ class Select extends Component {
         //this.firebaseRef.off();
     }
 
+    contextTypes: {
+        router: React.PropTypes.object
+    }
+
+    handleClosePopup = () => {
+        this.setState({thePopup: null});
+    };
+
     onTextChange = (e) => {
         this.setState({text: e.target.value});
     }
 
-    handleSubmit = (e) => {
-        e.preventDefault();
+    // add new service
+    addServicePopup = (item) => {
+        var newName = "No Name";
+        this.setState({newName: newName});
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.addService()}
+                numActions={2}
+                title="Add New Service"
+                message={""}>
+                <TextField
+                    floatingLabelText={"New service name"}
+                    onChange={this.changeName}
+                />
+            </Popup>
 
-        var newService = firebase.database().ref('services/' + this.state.text);
+        this.setState({thePopup: popup});
+    }
+
+
+    addService = () => {
+        var newService = firebase.database().ref('services/' + this.state.newName);
         newService.update({
-            name: this.state.text,
+            name: this.state.newName,
             date: new Date().toString()
         })
+
+        this.handleClosePopup();
+    }
+
+    changeName = (e) => {
+        this.setState({newName:  e.target.value});
+    }
+
+    // set new name of duplicate service in a popup
+    duplicateServiceSetName = (item) => {
+        var newName = item.name + " copy";
+        this.setState({newName: newName});
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.duplicateService(item)}
+                numActions={2}
+                title="Duplicate Service"
+                message={""}>
+                <TextField
+                    defaultValue={newName}
+                    floatingLabelText={"New service name"}
+                    onChange={this.changeName}
+                />
+            </Popup>
+
+        this.setState({thePopup: popup});
     }
 
     // creates a duplicate of the service
-    duplicateService = (item) => {
-        var newItem = item;
-        newItem.name = item.name + " copy";
+    duplicateService = (item, name) => {
+        // close popup first
+        this.handleClosePopup();
+
+        var newItem = updateArray(item, {
+            name: {$set: this.state.newName},
+        });
+        console.log(newItem);
         delete newItem['.key']; // important as need firebase to generate its own key
         var newDuplicateService = firebase.database().ref('services/' + newItem.name);
         newDuplicateService.update(newItem);
     }
 
-    contextTypes: {
-        router: React.PropTypes.object
-    }
+    // remove a serviceKey confirmation popup
+    removeServicePopup = (key) => {
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.removeService(key)}
+                numActions={2}
+                title="Delete Service"
+                message={"Are you sure you want to delete this service?"}>
+            </Popup>
 
-    // remove a serviceKey
+        this.setState({thePopup: popup});
+    }
+    // delete service key
     removeService = (key) => {
         var firebaseRef = firebase.database().ref("services/");
         firebaseRef.child(key).remove();
+
+        this.handleClosePopup();
     }
 
     render() {
@@ -98,18 +175,20 @@ class Select extends Component {
                 <List>
                     {
                         this.state.items.map((item, index) => {
+                            var serviceDate = moment(item.date);
                             return (
 
                                     <div key={index}>
                                         <ListItem primaryText={<Link to={item.name+"/Programme"} key={index} style={{width: '100%', display: 'inline-block', color: '#000'}}>{item.name}</Link>}
-                                            rightIconButton={<IconMenu
+                                                  secondaryText={serviceDate.format("dddd, D MMMM YYYY")}
+                                                  rightIconButton={<IconMenu
                                                   iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
                                                   anchorOrigin={{horizontal: 'right', vertical: 'top'}}
                                                   targetOrigin={{horizontal: 'right', vertical: 'top'}}
                                                 >
                                                   <MenuItem primaryText="Rename" />
-                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeService(item['.key'])} />
-                                                  <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateService(item)} />
+                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item['.key'])} />
+                                                  <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} />
                                                 </IconMenu>}
                                             >
                                         </ListItem>
@@ -119,18 +198,13 @@ class Select extends Component {
                         })
                     }
 
-                    <Divider style={{ marginTop: '16px'}}/>
-                    <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
-                        <ListItem
-                        primaryText={<TextField onChange={ this.onTextChange } value={ this.state.text } hintText="Service Name" multiLine={false}/>}
-                        innerDivStyle={listItemStyle}
-                        disableTouchRipple
-                        >
-                        </ListItem>
-                        <RaisedButton label="Add New Service" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
-                    </form>
-
                 </List>
+
+                {this.state.thePopup}
+
+                <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '99999'}} onTouchTap={this.addServicePopup}>
+                     <AddIcon />
+                </FloatingActionButton>
             </div>
         );
     }

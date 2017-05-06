@@ -16,6 +16,7 @@ import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
+import Snackbar from 'material-ui/Snackbar';
 
 moment().format();
 
@@ -181,8 +182,16 @@ class Songs extends Component {
                             <ModeEdit />
                        </FloatingActionButton>
                        :
-                       <FlatButton label="SAVE" style={{position: 'fixed', top: '10px', right: '0', zIndex: '99999'}} labelStyle={{color: '#fff'}} onTouchTap={this.toggleEditMode} />
-                }
+
+                       <Snackbar
+                       open={true}
+                       message="Editing (All changes are auto saved)"
+                       action="DONE"
+                       onActionTouchTap={this.toggleEditMode}
+                       onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                       style={{bottom: '57px'}} />
+
+               }
 
                 { (this.state.editMode && this.state.items.length == 0) ? // add new form at the bottom
                     <div>
