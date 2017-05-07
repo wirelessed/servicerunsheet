@@ -148,22 +148,6 @@ const BottomNavStyleDesktop = {
                              className="BottomNavItem"
                              />
 
-                         <BottomNavigationItem
-                             label="Copyrights"
-                             icon={copyrightIcon}
-                             onTouchTap={() => this.select(3)}
-                             style={TheBottomNavItemStyle}
-                             className="BottomNavItem"
-                             />
-
-                         <BottomNavigationItem
-                             label="Lyrics"
-                             icon={lyricsIcon}
-                             onTouchTap={() => this.select(4)}
-                             style={TheBottomNavItemStyle}
-                             className="BottomNavItem"
-                             />
-
                  </BottomNavigation>
 
              </Paper>

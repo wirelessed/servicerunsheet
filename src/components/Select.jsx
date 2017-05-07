@@ -129,7 +129,7 @@ class Select extends Component {
     }
 
     // creates a duplicate of the service
-    duplicateService = (item, name) => {
+    duplicateService = (item) => {
         // close popup first
         this.handleClosePopup();
 
@@ -164,6 +164,37 @@ class Select extends Component {
         this.handleClosePopup();
     }
 
+    // rename service in a popup
+    renameServicePopup = (item, key) => {
+        var newName = item.name;
+        this.setState({newName: newName});
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.renameService(item, key)}
+                numActions={2}
+                title="Rename Service"
+                message={""}>
+                <TextField
+                    defaultValue={newName}
+                    floatingLabelText={"New service name"}
+                    onChange={this.changeName}
+                />
+            </Popup>
+
+        this.setState({thePopup: popup});
+    }
+
+    // renames by creating a duplicate of the service
+    renameService = (item, key) => {
+        // close popup first
+        this.handleClosePopup();
+
+        this.duplicateService(item);
+        this.removeService(key);
+    }
+
     render() {
 
         var previousTime = new Date();
@@ -175,7 +206,7 @@ class Select extends Component {
                 <List>
                     {
                         this.state.items.map((item, index) => {
-                            var serviceDate = moment(item.date);
+                            var serviceDate = moment(item.date, "DD-MM-YYYY");
                             return (
 
                                     <div key={index}>
@@ -186,8 +217,8 @@ class Select extends Component {
                                                   anchorOrigin={{horizontal: 'right', vertical: 'top'}}
                                                   targetOrigin={{horizontal: 'right', vertical: 'top'}}
                                                 >
-                                                  <MenuItem primaryText="Rename" />
-                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item['.key'])} />
+                                                  <MenuItem primaryText="Rename" onTouchTap={() => this.renameServicePopup(item, item['.key'])}  />
+                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item)} />
                                                   <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} />
                                                 </IconMenu>}
                                             >

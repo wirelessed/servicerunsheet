@@ -11,12 +11,14 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan500} from 'material-ui/styles/colors';
+import {grey200, grey500, indigo500, cyan100} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
+import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
+import Textarea from 'react-textarea-autosize';
 
 moment().format();
 
@@ -56,14 +58,39 @@ const TextFieldViewWrapper = {
 }
 
 const TextFieldEditStyle = {
-    padding: '0 16px',
-    backgroundColor: '#e8e8e8',
+    padding: '0 8px',
+    border: '1px solid #ccc',
     color: '#000',
     width: '100%'
 }
 
 const TextFieldEditWrapper = {
-    width: '100%'
+    width: '70%',
+    margin: '0 16px'
+}
+
+const DescriptionViewStyle = {
+    padding: '0px',
+    color: '#000',
+    width: '98%',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px',
+    border: 'none',
+    marginTop: '12px',
+    resize: 'none'
+}
+
+const DescriptionEditStyle = {
+    padding: '0px',
+    color: '#000',
+    width: '98%',
+    border: '1px solid #ccc',
+    marginTop: '12px',
+    padding: '0 4px',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px'
 }
 
 class Songs extends Component {
@@ -78,6 +105,7 @@ class Songs extends Component {
             editMode: false,
             description: "",
             text: "",
+            copyright: "",
             currentKey: null,
             items: [],
         };
@@ -93,14 +121,7 @@ class Songs extends Component {
 
     // create empty item when new
     componentDidMount() {
-        if(this.state.items.length == 0){
-            var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/songs").push();
 
-            newItem.update({
-                text: ""
-            });
-            this.setState({ text: ""});
-        }
     }
 
     componentWillUnmount() {
@@ -114,9 +135,10 @@ class Songs extends Component {
 
         newItem.update({
             text: this.state.text,
-            description: this.state.description
+            description: this.state.description,
+            copyright: this.state.copyright
         });
-        this.setState({ text: "", description: "" });
+        this.setState({ text: "", description: "", copyright: "" });
     }
 
     onTextChange = (e) => {
@@ -127,6 +149,10 @@ class Songs extends Component {
         this.setState({description: e.target.value});
     }
 
+    onCopyrightChange = (e) => {
+        this.setState({copyright: e.target.value});
+    }
+
     onExistingTextChange = (key, e) => {
         this.firebaseRefs.items.child(key).update({text: e.target.value});
     }
@@ -134,6 +160,11 @@ class Songs extends Component {
     onExistingDescriptionChange = (key, e) => {
         this.firebaseRefs.items.child(key).update({description: e.target.value});
     }
+
+    onExistingCopyrightChange = (key, e) => {
+        this.firebaseRefs.items.child(key).update({copyright: e.target.value});
+    }
+
 
     setTimeFocus= (key) => {
         this.setState({currentKey: key});
@@ -159,9 +190,18 @@ class Songs extends Component {
     render() {
 
         return (
-            <div>
+            <div style={{paddingBottom: '150px'}}>
+                <p style={{padding: '0 16px'}}>
+                    Tap on each song to view lyrics and copyright.
+                </p>
                 { this.state.items.map((item, index) => {
                         var key = item[".key"];
+
+                        var deleteButton = null;
+                        if(this.state.editMode) {
+                            deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                        }
+
                         var textfield = <TextField name="Text" disabled={true} value={ item.text } multiLine={true} rowsMax={999} underlineShow={false} textareaStyle={TextFieldViewStyle} style={TextFieldViewWrapper} />
 
                         if (this.state.editMode){
@@ -169,9 +209,39 @@ class Songs extends Component {
                         }
 
                         return (
-                            <div key={index}>
-                                {textfield}
-                            </div>
+                            <Card key={index}>
+                                { (this.state.editMode) ?
+                                    <CardHeader
+                                        title={<div>{deleteButton}{textfield}</div>}
+                                        showExpandableButton={true}
+                                        style={{backgroundColor: cyan100}}
+                                    /> :
+                                    <CardHeader
+                                        title={textfield}
+                                        actAsExpander={true}
+                                        showExpandableButton={true}
+                                        style={{backgroundColor: cyan100, borderBottom: '1px solid #fff'}}
+                                    />
+                                }
+                                <CardText expandable={true}>
+                                    <div style={{marginBottom: '32px'}}>
+                                        <strong>Lyrics:</strong>
+                                        { (this.state.editMode) ?
+                                            <Textarea name="Description" placeholder="Lyrics" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } style={DescriptionEditStyle} />
+                                            :
+                                            <Textarea name="Description" readOnly={true} value={ item.description } style={DescriptionViewStyle}/>
+                                        }
+                                        </div>
+                                    <div>
+                                        <strong>Copyright:</strong>
+                                        { (this.state.editMode) ?
+                                            <Textarea name="Copyright" placeholder="Copyright" onChange={this.onExistingCopyrightChange.bind(this, key)} value={ item.copyright } style={DescriptionEditStyle} />
+                                            :
+                                            <Textarea name="Copyright" readOnly={true} value={ item.copyright } style={DescriptionViewStyle}/>
+                                        }
+                                    </div>
+                                </CardText>
+                            </Card>
                         );
                     })
                 }
@@ -193,11 +263,12 @@ class Songs extends Component {
 
                }
 
-                { (this.state.editMode && this.state.items.length == 0) ? // add new form at the bottom
+                { (this.state.editMode) ? // add new form at the bottom
                     <div>
                     <Divider style={{ marginTop: '16px'}}/>
                     <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
-                        <TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Enter Song (free text field)" multiLine={true} rowsMax={999} textareaStyle={TextFieldEditStyle} style={TextFieldEditWrapper} />
+                        <p style={{padding: '0 16px'}}>Enter Song Title (Add lyrics and copyrights later)</p>
+                        <TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Enter Song Title" multiLine={true} rowsMax={999} style={TextFieldEditWrapper} />
                         <RaisedButton label="Add" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
                     </form>
                     </div>

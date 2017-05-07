@@ -17,6 +17,7 @@ import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
+import Textarea from 'react-textarea-autosize';
 
 moment().format();
 
@@ -49,13 +50,21 @@ const TextFieldViewStyle = {
     color: '#000',
     width: '120px',
     height: '40px',
-    fontSize: '14px'
+    fontSize: '14px',
+    lineHeight: '26px',
+    fontWeight: '600'
 }
 
 const DescriptionViewStyle = {
     padding: '0px',
     color: '#000',
-    width: '98%'
+    width: '98%',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px',
+    border: 'none',
+    marginTop: '12px',
+    resize: 'none'
 }
 
 const DescriptionViewWrapper = {
@@ -78,7 +87,13 @@ const TextFieldEditWrapper = {
 const DescriptionEditStyle = {
     padding: '0px',
     color: '#000',
-    width: '98%'
+    width: '98%',
+    border: '1px solid #ccc',
+    marginTop: '12px',
+    padding: '0 4px',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px'
 }
 
 const DescriptionEditWrapper = {
@@ -164,7 +179,7 @@ class People extends Component {
     render() {
 
         return (
-            <div>
+            <div style={{paddingBottom: '150px'}}>
                 <List>
                     {
 
@@ -179,7 +194,7 @@ class People extends Component {
 
                             var listItem = <ListItem
                                 leftAvatar={<TextField name="Text" disabled={true} value={ item.text } multiLine={false} rowsMax={99} underlineShow={false} inputStyle={TextFieldViewStyle} /> }
-                                primaryText={<TextField name="Description" disabled={true} value={ item.description } multiLine={false} rowsMax={99} underlineShow={false}  inputStyle={DescriptionViewStyle} style={DescriptionViewWrapper} /> }
+                                primaryText={<Textarea name="Description" readOnly={true} value={ item.description } style={DescriptionViewStyle}/> }
                                 href="#"
                                 innerDivStyle={listItemStyle}
                                 disableTouchRipple
@@ -188,7 +203,7 @@ class People extends Component {
                             if (this.state.editMode){
                                 listItem = <ListItem
                                     leftAvatar={<div>{deleteButton}<TextField name="Text" hintText="Role" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={false} rowsMax={99} underlineShow={true} inputStyle={TextFieldEditStyle} style={TextFieldEditWrapper} /></div>}
-                                    primaryText={<TextField name="Description" hintText="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } multiLine={false} rowsMax={99} underlineShow={true} inputStyle={DescriptionEditStyle} style={DescriptionEditWrapper}/>}
+                                    primaryText={<Textarea name="Description" placeholder="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } style={DescriptionEditStyle} />}
                                     href="#"
                                     innerDivStyle={listItemStyle}
                                     disableTouchRipple
@@ -207,15 +222,15 @@ class People extends Component {
                     { (this.state.editMode) ?
                         <div>
                         <Divider style={{ marginTop: '16px'}}/>
-                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
+                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
                             <ListItem
                             leftAvatar={<TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Role" multiLine={false} rowsMax={99} inputStyle={TextFieldEditStyle} style={TextFieldEditWrapper} />}
-                            primaryText={<TextField name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } hintText="Person" multiLine={false} rowsMax={99} underlineShow={true} inputStyle={DescriptionEditStyle} style={DescriptionEditWrapper} />}
+                            primaryText={<Textarea name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } placeholder="Person" style={DescriptionEditStyle} />}
                             innerDivStyle={listItemStyle}
                             disableTouchRipple
                             >
                             </ListItem>
-                            <RaisedButton label="Add" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
+                            <RaisedButton label="Add" type="submit" primary={true} style={{ marginRight: '16px', float: 'right'}}/>
                         </form>
                         </div>
                         :  <div></div>

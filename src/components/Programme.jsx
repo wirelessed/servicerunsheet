@@ -11,7 +11,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan500, white} from 'material-ui/styles/colors';
+import {grey200, grey500, indigo500, cyan50, white, black} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
@@ -19,6 +19,8 @@ import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import ShareIcon from 'material-ui/svg-icons/social/share';
 import DoneIcon from 'material-ui/svg-icons/action/done';
 import Snackbar from 'material-ui/Snackbar';
+import Textarea from 'react-textarea-autosize';
+import Toggle from 'material-ui/Toggle';
 moment().format();
 
 
@@ -47,20 +49,32 @@ const deleteButtonStyle = {
 }
 
 const TextFieldViewStyle = {
-    backgroundColor: cyan500,
+    backgroundColor: cyan50,
     borderRadius: '3px',
+    marginTop: '8px',
     padding: '4px 8px',
-    color: '#fff',
-    width: '98%'
+    color: black,
+    height: 'auto',
+    lineHeight: '1.6',
+    width: '98%',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px',
+    border: 'none',
+    resize: 'none'
 }
 
 const TextFieldStyle = {
-    backgroundColor: '#e8e8e8',
+    backgroundColor: cyan50,
     marginTop: '8px',
     borderRadius: '0px',
     padding: '4px 8px',
     color: '#000',
-    width: '90%'
+    width: '95%',
+    height: 'auto',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px'
 }
 
 class Programme extends Component {
@@ -125,8 +139,7 @@ class Programme extends Component {
     }
 
     submitServiceDate = (e, time) => {
-        var newTime = time.toString();
-        console.log(newTime);
+        var newTime = moment(time).format("DD-MM-YYYY");
 
         var newServiceDate = firebase.database().ref("services/"+this.props.serviceKey);
 
@@ -146,19 +159,30 @@ class Programme extends Component {
     }
 
     onServiceStartTimeChange = (e, time) => {
-        var currTime = moment(time);
-        var durationChange = moment.duration(currTime.diff(moment(this.state.items[0].time)));
+        var currTime = moment(time,"HHmm");
+        var prevTime = moment(this.state.items[0].time,"HHmm");
 
+        // count duration
+        var durationChange = moment.duration(currTime.diff(prevTime));
+
+        // check if it's before or after
+        var addOrSub = moment(currTime).isAfter(prevTime);
+        console.log(addOrSub,durationChange);
+        // update other items
         this.state.items.map((item, index) => {
              if (index > 0){
                  var oldTime = moment(item.time,"HHmm");
-                 var newTime = oldTime.add(durationChange);
+                 var newTime;
+                 newTime = oldTime.add(durationChange);
+
+                 newTime = moment(newTime).format("HHmm");
                  var key = item[".key"];
-                 this.firebaseRefs.items.child(key).update({time: newTime.toString()});
+                 this.firebaseRefs.items.child(key).update({time: newTime});
              }
         });
 
-        var newTime = time.toString();
+        // update first item
+        var newTime = moment(time).format("HHmm");
         this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
     }
 
@@ -219,12 +243,12 @@ class Programme extends Component {
 
     render() {
         var previousTime = moment();
-        var serviceDate = moment(this.state.serviceDate[".value"]);
+        var serviceDate = moment(this.state.serviceDate[".value"], "DD-MM-YYYY");
 
         // show date depending on editMode
         let showDate = <ListItem
             leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
-            primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px'}}>{serviceDate.format("dddd, D MMMM YYYY")}</div>}
+            primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px', }}>{serviceDate.format("dddd, D MMMM YYYY")}</div>}
             href="#"
             innerDivStyle={listItemViewStyle}
             disableTouchRipple
@@ -232,7 +256,7 @@ class Programme extends Component {
         if (this.state.editMode){
             showDate = <ListItem
                 leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
-                primaryText={<DatePicker name="Date" onChange={this.submitServiceDate} value={serviceDate.toDate()} /> }
+                primaryText={<DatePicker name="Date" onChange={this.submitServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} /> }
                 href="#"
                 innerDivStyle={listItemStyle}
                 disableTouchRipple
@@ -254,12 +278,13 @@ class Programme extends Component {
                             var theDate = moment(item.time,"HHmm");
                             var key = item[".key"];
 
+                            // DELETE BUTTON
                             var deleteButton = null;
                             if(this.state.editMode) {
                                 deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
-                            // get duration
+                            // DURATION counting
                             var theDuration;
                             if (index > 0){
                                 theDuration = "(" + theDate.diff(previousTime, 'minutes') + " min)";
@@ -271,27 +296,30 @@ class Programme extends Component {
                                 showDuration = <div style={{ paddingLeft: '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
                             }
 
+                            // DATE
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /></div>;
                             }
 
+                            // ACTUAL ITEM
                             var listItem = <ListItem
-                                leftAvatar={ <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{ color: '#000' }} /> }
-                                primaryText={<TextField name="Description" disabled={true} value={ item.text } multiLine={true} rowsMax={99} underlineShow={false} textareaStyle={TextFieldViewStyle} /> }
+                                leftAvatar={ <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /> }
+                                primaryText={<Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} /> }
                                 href="#"
                                 innerDivStyle={listItemViewStyle}
                                 disableTouchRipple
                                 >
                                 </ListItem>;
 
+                            // ACTUAL ITEM (EDITING)
                             if (this.state.editMode){
                                 listItem = <ListItem
                                     leftAvatar={timePick}
-                                    primaryText={<TextField name="Description" hintText="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} underlineShow={false} />}
+                                    primaryText={<Textarea name="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />}
                                     href="#"
                                     innerDivStyle={listItemStyle}
                                     disableTouchRipple
@@ -307,18 +335,19 @@ class Programme extends Component {
                             );
                         })
                     }
-                    { (this.state.editMode) ?
+                    {   // ADD NEW LINE
+                        (this.state.editMode) ?
                         <div>
                         <Divider style={{ marginTop: '16px'}}/>
-                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
+                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
                             <ListItem
-                            leftAvatar={<TimePicker name="Time" defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" style={TimePickerStyle} />}
-                            primaryText={<TextField name="Description" onChange={ this.onTextChange } value={ this.state.text } hintText="Description" underlineShow={false} multiLine={true} rowsMax={99} textareaStyle={TextFieldStyle} />}
+                            leftAvatar={<TimePicker name="Time" defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerStyle} />}
+                            primaryText={<Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />}
                             innerDivStyle={listItemStyle}
                             disableTouchRipple
                             >
                             </ListItem>
-                            <RaisedButton label="Add" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
+                            <RaisedButton label="Add" type="submit" primary={true} style={{ marginRight: '16px', float: 'right'}}/>
                         </form>
                         </div>
                         :  <div></div>
