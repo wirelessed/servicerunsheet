@@ -11,7 +11,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan100} from 'material-ui/styles/colors';
+import {grey200, grey500, indigo500, cyan50} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
@@ -19,6 +19,7 @@ import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
 import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
 import Textarea from 'react-textarea-autosize';
+import Popup from './Popup.jsx';
 
 moment().format();
 
@@ -47,26 +48,39 @@ const TextFieldStyle = {
 }
 
 const TextFieldViewStyle = {
-    padding: '0 16px',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px',
+    padding: '0 8px',
     color: '#000',
-    width: '100%'
-}
-
-const TextFieldViewWrapper = {
-    color: '#000',
-    width: '100%'
+    background: 'transparent',
+    border: 'none',
+    width: '70%',
+    resize: 'none',
+    minHeight: '48px'
 }
 
 const TextFieldEditStyle = {
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px',
+    marginTop: '12px',
     padding: '0 8px',
     border: '1px solid #ccc',
     color: '#000',
-    width: '100%'
+    width: '70%'
 }
 
-const TextFieldEditWrapper = {
-    width: '70%',
-    margin: '0 16px'
+const TextFieldAddStyle = {
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '16px',
+    lineHeight: '26px',
+    marginLeft: '16px',
+    marginTop: '12px',
+    padding: '0 8px',
+    border: '1px solid #ccc',
+    color: '#000',
+    width: '70%'
 }
 
 const DescriptionViewStyle = {
@@ -100,12 +114,12 @@ class Songs extends Component {
         super(props);
 
         this.state = {
-            isPopupOpen: false,
             thePopup: null,
             editMode: false,
             description: "",
             text: "",
             copyright: "",
+            order: 0,
             currentKey: null,
             items: [],
         };
@@ -115,12 +129,16 @@ class Songs extends Component {
 
     componentWillMount() {
         // get songs items from firebase
-        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/songs");
+        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/songs").orderByChild('order');
         this.bindAsArray(ref, "items");
     }
 
     // create empty item when new
     componentDidMount() {
+
+    }
+
+    componentWillUpdate() {
 
     }
 
@@ -136,9 +154,10 @@ class Songs extends Component {
         newItem.update({
             text: this.state.text,
             description: this.state.description,
-            copyright: this.state.copyright
+            copyright: this.state.copyright,
+            order: this.state.order
         });
-        this.setState({ text: "", description: "", copyright: "" });
+        this.setState({ text: "", description: "", copyright: "", order: ""});
     }
 
     onTextChange = (e) => {
@@ -153,6 +172,10 @@ class Songs extends Component {
         this.setState({copyright: e.target.value});
     }
 
+    onOrderChange = (e) => {
+        this.setState({order: e.target.value});
+    }
+
     onExistingTextChange = (key, e) => {
         this.firebaseRefs.items.child(key).update({text: e.target.value});
     }
@@ -165,14 +188,37 @@ class Songs extends Component {
         this.firebaseRefs.items.child(key).update({copyright: e.target.value});
     }
 
+    onExistingOrderChange = (key, e) => {
+        this.firebaseRefs.items.child(key).update({order: e.target.value});
+    }
 
     setTimeFocus= (key) => {
         this.setState({currentKey: key});
     }
 
+    handleClosePopup = () => {
+        this.setState({thePopup: null});
+    };
+
+    deleteItemPopup = (key) => {
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.removeItem(key)}
+                numActions={2}
+                title="Delete Item"
+                message={"Are you sure you want to delete this item?"}>
+            </Popup>
+
+        this.setState({thePopup: popup});
+    }
+
     removeItem = (key) => {
         var firebaseRef = firebase.database().ref("services/"+this.props.serviceKey+'/songs');
         firebaseRef.child(key).remove();
+
+        this.handleClosePopup();
     }
 
     toggleEditMode = () => {
@@ -199,13 +245,20 @@ class Songs extends Component {
 
                         var deleteButton = null;
                         if(this.state.editMode) {
-                            deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                            deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                         }
 
-                        var textfield = <TextField name="Text" disabled={true} value={ item.text } multiLine={true} rowsMax={999} underlineShow={false} textareaStyle={TextFieldViewStyle} style={TextFieldViewWrapper} />
-
+                        var textfield;
                         if (this.state.editMode){
-                            textfield = <TextField name="Text" hintText="Enter Song list (free text field)" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={true} rowsMax={999} underlineShow={false} textareaStyle={TextFieldEditStyle} style={TextFieldEditWrapper} />
+                            textfield = <div>
+                            <TextField name="Text" hintText="No." onChange={this.onExistingOrderChange.bind(this, key)} value={ item.order } multiLine={false} underlineShow={true} inputStyle={{width: '30px'}} style={{width: '30px', float: 'left'}}/>
+                            <Textarea name="Text" placeholder="Enter Song Title" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldEditStyle} />
+                            </div>
+                        } else {
+                            textfield = <div>
+                                <TextField name="Text" disabled={true} value={ item.order } multiLine={false} underlineShow={false} inputStyle={{width: '30px'}} style={{width: '30px', height: 'auto', float: 'left'}} />
+                                <Textarea name="Text" readOnly={true} value={ item.text } style={TextFieldViewStyle} />
+                            </div>
                         }
 
                         return (
@@ -214,13 +267,15 @@ class Songs extends Component {
                                     <CardHeader
                                         title={<div>{deleteButton}{textfield}</div>}
                                         showExpandableButton={true}
-                                        style={{backgroundColor: cyan100}}
+                                        style={{backgroundColor: cyan50, borderBottom: '1px solid #fff'}}
+                                        textStyle={{width: '80%', paddingRight: '0'}}
                                     /> :
                                     <CardHeader
                                         title={textfield}
                                         actAsExpander={true}
                                         showExpandableButton={true}
-                                        style={{backgroundColor: cyan100, borderBottom: '1px solid #fff'}}
+                                        style={{backgroundColor: cyan50, borderBottom: '1px solid #fff'}}
+                                        textStyle={{width: '80%', paddingRight: '0'}}
                                     />
                                 }
                                 <CardText expandable={true}>
@@ -266,14 +321,17 @@ class Songs extends Component {
                 { (this.state.editMode) ? // add new form at the bottom
                     <div>
                     <Divider style={{ marginTop: '16px'}}/>
-                    <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px'}}>
-                        <p style={{padding: '0 16px'}}>Enter Song Title (Add lyrics and copyrights later)</p>
-                        <TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Enter Song Title" multiLine={true} rowsMax={999} style={TextFieldEditWrapper} />
-                        <RaisedButton label="Add" type="submit" primary={true} style={{ marginLeft: '16px'}}/>
+                    <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
+                        <p style={{padding: '0 16px'}}>Add New Song Title</p>
+                        <TextField name="Text" hintText="No." onChange={this.onOrderChange} value={ this.state.order } multiLine={false} underlineShow={true} inputStyle={{width: '30px'}} style={{width: '30px', float: 'left', marginLeft: '16px'}}/>
+                        <Textarea name="Text" onChange={ this.onTextChange } value={ this.state.text } placeholder="Enter Song Title" style={TextFieldAddStyle} />
+                        <RaisedButton label="Add" type="submit" primary={true} style={{ marginRight: '16px', float: 'right'}}/>
                     </form>
                     </div>
                     :  <div></div>
                 }
+
+                {this.state.thePopup}
             </div>
         );
     }

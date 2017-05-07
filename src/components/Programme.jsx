@@ -18,9 +18,12 @@ import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import ShareIcon from 'material-ui/svg-icons/social/share';
 import DoneIcon from 'material-ui/svg-icons/action/done';
+import AddIcon from 'material-ui/svg-icons/content/add-circle';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
 import Toggle from 'material-ui/Toggle';
+import Popup from './Popup.jsx';
+import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
 moment().format();
 
 
@@ -38,6 +41,13 @@ const TimePickerStyle = {
     width: '72px',
     marginTop: '-4px',
     float: 'left'
+}
+
+const TimePickerAddStyle = {
+    width: '72px',
+    marginTop: '-4px',
+    float: 'left',
+    paddingLeft: '32px'
 }
 
 const deleteButtonStyle = {
@@ -83,7 +93,6 @@ class Programme extends Component {
         super(props);
 
         this.state = {
-            isPopupOpen: false,
             thePopup: null,
             editMode: false,
             snackbarOpen: false,
@@ -98,17 +107,21 @@ class Programme extends Component {
 
     componentWillMount() {
         // get date from firebase
-        console.log(this.props.serviceKey);
         var serviceDate = firebase.database().ref("services/"+this.props.serviceKey+"/date");
         this.bindAsObject(serviceDate, "serviceDate");
 
         // get items from firebase
-        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items");
+        // order by time
+        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items").orderByChild('time');
         this.bindAsArray(ref, "items");
     }
 
     componentWillUnmount() {
         //this.firebaseRef.off();
+    }
+
+    componentWillReceiveProps() {
+        this.firebaseRefs.items.orderByChild('time');
     }
 
     handleSubmit = (e) => {
@@ -117,7 +130,7 @@ class Programme extends Component {
         var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/items").push();
         var newtime;
         if (this.state.time === {})
-            newtime = new Date().toString();
+            newtime = "0000";
         else
             newtime = this.state.time;
 
@@ -190,9 +203,29 @@ class Programme extends Component {
         this.setState({currentKey: key});
     }
 
+    handleClosePopup = () => {
+        this.setState({thePopup: null});
+    };
+
+    deleteItemPopup = (key) => {
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.removeItem(key)}
+                numActions={2}
+                title="Delete Item"
+                message={"Are you sure you want to delete this item?"}>
+            </Popup>
+
+        this.setState({thePopup: popup});
+    }
+
     removeItem = (key) => {
         var firebaseRef = firebase.database().ref("services/"+this.props.serviceKey+'/items');
         firebaseRef.child(key).remove();
+
+        this.handleClosePopup();
     }
 
     sendWhatsapp = () => {
@@ -241,6 +274,10 @@ class Programme extends Component {
         }
     }
 
+    handleExpandChange = (time) => {
+        this.setState({time: time});
+    }
+
     render() {
         var previousTime = moment();
         var serviceDate = moment(this.state.serviceDate[".value"], "DD-MM-YYYY");
@@ -263,6 +300,21 @@ class Programme extends Component {
                 ></ListItem>;
         }
 
+        var AddNewLine =
+            <div>
+            <Divider style={{ marginTop: '8px'}}/>
+            <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
+                <ListItem
+                leftAvatar={<TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} />}
+                primaryText={<Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />}
+                innerDivStyle={listItemStyle}
+                disableTouchRipple
+                >
+                </ListItem>
+                <RaisedButton label="Add" type="submit" primary={true} style={{ margin: '0 8px', float: 'right'}}/>
+            </form>
+        </div>;
+
         return (
             <div style={{marginBottom: '170px'}}>
 
@@ -281,7 +333,7 @@ class Programme extends Component {
                             // DELETE BUTTON
                             var deleteButton = null;
                             if(this.state.editMode) {
-                                deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                                deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
                             // DURATION counting
@@ -293,7 +345,7 @@ class Programme extends Component {
 
                             var showDuration = null;
                             if (index > 0){
-                                showDuration = <div style={{ paddingLeft: '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
+                                showDuration = <div style={{ paddingLeft: (this.state.editMode) ? '120px' : '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
                             }
 
                             // DATE
@@ -305,52 +357,50 @@ class Programme extends Component {
                                 timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /></div>;
                             }
 
-                            // ACTUAL ITEM
-                            var listItem = <ListItem
-                                leftAvatar={ <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /> }
-                                primaryText={<Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} /> }
-                                href="#"
-                                innerDivStyle={listItemViewStyle}
-                                disableTouchRipple
-                                >
-                                </ListItem>;
-
-                            // ACTUAL ITEM (EDITING)
-                            if (this.state.editMode){
-                                listItem = <ListItem
-                                    leftAvatar={timePick}
-                                    primaryText={<Textarea name="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />}
-                                    href="#"
-                                    innerDivStyle={listItemStyle}
-                                    disableTouchRipple
-                                    >
-                                </ListItem>
-                            }
-
                             return (
                                 <div key={index}>
                                     {showDuration}
-                                    {listItem}
+                                    {(this.state.editMode) ?
+                                        <div>
+                                            <Card style={{boxShadow: 'none'}} onExpandChange={() => this.handleExpandChange(item.time)}>
+                                                <CardHeader
+                                                    title={<AddIcon color={indigo500} />}
+                                                    actAsExpander={true}
+                                                    style={{padding: '0', textAlign: 'center', width: '100%'}}
+                                                    titleStyle={{paddingLeft: '90px'}}
+                                                />
+                                                <CardText expandable={true} style={{padding: '0'}}>
+                                                  {AddNewLine}
+                                                </CardText>
+                                            </Card>
+
+                                            <ListItem
+                                                leftAvatar={timePick}
+                                                primaryText={<Textarea name="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />}
+                                                href="#"
+                                                innerDivStyle={listItemStyle}
+                                                disableTouchRipple
+                                                >
+                                            </ListItem>
+                                        </div>
+                                        :
+                                        <ListItem
+                                            leftAvatar={ <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /> }
+                                            primaryText={<Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} /> }
+                                            href="#"
+                                            innerDivStyle={listItemViewStyle}
+                                            disableTouchRipple
+                                            >
+                                            </ListItem>
+                                    }
                                 </div>
                             );
                         })
                     }
-                    {   // ADD NEW LINE
-                        (this.state.editMode) ?
-                        <div>
-                        <Divider style={{ marginTop: '16px'}}/>
-                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
-                            <ListItem
-                            leftAvatar={<TimePicker name="Time" defaultTime={new Date()} onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerStyle} />}
-                            primaryText={<Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />}
-                            innerDivStyle={listItemStyle}
-                            disableTouchRipple
-                            >
-                            </ListItem>
-                            <RaisedButton label="Add" type="submit" primary={true} style={{ marginRight: '16px', float: 'right'}}/>
-                        </form>
-                        </div>
-                        :  <div></div>
+
+                    { (this.state.editMode) ?
+                        <div>{AddNewLine}</div>
+                        : ''
                     }
                 </List>
 
@@ -370,6 +420,8 @@ class Programme extends Component {
                        onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
                        style={{bottom: '57px'}} />
                 }
+
+                {this.state.thePopup}
         </div>
         );
     }

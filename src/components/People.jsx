@@ -18,6 +18,7 @@ import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
+import Popup from './Popup.jsx';
 
 moment().format();
 
@@ -106,7 +107,6 @@ class People extends Component {
         super(props);
 
         this.state = {
-            isPopupOpen: false,
             thePopup: null,
             editMode: false,
             description: "",
@@ -159,9 +159,30 @@ class People extends Component {
         this.setState({currentKey: key});
     }
 
+    handleClosePopup = () => {
+        this.setState({thePopup: null});
+    };
+
+    deleteItemPopup = (key) => {
+        const popup =
+            <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => this.removeItem(key)}
+                numActions={2}
+                title="Delete Item"
+                message={"Are you sure you want to delete this item?"}>
+            </Popup>
+
+        this.setState({thePopup: popup});
+    }
+
+
     removeItem = (key) => {
         var firebaseRef = firebase.database().ref("services/"+this.props.serviceKey+'/people');
         firebaseRef.child(key).remove();
+
+        this.handleClosePopup();
     }
 
     toggleEditMode = () => {
@@ -188,7 +209,7 @@ class People extends Component {
 
                             var deleteButton = null;
                             if(this.state.editMode) {
-                                deleteButton = <div onTouchTap={() => this.removeItem(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                                deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
 
@@ -251,6 +272,8 @@ class People extends Component {
                        onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
                        style={{bottom: '57px'}} />
                }
+
+               {this.state.thePopup}
         </div>
         );
     }
