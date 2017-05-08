@@ -218,7 +218,7 @@ class Select extends Component {
                                                   targetOrigin={{horizontal: 'right', vertical: 'top'}}
                                                 >
                                                   <MenuItem primaryText="Rename" onTouchTap={() => this.renameServicePopup(item, item['.key'])}  />
-                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item)} />
+                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item['.key'])} />
                                                   <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} />
                                                 </IconMenu>}
                                             >

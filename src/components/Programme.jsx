@@ -11,7 +11,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan50, white, black} from 'material-ui/styles/colors';
+import {grey100, grey200, grey500, indigo500, cyan50, yellow500, white, black} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
@@ -24,6 +24,7 @@ import Textarea from 'react-textarea-autosize';
 import Toggle from 'material-ui/Toggle';
 import Popup from './Popup.jsx';
 import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
+import $ from 'jquery';
 moment().format();
 
 
@@ -87,6 +88,23 @@ const TextFieldStyle = {
     lineHeight: '26px'
 }
 
+const LeftColumnStyle = {
+    minWidth: '84px',
+    float: 'left',
+    padding: '0 0 0 16px'
+}
+
+const LeftColumnEditStyle = {
+    minWidth: '104px',
+    float: 'left',
+    padding: '0 0 0 16px'
+}
+
+const RightColumnStyle = {
+    width: '60%',
+    float: 'left'
+}
+
 class Programme extends Component {
 
     constructor(props) {
@@ -100,6 +118,7 @@ class Programme extends Component {
             serviceDate: {},
             text: "",
             currentKey: null,
+            newItemKey: null,
             items: []
         };
 
@@ -120,12 +139,15 @@ class Programme extends Component {
         //this.firebaseRef.off();
     }
 
-    componentWillReceiveProps() {
+    componentWillReceiveProps = () => {
+        // re-order whenever there's new items
         this.firebaseRefs.items.orderByChild('time');
     }
 
     handleSubmit = (e) => {
         e.preventDefault();
+
+        var tempText = this.state.text;
 
         var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/items").push();
         var newtime;
@@ -139,6 +161,14 @@ class Programme extends Component {
             time: newtime
         });
         this.setState({ text: "", time: newtime });
+
+        var _self = this;
+        // highlight new child
+        this.firebaseRefs.items.on("child_added", function(snapshot) {
+            if(snapshot.val().text == tempText){
+                _self.setState({newItemKey: snapshot.key})
+            }
+        });
     }
 
     onTextChange = (e) => {
@@ -275,7 +305,10 @@ class Programme extends Component {
     }
 
     handleExpandChange = (time) => {
-        this.setState({time: time});
+        var newTime = moment(time,"HHmm");
+        newTime.subtract(5, "minutes");
+        newTime = newTime.format("HHmm")
+        this.setState({time: newTime});
     }
 
     render() {
@@ -303,9 +336,9 @@ class Programme extends Component {
         var AddNewLine =
             <div>
             <Divider style={{ marginTop: '8px'}}/>
-            <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
+            <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey100, padding: '16px 0px 56px 0px'}}>
                 <ListItem
-                leftAvatar={<TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} />}
+                leftAvatar={<TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} dialogStyle={{zIndex: '3000'}} />}
                 primaryText={<Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />}
                 innerDivStyle={listItemStyle}
                 disableTouchRipple
@@ -316,7 +349,7 @@ class Programme extends Component {
         </div>;
 
         return (
-            <div style={{marginBottom: '170px'}}>
+            <div style={{marginBottom: '170px'}} id="prog">
 
                 <div style={{height: '56px'}}>
                     {showDate}
@@ -329,6 +362,12 @@ class Programme extends Component {
                         this.state.items.map((item, index) => {
                             var theDate = moment(item.time,"HHmm");
                             var key = item[".key"];
+
+                            // highlight new item
+                            var ListItemBGStyle = { clear: 'both', background: 'none', overflow: 'auto' };
+                            if(this.state.newItemKey == key){
+                                ListItemBGStyle = { clear: 'both', background: yellow500, overflow: 'auto' };
+                            }
 
                             // DELETE BUTTON
                             var deleteButton = null;
@@ -352,14 +391,17 @@ class Programme extends Component {
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TimePicker name="Time" onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}} dialogStyle={{ zIndex: '3000' }} /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TimePicker name="Time" autoOk={true} onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TimePicker name="Time" onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} dialogStyle={{ zIndex: '3000' }} /></div>;
                             }
 
                             return (
                                 <div key={index}>
-                                    {showDuration}
+                                    <div style={{clear: 'both'}}>
+                                        {showDuration}
+                                    </div>
+
                                     {(this.state.editMode) ?
                                         <div>
                                             <Card style={{boxShadow: 'none'}} onExpandChange={() => this.handleExpandChange(item.time)}>
@@ -374,24 +416,24 @@ class Programme extends Component {
                                                 </CardText>
                                             </Card>
 
-                                            <ListItem
-                                                leftAvatar={timePick}
-                                                primaryText={<Textarea name="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />}
-                                                href="#"
-                                                innerDivStyle={listItemStyle}
-                                                disableTouchRipple
-                                                >
-                                            </ListItem>
+                                            <div style={ListItemBGStyle}>
+                                                <div style={LeftColumnEditStyle}>
+                                                    {timePick}
+                                                </div>
+                                                <div style={RightColumnStyle}>
+                                                    <Textarea name="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
+                                                </div>
+                                            </div>
                                         </div>
                                         :
-                                        <ListItem
-                                            leftAvatar={ <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase'}} inputStyle={{ color: '#000' }} /> }
-                                            primaryText={<Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} /> }
-                                            href="#"
-                                            innerDivStyle={listItemViewStyle}
-                                            disableTouchRipple
-                                            >
-                                            </ListItem>
+                                        <div style={ListItemBGStyle}>
+                                            <div style={LeftColumnStyle}>
+                                                <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} dialogStyle={{ zIndex: '3000' }} />
+                                            </div>
+                                            <div style={RightColumnStyle}>
+                                                <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
+                                            </div>
+                                        </div>
                                     }
                                 </div>
                             );
@@ -399,7 +441,7 @@ class Programme extends Component {
                     }
 
                     { (this.state.editMode) ?
-                        <div>{AddNewLine}</div>
+                        <div style={{clear: 'both', paddingTop: '32px'}}>{AddNewLine}</div>
                         : ''
                     }
                 </List>
