@@ -96,7 +96,7 @@ class Select extends Component {
         var newService = firebase.database().ref('services/' + this.state.newName);
         newService.update({
             name: this.state.newName,
-            date: new Date().toString()
+            date: moment().format("DD-MM-YYYY")
         })
 
         this.handleClosePopup();
@@ -210,19 +210,26 @@ class Select extends Component {
                             return (
 
                                     <div key={index}>
-                                        <ListItem primaryText={<Link to={item.name+"/Programme"} key={index} style={{width: '100%', display: 'inline-block', color: '#000'}}>{item.name}</Link>}
+                                        <Link to={item.name+"/Programme"} key={index} style={{
+                                            display: 'block',
+                                            color: '#00',
+                                            position: 'relative',
+                                            height: '72px',
+                                            top: '0',
+                                            left: '0',
+                                            right: '50px',
+                                            bottom: '0'}}>
+                                        <ListItem primaryText={item.name}
                                                   secondaryText={serviceDate.format("dddd, D MMMM YYYY")}
-                                                  rightIconButton={<IconMenu
-                                                  iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
-                                                  anchorOrigin={{horizontal: 'right', vertical: 'top'}}
-                                                  targetOrigin={{horizontal: 'right', vertical: 'top'}}
-                                                >
+                                                  rightIconButton={<IconMenu iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
+                                                                          anchorOrigin={{horizontal: 'right', vertical: 'top'}}
+                                                                          targetOrigin={{horizontal: 'right', vertical: 'top'}} >
                                                   <MenuItem primaryText="Rename" onTouchTap={() => this.renameServicePopup(item, item['.key'])}  />
                                                   <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item['.key'])} />
-                                                  <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} />
-                                                </IconMenu>}
-                                            >
+                                                  <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} /></IconMenu>}>
+
                                         </ListItem>
+                                        </Link>
                                         <Divider />
                                     </div>
                             );

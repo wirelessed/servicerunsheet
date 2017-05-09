@@ -115,7 +115,7 @@ class Programme extends Component {
             editMode: false,
             snackbarOpen: false,
             time: moment().format("HHmm"),
-            serviceDate: {},
+            serviceDate: moment().format("DD-MM-YYYY"),
             text: "",
             currentKey: null,
             newItemKey: null,
