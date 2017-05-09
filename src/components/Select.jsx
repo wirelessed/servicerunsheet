@@ -209,16 +209,7 @@ class Select extends Component {
                             var serviceDate = moment(item.date, "DD-MM-YYYY");
                             return (
 
-                                    <div key={index}>
-                                        <Link to={item.name+"/Programme"} key={index} style={{
-                                            display: 'block',
-                                            color: '#00',
-                                            position: 'relative',
-                                            height: '72px',
-                                            top: '0',
-                                            left: '0',
-                                            right: '50px',
-                                            bottom: '0'}}>
+                                    <div key={index} style={{position:'relative'}}>
                                         <ListItem primaryText={item.name}
                                                   secondaryText={serviceDate.format("dddd, D MMMM YYYY")}
                                                   rightIconButton={<IconMenu iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
@@ -229,6 +220,17 @@ class Select extends Component {
                                                   <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} /></IconMenu>}>
 
                                         </ListItem>
+                                        <Link to={item.name+"/Programme"} key={index} style={{
+                                            display: 'block',
+                                            color: '#00',
+                                            position: 'absolute',
+                                            height: '72px',
+                                            top: '0',
+                                            left: '0',
+                                            right: '50px',
+                                            bottom: '0',
+                                            zIndex: '100'
+                                        }}>
                                         </Link>
                                         <Divider />
                                     </div>
