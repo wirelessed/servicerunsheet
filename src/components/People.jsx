@@ -11,7 +11,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan500} from 'material-ui/styles/colors';
+import {grey200, grey500, indigo500, yellow500, cyan500} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
@@ -21,6 +21,23 @@ import Textarea from 'react-textarea-autosize';
 import Popup from './Popup.jsx';
 
 moment().format();
+
+const LeftColumnStyle = {
+    minWidth: '128px',
+    float: 'left',
+    padding: '0 0 0 16px'
+}
+
+const LeftColumnEditStyle = {
+    minWidth: '136px',
+    float: 'left',
+    padding: '0 0 0 16px'
+}
+
+const RightColumnStyle = {
+    width: '50%',
+    float: 'left'
+}
 
 
 const listItemStyle = {
@@ -51,9 +68,12 @@ const TextFieldViewStyle = {
     color: '#000',
     width: '120px',
     height: '40px',
-    fontSize: '14px',
+    fontSize: '16px',
     lineHeight: '26px',
-    fontWeight: '600'
+    fontWeight: '300',
+    border: 'none',
+    resize: 'none',
+    fontFamily: 'Roboto, sans-serif',
 }
 
 const DescriptionViewStyle = {
@@ -64,7 +84,6 @@ const DescriptionViewStyle = {
     fontSize: '16px',
     lineHeight: '26px',
     border: 'none',
-    marginTop: '12px',
     resize: 'none'
 }
 
@@ -76,7 +95,9 @@ const TextFieldEditStyle = {
     color: '#000',
     width: '96px',
     height: '36px',
-    fontSize: '14px'
+    fontSize: '16px',
+    fontFamily: 'Roboto, sans-serif',
+    border: '1px solid #ccc'
 }
 
 const TextFieldEditWrapper = {
@@ -90,7 +111,6 @@ const DescriptionEditStyle = {
     color: '#000',
     width: '98%',
     border: '1px solid #ccc',
-    marginTop: '12px',
     padding: '0 4px',
     fontFamily: 'Roboto, sans-serif',
     fontSize: '16px',
@@ -198,7 +218,6 @@ class People extends Component {
     }
 
     render() {
-
         return (
             <div style={{paddingBottom: '150px'}}>
                 <List>
@@ -207,34 +226,39 @@ class People extends Component {
                         this.state.items.map((item, index) => {
                             var key = item[".key"];
 
+                            // highlight new item
+                            var ListItemBGStyle = { clear: 'both', background: 'none', overflow: 'auto', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #eee' };
+                            if(this.state.newItemKey == key){
+                                ListItemBGStyle = { clear: 'both', background: yellow500, overflow: 'auto', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #eee' };
+                            }
+
                             var deleteButton = null;
                             if(this.state.editMode) {
                                 deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
-
-                            var listItem = <ListItem
-                                leftAvatar={<TextField name="Text" disabled={true} value={ item.text } multiLine={false} rowsMax={99} underlineShow={false} inputStyle={TextFieldViewStyle} /> }
-                                primaryText={<Textarea name="Description" readOnly={true} value={ item.description } style={DescriptionViewStyle}/> }
-                                href="#"
-                                innerDivStyle={listItemStyle}
-                                disableTouchRipple
-                                >
-                                </ListItem>;
-                            if (this.state.editMode){
-                                listItem = <ListItem
-                                    leftAvatar={<div>{deleteButton}<TextField name="Text" hintText="Role" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } multiLine={false} rowsMax={99} underlineShow={true} inputStyle={TextFieldEditStyle} style={TextFieldEditWrapper} /></div>}
-                                    primaryText={<Textarea name="Description" placeholder="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } style={DescriptionEditStyle} />}
-                                    href="#"
-                                    innerDivStyle={listItemStyle}
-                                    disableTouchRipple
-                                    >
-                                </ListItem>
-                            }
-
                             return (
                                 <div key={index}>
-                                    {listItem}
+                                    {(this.state.editMode) ?
+                                        <div style={ListItemBGStyle}>
+                                            <div style={LeftColumnEditStyle}>
+                                                <div>{deleteButton}<Textarea name="Text" placeholder="Role" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldEditStyle} /></div>
+                                            </div>
+                                            <div style={RightColumnStyle}>
+                                                <Textarea name="Description" placeholder="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } style={DescriptionEditStyle} />
+                                            </div>
+                                        </div>
+                                    :
+                                        <div style={ListItemBGStyle}>
+                                            <div style={LeftColumnStyle}>
+                                                <Textarea name="Text" readOnly={true} value={ item.text } style={TextFieldViewStyle} />
+                                            </div>
+                                            <div style={RightColumnStyle}>
+                                                <Textarea name="Description" readOnly={true} value={ item.description } style={DescriptionViewStyle}/>
+                                            </div>
+                                        </div>
+
+                                    }
                                 </div>
                             );
                         })

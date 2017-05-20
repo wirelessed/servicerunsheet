@@ -113,7 +113,7 @@ class App extends React.Component {
         if (index === 1){
             this.setState({
                 // page: <TabView serviceKey={this.state.currentServiceKey} />,
-                title: "View Service Runsheet",
+                title: "View RunsheetPro",
                 currentServiceKey: null
             });
             console.log(this.state.currentServiceKey);
@@ -121,7 +121,7 @@ class App extends React.Component {
         if (index === 0){
             this.setState({
                 // page: <Select goToService={(key) => this.goToService(key)} />,
-                title: "Service Runsheet (Beta)",
+                title: "RunsheetPro (Beta)",
                 currentServiceKey: null
             });
         }
@@ -130,7 +130,7 @@ class App extends React.Component {
     goToService = (key) => {
         this.setState({
             // page: <TabView serviceKey={key} />,
-            title: "View Service Runsheet",
+            title: "View RunsheetPro",
             currentServiceKey: key
         });
     }
@@ -149,7 +149,7 @@ class App extends React.Component {
         return (
             <Router>
                 <div>
-                    <Route exact path="/" render={() => <AppBar title="Service Runsheet (Beta)" showMenuIconButton={false} style={AppBarStyle} />}/>
+                    <Route exact path="/" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />}/>
                     <Route path="/:id" render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
                             <Link to="/">
                                 <IconButton>

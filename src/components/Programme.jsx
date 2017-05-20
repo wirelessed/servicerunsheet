@@ -23,6 +23,7 @@ import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
 import Toggle from 'material-ui/Toggle';
 import Popup from './Popup.jsx';
+import Modal from './Modal.jsx';
 import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
 import $ from 'jquery';
 moment().format();
@@ -79,6 +80,7 @@ const TextFieldStyle = {
     backgroundColor: cyan50,
     marginTop: '8px',
     borderRadius: '0px',
+    border: '1px solid #ccc',
     padding: '4px 8px',
     color: '#000',
     width: '95%',
@@ -86,6 +88,35 @@ const TextFieldStyle = {
     fontFamily: 'Roboto, sans-serif',
     fontSize: '16px',
     lineHeight: '26px'
+}
+
+const RemarksViewStyle = {
+    backgroundColor: white,
+    marginTop: '0px',
+    borderRadius: '0px',
+    border: 'none',
+    padding: '4px 8px',
+    color: '#333',
+    width: '95%',
+    height: 'auto',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '14px',
+    lineHeight: '20px',
+    resize: 'none'
+}
+
+const RemarksEditStyle = {
+    backgroundColor: white,
+    marginTop: '8px',
+    borderRadius: '0px',
+    border: '1px solid #ccc',
+    padding: '4px 8px',
+    color: '#000',
+    width: '95%',
+    height: 'auto',
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: '14px',
+    lineHeight: '20px'
 }
 
 const LeftColumnStyle = {
@@ -112,11 +143,14 @@ class Programme extends Component {
 
         this.state = {
             thePopup: null,
+            theModal: null,
             editMode: false,
             snackbarOpen: false,
             time: moment().format("HHmm"),
             serviceDate: moment().format("DD-MM-YYYY"),
             text: "",
+            // transition: "",
+            remarks: "",
             currentKey: null,
             newItemKey: null,
             items: []
@@ -175,10 +209,18 @@ class Programme extends Component {
         this.setState({text: e.target.value});
     }
 
+    // onTransitionChange = (e) => {
+    //     this.setState({transition: e.target.value});
+    // }
+
+    onRemarksChange = (e) => {
+        this.setState({remarks: e.target.value});
+    }
+
     onTimeChange = (e, time) => {
-        var newTime = moment(time).format("HHmm");
+        var newTime = time;
         this.setState({time: newTime});
-        console.log(newTime);
+        // console.log(newTime);
     }
 
     submitServiceDate = (e, time) => {
@@ -195,38 +237,46 @@ class Programme extends Component {
         this.firebaseRefs.items.child(key).update({text: e.target.value});
     }
 
+    // onExistingTransitionChange = (key, e) => {
+    //     this.firebaseRefs.items.child(key).update({transition: e.target.value});
+    // }
+
+    onExistingRemarksChange = (key, e) => {
+        this.firebaseRefs.items.child(key).update({remarks: e.target.value});
+    }
+
     onExistingTimeChange = (e, time) => {
         // save the time as a string only (no date)
-        var newTime = moment(time).format("HHmm");
+        var newTime = time;
         this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
     }
 
     onServiceStartTimeChange = (e, time) => {
-        var currTime = moment(time,"HHmm");
-        var prevTime = moment(this.state.items[0].time,"HHmm");
-
-        // count duration
-        var durationChange = moment.duration(currTime.diff(prevTime));
-
-        // check if it's before or after
-        var addOrSub = moment(currTime).isAfter(prevTime);
-        console.log(addOrSub,durationChange);
-        // update other items
-        this.state.items.map((item, index) => {
-             if (index > 0){
-                 var oldTime = moment(item.time,"HHmm");
-                 var newTime;
-                 newTime = oldTime.add(durationChange);
-
-                 newTime = moment(newTime).format("HHmm");
-                 var key = item[".key"];
-                 this.firebaseRefs.items.child(key).update({time: newTime});
-             }
-        });
-
-        // update first item
-        var newTime = moment(time).format("HHmm");
-        this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
+        // var currTime = moment(time,"HHmm");
+        // var prevTime = moment(this.state.items[0].time,"HHmm");
+        //
+        // // count duration
+        // var durationChange = moment.duration(currTime.diff(prevTime));
+        //
+        // // check if it's before or after
+        // var addOrSub = moment(currTime).isAfter(prevTime);
+        // // console.log(addOrSub,durationChange);
+        // // update other items
+        // this.state.items.map((item, index) => {
+        //      if (index > 0){
+        //          var oldTime = moment(item.time,"HHmm");
+        //          var newTime;
+        //          newTime = oldTime.add(durationChange);
+        //
+        //          newTime = moment(newTime).format("HHmm");
+        //          var key = item[".key"];
+        //          this.firebaseRefs.items.child(key).update({time: newTime});
+        //      }
+        // });
+        //
+        // // update first item
+        // var newTime = moment(time).format("HHmm");
+        // this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
     }
 
     setTimeFocus= (key) => {
@@ -235,7 +285,42 @@ class Programme extends Component {
 
     handleClosePopup = () => {
         this.setState({thePopup: null});
-    };
+    }
+
+    handleCloseModal = () => {
+        this.setState({theModal: null});
+    }
+
+    // edit item after popup closes
+    editItem = (theKey, time, text, remarks) => {
+        if(time == undefined) time = "0000";
+        if(text == undefined) text = "";
+        if(remarks == undefined) remarks = "";
+        console.log("hello", time, text, remarks);
+        this.firebaseRefs.items.child(theKey).update({time: time});
+        this.firebaseRefs.items.child(theKey).update({text: text});
+        this.firebaseRefs.items.child(theKey).update({remarks: remarks});
+        this.handleCloseModal();
+    }
+
+    // popup to edit item
+    editItemModal = (theKey, time, text, remarks) => {
+        const modal =
+            <Modal
+                isPopupOpen={true}
+                handleClosePopup={this.handleCloseModal}
+                handleSubmit={this.editItem}
+                numActions={2}
+                title="Edit Item"
+                theKey={theKey}
+                time={time}
+                text={text}
+                remarks={remarks}
+                >
+            </Modal>
+
+        this.setState({theModal: modal});
+    }
 
     deleteItemPopup = (key) => {
         const popup =
@@ -271,7 +356,7 @@ class Programme extends Component {
                 var printDuration;
                 if (index > 0){
                     printDuration = "(" + theTime.diff(previousTime, 'minutes') + " min)";
-                    composeMessage += printDuration + "\n";
+                    composeMessage += printDuration + "\n\n";
                 }
                 previousTime = theTime;
 
@@ -283,7 +368,7 @@ class Programme extends Component {
 
 
             if (item.text !== null)
-                composeMessage += item.text + "\n\n";
+                composeMessage += item.text + "\n";
 
             return composeMessage;
         });
@@ -337,13 +422,13 @@ class Programme extends Component {
             <div>
             <Divider style={{ marginTop: '8px'}}/>
             <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey100, padding: '16px 0px 56px 0px'}}>
-                <ListItem
-                leftAvatar={<TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} dialogStyle={{zIndex: '3000'}} />}
-                primaryText={<Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />}
-                innerDivStyle={listItemStyle}
-                disableTouchRipple
-                >
-                </ListItem>
+                <div style={LeftColumnStyle}>
+                    <TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} dialogStyle={{zIndex: '3000'}} />
+                </div>
+                <div style={RightColumnStyle}>
+                    <Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />
+                    <Textarea name="Remarks" placeholder="Remarks (Optional)" onChange={this.onRemarksChange} value={ this.state.remarks } style={RemarksEditStyle} />
+                </div>
                 <RaisedButton label="Add" type="submit" primary={true} style={{ margin: '0 8px', float: 'right'}}/>
             </form>
         </div>;
@@ -361,6 +446,7 @@ class Programme extends Component {
 
                         this.state.items.map((item, index) => {
                             var theDate = moment(item.time,"HHmm");
+                            var theDateInNumbers = item.time;
                             var key = item[".key"];
 
                             // highlight new item
@@ -387,13 +473,13 @@ class Programme extends Component {
                                 showDuration = <div style={{ paddingLeft: (this.state.editMode) ? '120px' : '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
                             }
 
-                            // DATE
+                            // TIME
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TimePicker name="Time" onShow={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}} dialogStyle={{ zIndex: '3000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TextField readOnly={true} name="Time" onFocus={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange.bind(this)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}}  /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TimePicker name="Time" onShow={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange} value={theDate.toDate()} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} dialogStyle={{ zIndex: '3000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TextField readOnly={true} name="Time" onFocus={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange.bind(this)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} /></div>;
                             }
 
                             return (
@@ -403,26 +489,13 @@ class Programme extends Component {
                                     </div>
 
                                     {(this.state.editMode) ?
-                                        <div>
-                                            <Card style={{boxShadow: 'none'}} onExpandChange={() => this.handleExpandChange(item.time)}>
-                                                <CardHeader
-                                                    title={<AddIcon color={indigo500} />}
-                                                    actAsExpander={true}
-                                                    style={{padding: '0', textAlign: 'center', width: '100%'}}
-                                                    titleStyle={{paddingLeft: '90px'}}
-                                                />
-                                                <CardText expandable={true} style={{padding: '0'}}>
-                                                  {AddNewLine}
-                                                </CardText>
-                                            </Card>
-
-                                            <div style={ListItemBGStyle}>
-                                                <div style={LeftColumnEditStyle}>
-                                                    {timePick}
-                                                </div>
-                                                <div style={RightColumnStyle}>
-                                                    <Textarea name="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
-                                                </div>
+                                        <div style={ListItemBGStyle}>
+                                            <div style={LeftColumnEditStyle} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
+                                                {timePick}
+                                            </div>
+                                            <div style={RightColumnStyle} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
+                                                <Textarea name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
+                                                <Textarea name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksEditStyle} />
                                             </div>
                                         </div>
                                         :
@@ -432,6 +505,10 @@ class Programme extends Component {
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
+                                                {(item.remarks == undefined || item.remarks == "") ?
+                                                    ''
+                                                : <Textarea name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} readOnly={true} />
+                                                }
                                             </div>
                                         </div>
                                     }
@@ -446,10 +523,10 @@ class Programme extends Component {
                     }
                 </List>
 
-                <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '99999', minWidth: '48px'}} labelStyle={{color: '#fff'}} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share"  />
+                <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share"  />
 
                 { (!this.state.editMode) ?
-                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
+                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
                             <ModeEdit />
                        </FloatingActionButton>
                        :
@@ -464,6 +541,8 @@ class Programme extends Component {
                 }
 
                 {this.state.thePopup}
+
+                {this.state.theModal}
         </div>
         );
     }
