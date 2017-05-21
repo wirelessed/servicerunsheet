@@ -57,18 +57,35 @@ export default class Popup extends React.Component {
         var actions = [];
         // check how many actions defined in this pop-up
         if(this.props.numActions === 2){
-            actions = [
-                <FlatButton
-                    label="Cancel"
-                    primary={true}
-                    onTouchTap={this.props.handleClosePopup}
-                    />,
-                <RaisedButton
-                    label="Done"
-                    primary={true}
-                    onTouchTap={() => this.props.handleSubmit(this.props.theKey, this.state.time, this.state.text, this.state.remarks)}
-                    />,
-            ];
+            // for add modals
+            if(this.props.type === "add"){
+                actions = [
+                    <FlatButton
+                        label="Cancel"
+                        primary={true}
+                        onTouchTap={this.props.handleClosePopup}
+                        />,
+                    <RaisedButton
+                        label="Add"
+                        primary={true}
+                        onTouchTap={() => this.props.handleSubmit(this.state.time, this.state.text, this.state.remarks)}
+                        />,
+                ];
+            // for edit modals
+            } else {
+                actions = [
+                    <FlatButton
+                        label="Cancel"
+                        primary={true}
+                        onTouchTap={this.props.handleClosePopup}
+                        />,
+                    <RaisedButton
+                        label="Done"
+                        primary={true}
+                        onTouchTap={() => this.props.handleSubmit(this.props.theKey, this.state.time, this.state.text, this.state.remarks)}
+                        />,
+                ];
+            }
         } else if(this.props.numActions === 0){
             actions = [];
         } else {
@@ -83,12 +100,13 @@ export default class Popup extends React.Component {
 
         var children =
             <div>
-                Time (hhmm):&nbsp;
-                <TextField name="Time" placeholder="Time" value={this.state.time} onChange={this.updateTime.bind(this)}  />
+                <TextField name="Time" placeholder="Time (hhmm) (24h)" value={this.state.time} onChange={this.updateTime.bind(this)}  />
                 <br />
                 <Textarea name="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
                 <br />
                 <Textarea name="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
+                <br /><br />
+                <small>Note: After editing the time, the runsheet will be re-ordered chronologically.</small>
             </div>
 
         return (

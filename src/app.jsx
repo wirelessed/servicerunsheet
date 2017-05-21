@@ -4,6 +4,7 @@ import AppBar from 'material-ui/AppBar';
 import IconButton from 'material-ui/IconButton';
 import FontIcon from 'material-ui/FontIcon';
 import View from './components/View.jsx';
+import Splash from './components/Splash.jsx';
 import Select from './components/Select.jsx';
 import Programme from './components/Programme.jsx';
 import People from './components/People.jsx';
@@ -27,6 +28,10 @@ const AppBarStyle = {
 }
 
 const Home = () => (
+     <Splash />
+)
+
+const RunsheetList = () => (
      <Select />
 )
 
@@ -70,19 +75,19 @@ const Service = ({ match, location }) => {
 
 // then our route config
 const routes = [
-    { path: '/:id/Programme',
+    { path: '/services/:id/Programme',
         component: ProgrammeTab
     },
-    { path: '/:id/People',
+    { path: '/services/:id/People',
         component: PeopleTab
     },
-    { path: '/:id/Songlist',
+    { path: '/services/:id/Songlist',
         component: SonglistTab
     },
-    { path: '/:id/Copyrights',
+    { path: '/services/:id/Copyrights',
         component: CopyrightsTab
     },
-    { path: '/:id/Lyrics',
+    { path: '/services/:id/Lyrics',
         component: LyricsTab
     }
 ]
@@ -149,16 +154,17 @@ class App extends React.Component {
         return (
             <Router>
                 <div>
-                    <Route exact path="/" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />}/>
-                    <Route path="/:id" render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
-                            <Link to="/">
+                    <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />}/>
+                    <Route path="/services/:id" render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
+                            <Link to="/Runsheets">
                                 <IconButton>
                                     <FontIcon className="material-icons" color={white}>arrow_back</FontIcon>
                                 </IconButton>
                             </Link>} style={AppBarStyle} /> } />
                     <div style={{paddingTop: '56px'}}>
                         <Route exact path="/" component={Home}/>
-                        <Route path="/:id" component={Service}/>
+                        <Route exact path="/Runsheets" component={RunsheetList}/>
+                        <Route path="/services/:id" component={Service}/>
                     </div>
                 </div>
             </Router>

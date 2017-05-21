@@ -16,6 +16,7 @@ import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
+import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 import ShareIcon from 'material-ui/svg-icons/social/share';
 import DoneIcon from 'material-ui/svg-icons/action/done';
 import AddIcon from 'material-ui/svg-icons/content/add-circle';
@@ -24,6 +25,7 @@ import Textarea from 'react-textarea-autosize';
 import Toggle from 'material-ui/Toggle';
 import Popup from './Popup.jsx';
 import Modal from './Modal.jsx';
+import MediaQuery from 'react-responsive';
 import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
 import $ from 'jquery';
 moment().format();
@@ -178,23 +180,17 @@ class Programme extends Component {
         this.firebaseRefs.items.orderByChild('time');
     }
 
-    handleSubmit = (e) => {
-        e.preventDefault();
+    addNewItem = (time, text, remarks) => {
 
-        var tempText = this.state.text;
+        var tempText = text;
 
         var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/items").push();
-        var newtime;
-        if (this.state.time === {})
-            newtime = "0000";
-        else
-            newtime = this.state.time;
 
         newItem.update({
-            text: this.state.text,
-            time: newtime
+            time: time,
+            text: text,
+            remarks: remarks
         });
-        this.setState({ text: "", time: newtime });
 
         var _self = this;
         // highlight new child
@@ -203,6 +199,8 @@ class Programme extends Component {
                 _self.setState({newItemKey: snapshot.key})
             }
         });
+
+        this.handleCloseModal();
     }
 
     onTextChange = (e) => {
@@ -245,38 +243,39 @@ class Programme extends Component {
         this.firebaseRefs.items.child(key).update({remarks: e.target.value});
     }
 
-    onExistingTimeChange = (e, time) => {
+    onExistingTimeChange = (key, e) => {
         // save the time as a string only (no date)
-        var newTime = time;
-        this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
+        var newTime = e.target.value;
+        this.firebaseRefs.items.child(key).update({time: newTime});
     }
 
-    onServiceStartTimeChange = (e, time) => {
-        // var currTime = moment(time,"HHmm");
-        // var prevTime = moment(this.state.items[0].time,"HHmm");
-        //
-        // // count duration
-        // var durationChange = moment.duration(currTime.diff(prevTime));
-        //
-        // // check if it's before or after
-        // var addOrSub = moment(currTime).isAfter(prevTime);
-        // // console.log(addOrSub,durationChange);
-        // // update other items
-        // this.state.items.map((item, index) => {
-        //      if (index > 0){
-        //          var oldTime = moment(item.time,"HHmm");
-        //          var newTime;
-        //          newTime = oldTime.add(durationChange);
-        //
-        //          newTime = moment(newTime).format("HHmm");
-        //          var key = item[".key"];
-        //          this.firebaseRefs.items.child(key).update({time: newTime});
-        //      }
-        // });
-        //
-        // // update first item
-        // var newTime = moment(time).format("HHmm");
-        // this.firebaseRefs.items.child(this.state.currentKey).update({time: newTime});
+    onServiceStartTimeChange = (key, e) => {
+        var time = e.target.value;
+        var currTime = moment(time,"HHmm");
+        var prevTime = moment(this.state.items[0].time,"HHmm");
+
+        // count duration
+        var durationChange = moment.duration(currTime.diff(prevTime));
+
+        // check if it's before or after
+        var addOrSub = moment(currTime).isAfter(prevTime);
+        // console.log(addOrSub,durationChange);
+        // update other items
+        this.state.items.map((item, index) => {
+             if (index > 0){
+                 var oldTime = moment(item.time,"HHmm");
+                 var newTime;
+                 newTime = oldTime.add(durationChange);
+
+                 newTime = moment(newTime).format("HHmm");
+                 var childkey = item[".key"];
+                 this.firebaseRefs.items.child(childkey).update({time: newTime});
+             }
+        });
+
+        // update first item
+        var newTime = moment(time).format("HHmm");
+        this.firebaseRefs.items.child(key).update({time: newTime});
     }
 
     setTimeFocus= (key) => {
@@ -321,6 +320,26 @@ class Programme extends Component {
 
         this.setState({theModal: modal});
     }
+
+    // popup to add new item
+    addNewItemModal = () => {
+        const modal =
+            <Modal
+                isPopupOpen={true}
+                handleClosePopup={this.handleCloseModal}
+                handleSubmit={this.addNewItem}
+                numActions={2}
+                title="Add New Item"
+                type="add"
+                time=""
+                text=""
+                remarks=""
+                >
+            </Modal>
+
+        this.setState({theModal: modal});
+    }
+
 
     deleteItemPopup = (key) => {
         const popup =
@@ -477,9 +496,9 @@ class Programme extends Component {
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TextField readOnly={true} name="Time" onFocus={this.setTimeFocus.bind(this, key)} onChange={this.onServiceStartTimeChange.bind(this)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}}  /></div>;
+                                timePick  = <div>{deleteButton}<TextField onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}}  /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TextField readOnly={true} name="Time" onFocus={this.setTimeFocus.bind(this, key)} onChange={this.onExistingTimeChange.bind(this)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TextField onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} /></div>;
                             }
 
                             return (
@@ -490,12 +509,15 @@ class Programme extends Component {
 
                                     {(this.state.editMode) ?
                                         <div style={ListItemBGStyle}>
-                                            <div style={LeftColumnEditStyle} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
+                                            <div style={LeftColumnEditStyle} >
                                                 {timePick}
+                                                <div style={{clear: 'both'}} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
+                                                    <ModeEdit color={indigo500}/>
+                                                </div>
                                             </div>
-                                            <div style={RightColumnStyle} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
-                                                <Textarea name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
-                                                <Textarea name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksEditStyle} />
+                                            <div style={RightColumnStyle}>
+                                                <Textarea onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
+                                                <Textarea onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksEditStyle} />
                                             </div>
                                         </div>
                                         :
@@ -530,6 +552,10 @@ class Programme extends Component {
                             <ModeEdit />
                        </FloatingActionButton>
                        :
+                       <div>
+                       <FloatingActionButton mini={true} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                            <AddFloatingIcon />
+                       </FloatingActionButton>
 
                        <Snackbar
                        open={true}
@@ -538,6 +564,8 @@ class Programme extends Component {
                        onActionTouchTap={this.toggleEditMode}
                        onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
                        style={{bottom: '57px'}} />
+
+                       </div>
                 }
 
                 {this.state.thePopup}

@@ -220,7 +220,7 @@ class Select extends Component {
                                                   <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} /></IconMenu>}>
 
                                         </ListItem>
-                                        <Link to={item.name+"/Programme"} key={index} style={{
+                                        <Link to={"/services/" + item.name+"/Programme"} key={index} style={{
                                             display: 'block',
                                             color: '#00',
                                             position: 'absolute',
