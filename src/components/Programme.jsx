@@ -496,9 +496,9 @@ class Programme extends Component {
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TextField onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}}  /></div>;
+                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}}  /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TextField onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} /></div>;
                             }
 
                             return (
@@ -516,8 +516,12 @@ class Programme extends Component {
                                                 </div>
                                             </div>
                                             <div style={RightColumnStyle}>
-                                                <Textarea onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
-                                                <Textarea onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksEditStyle} />
+                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
+                                                {(item.remarks == undefined || item.remarks == "") ?
+                                                    ''
+                                                :
+                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksEditStyle} />
+                                                }
                                             </div>
                                         </div>
                                         :
@@ -539,34 +543,60 @@ class Programme extends Component {
                         })
                     }
 
-                    { (this.state.editMode) ?
+                    {/* { (this.state.editMode) ?
                         <div style={{clear: 'both', paddingTop: '32px'}}>{AddNewLine}</div>
                         : ''
-                    }
+                    } */}
                 </List>
 
                 <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share"  />
 
                 { (!this.state.editMode) ?
-                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                    <div>
+                    <MediaQuery maxWidth={1023}>
+                        <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
                             <ModeEdit />
-                       </FloatingActionButton>
-                       :
-                       <div>
-                       <FloatingActionButton mini={true} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
-                            <AddFloatingIcon />
-                       </FloatingActionButton>
+                        </FloatingActionButton>
+                    </MediaQuery>
+                    <MediaQuery minWidth={1024}>
+                        <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                            <ModeEdit />
+                        </FloatingActionButton>
+                    </MediaQuery>
+                    </div>
+                        :
+                        <div>
+                            <MediaQuery maxWidth={1023}>
+                                <FloatingActionButton mini={true} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                    <AddFloatingIcon />
+                                </FloatingActionButton>
+                            </MediaQuery>
+                            <MediaQuery minWidth={1024}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                    <AddFloatingIcon />
+                                </FloatingActionButton>
+                            </MediaQuery>
 
-                       <Snackbar
-                       open={true}
-                       message="Editing (All changes are auto saved)"
-                       action="DONE"
-                       onActionTouchTap={this.toggleEditMode}
-                       onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
-                       style={{bottom: '57px'}} />
-
-                       </div>
-                }
+                            <MediaQuery maxWidth={1023}>
+                                <Snackbar
+                                    open={true}
+                                    message="Editing (All changes are auto saved)"
+                                    action="DONE"
+                                    onActionTouchTap={this.toggleEditMode}
+                                    onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                    style={{bottom: '57px'}} />
+                                </MediaQuery>
+                            <MediaQuery minWidth={1024}>
+                                <Snackbar
+                                    open={true}
+                                    message="Editing (All changes are auto saved)"
+                                    action="DONE"
+                                    onActionTouchTap={this.toggleEditMode}
+                                    onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                    style={{bottom: '0px'}} />
+                            </MediaQuery>
+                        </div>
+                    }
 
                 {this.state.thePopup}
 

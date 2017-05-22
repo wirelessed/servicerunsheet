@@ -74,11 +74,6 @@ export default class Popup extends React.Component {
             // for edit modals
             } else {
                 actions = [
-                    <FlatButton
-                        label="Cancel"
-                        primary={true}
-                        onTouchTap={this.props.handleClosePopup}
-                        />,
                     <RaisedButton
                         label="Done"
                         primary={true}
@@ -100,7 +95,7 @@ export default class Popup extends React.Component {
 
         var children =
             <div>
-                <TextField name="Time" placeholder="Time (hhmm) (24h)" value={this.state.time} onChange={this.updateTime.bind(this)}  />
+                <TextField type="number" name="Time" placeholder="Time (hhmm) (24h)" value={this.state.time} onChange={this.updateTime.bind(this)}  />
                 <br />
                 <Textarea name="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
                 <br />

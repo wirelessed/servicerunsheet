@@ -38,9 +38,9 @@ class Splash extends Component {
         return (
             <div style={{marginBottom: '170px', textAlign: 'center', marginTop: '100px'}}>
                 <h1>RunsheetPro</h1>
-                <p>Create runsheets like a pro.</p>
+                <p style={{marginBottom: '32px' }}>Create runsheets like a pro.</p>
                 <Link to="/Runsheets">
-                    <RaisedButton label="Login" primary={true} />
+                    <RaisedButton label="ENTER" primary={true} />
                 </Link>
             </div>
         );
