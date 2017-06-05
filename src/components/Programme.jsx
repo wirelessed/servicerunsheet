@@ -155,7 +155,8 @@ class Programme extends Component {
             remarks: "",
             currentKey: null,
             newItemKey: null,
-            items: []
+            items: [],
+            userRole: null
         };
 
     }
@@ -173,6 +174,15 @@ class Programme extends Component {
 
     componentWillUnmount() {
         //this.firebaseRef.off();
+    }
+
+    componentDidMount(){
+        var user = firebase.auth().currentUser;
+        var userRole;
+        if (user != null) {
+            userRole = firebase.database().ref("users/" + user.uid);
+            this.bindAsObject(userRole, "userRole");
+        }
     }
 
     componentWillReceiveProps = () => {
@@ -416,6 +426,15 @@ class Programme extends Component {
     }
 
     render() {
+        // check if user is admin
+        var isAdmin = false;
+        if(this.state.userRole) {
+            if(this.state.userRole.role == "admin"){
+                isAdmin = true;
+                console.log("admin");
+            }
+        }
+
         var previousTime = moment();
         var serviceDate = moment(this.state.serviceDate[".value"], "DD-MM-YYYY");
 
@@ -552,18 +571,20 @@ class Programme extends Component {
                 <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share"  />
 
                 { (!this.state.editMode) ?
-                    <div>
-                    <MediaQuery maxWidth={1023}>
-                        <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
-                            <ModeEdit />
-                        </FloatingActionButton>
-                    </MediaQuery>
-                    <MediaQuery minWidth={1024}>
-                        <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
-                            <ModeEdit />
-                        </FloatingActionButton>
-                    </MediaQuery>
-                    </div>
+                    (isAdmin) ?
+                        <div>
+                            <MediaQuery maxWidth={1023}>
+                                <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                    <ModeEdit />
+                                </FloatingActionButton>
+                            </MediaQuery>
+                            <MediaQuery minWidth={1024}>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                    <ModeEdit />
+                                </FloatingActionButton>
+                            </MediaQuery>
+                        </div>
+                    : ''
                         :
                         <div>
                             <MediaQuery maxWidth={1023}>

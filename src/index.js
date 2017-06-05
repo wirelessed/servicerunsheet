@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 import * as firebase from "firebase";
+import firebaseApp from './firebase/Firebase';
 
 import {indigo500} from 'material-ui/styles/colors'
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
@@ -14,15 +15,6 @@ import injectTapEventPlugin from 'react-tap-event-plugin';
 // http://stackoverflow.com/a/34015469/988941
 injectTapEventPlugin();
 
-// Firebase setup
-
-var config = {
-  apiKey: "AIzaSyAm3wY5fF1qkQBYeR4DYzFhYzc-TuSynYU",
-  authDomain: "servicerunsheet.firebaseapp.com",
-  databaseURL: "https://servicerunsheet.firebaseio.com",
-  storageBucket: "servicerunsheet.appspot.com",
-};
-firebase.initializeApp(config);
 
 import App from './app.jsx';
 

@@ -132,7 +132,8 @@ class People extends Component {
             description: "",
             text: "",
             currentKey: null,
-            items: []
+            items: [],
+            userRole: null
         };
 
     }
@@ -146,6 +147,16 @@ class People extends Component {
     componentWillUnmount() {
         //this.firebaseRef.off();
     }
+
+    componentDidMount(){
+        var user = firebase.auth().currentUser;
+        var userRole;
+        if (user != null) {
+            userRole = firebase.database().ref("users/" + user.uid);
+            this.bindAsObject(userRole, "userRole");
+        }
+    }
+
 
     handleSubmit = (e) => {
         e.preventDefault();
@@ -218,6 +229,15 @@ class People extends Component {
     }
 
     render() {
+        // check if user is admin
+        var isAdmin = false;
+        if(this.state.userRole) {
+            if(this.state.userRole.role == "admin"){
+                isAdmin = true;
+                console.log("admin");
+            }
+        }
+
         return (
             <div style={{paddingBottom: '150px'}}>
                 <List>
@@ -283,9 +303,11 @@ class People extends Component {
                 </List>
 
                 { (!this.state.editMode) ?
-                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
-                            <ModeEdit />
-                       </FloatingActionButton>
+                       (isAdmin) ?
+                           <FloatingActionButton style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
+                                <ModeEdit />
+                           </FloatingActionButton>
+                           : ''
                        :
 
                        <Snackbar

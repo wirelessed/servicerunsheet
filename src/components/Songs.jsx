@@ -122,6 +122,7 @@ class Songs extends Component {
             order: 0,
             currentKey: null,
             items: [],
+            userRole: null
         };
     }
 
@@ -134,8 +135,13 @@ class Songs extends Component {
     }
 
     // create empty item when new
-    componentDidMount() {
-
+    componentDidMount(){
+        var user = firebase.auth().currentUser;
+        var userRole;
+        if (user != null) {
+            userRole = firebase.database().ref("users/" + user.uid);
+            this.bindAsObject(userRole, "userRole");
+        }
     }
 
     componentWillUpdate() {
@@ -235,6 +241,15 @@ class Songs extends Component {
 
     render() {
 
+        // check if user is admin
+        var isAdmin = false;
+        if(this.state.userRole) {
+            if(this.state.userRole.role == "admin"){
+                isAdmin = true;
+                console.log("admin");
+            }
+        }
+
         return (
             <div style={{paddingBottom: '150px'}}>
                 <p style={{padding: '0 16px'}}>
@@ -303,9 +318,11 @@ class Songs extends Component {
 
 
                 { (!this.state.editMode) ? // floating edit button
-                       <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
+                    (isAdmin) ?
+                       <FloatingActionButton style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
                             <ModeEdit />
                        </FloatingActionButton>
+                    : ''
                        :
 
                        <Snackbar
@@ -319,6 +336,7 @@ class Songs extends Component {
                }
 
                 { (this.state.editMode) ? // add new form at the bottom
+
                     <div>
                     <Divider style={{ marginTop: '16px'}}/>
                     <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>

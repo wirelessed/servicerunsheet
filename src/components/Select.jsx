@@ -44,7 +44,8 @@ class Select extends Component {
             currentKey: null,
             thePopup: null,
             newName: null,
-            items: []
+            items: [],
+            userRole: null,
         };
 
     }
@@ -52,10 +53,17 @@ class Select extends Component {
     componentWillMount() {
         var ref = firebase.database().ref("services");
         this.bindAsArray(ref, "items");
+
+        var userRole = firebase.database().ref("users/" + this.props.uid);
+        this.bindAsObject(userRole, "userRole");
     }
 
     componentWillUnmount() {
         //this.firebaseRef.off();
+    }
+
+    checkIfAdmin(uid){
+
     }
 
     contextTypes: {
@@ -201,8 +209,17 @@ class Select extends Component {
         //
         // const { router } = this.context;
 
+        // check if user is admin
+        var isAdmin = false;
+        if(this.state.userRole) {
+            if(this.state.userRole.role == "admin"){
+                isAdmin = true;
+            }
+        }
+
         return (
             <div style={{marginBottom: '170px'}}>
+
                 <List>
                     {
                         this.state.items.map((item, index) => {
@@ -241,10 +258,11 @@ class Select extends Component {
                 </List>
 
                 {this.state.thePopup}
-
-                <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '99999'}} onTouchTap={this.addServicePopup}>
-                     <AddIcon />
-                </FloatingActionButton>
+                {(isAdmin) ?
+                    <FloatingActionButton style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '99999'}} onTouchTap={this.addServicePopup}>
+                         <AddIcon />
+                    </FloatingActionButton>
+                :''}
             </div>
         );
     }

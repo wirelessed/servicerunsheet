@@ -12,13 +12,17 @@ import Songs from './components/Songs.jsx';
 import Copyrights from './components/Copyrights.jsx';
 import Lyrics from './components/Lyrics.jsx';
 import BottomNav from './components/BottomNav.jsx';
+import Login from './auth/Login.js';
+import Admin2 from './auth/Admin2.js';
+import { firebaseAuth } from './firebase/Firebase';
 import './css/App.css';
 import {white, black, indigo500} from 'material-ui/styles/colors';
 import {Tabs, Tab} from 'material-ui/Tabs';
 import {
   BrowserRouter as Router,
   Route,
-  Link
+  Link,
+  Redirect
 } from 'react-router-dom';
 
 
@@ -31,9 +35,6 @@ const Home = () => (
      <Splash />
 )
 
-const RunsheetList = () => (
-     <Select />
-)
 
 const ProgrammeTab = ({ match }) => (
     <Programme serviceKey={`${match.params.id}`} />
@@ -76,7 +77,8 @@ const Service = ({ match, location }) => {
 // then our route config
 const routes = [
     { path: '/services/:id/Programme',
-        component: ProgrammeTab
+        component: ProgrammeTab,
+        uid: 'this.state.uid'
     },
     { path: '/services/:id/People',
         component: PeopleTab
@@ -101,14 +103,52 @@ const RouteWithSubRoutes = (route) => (
         )}/>
 )
 
+// function PrivateRoute ({component: Component, authed, ...rest}) {
+//   return (
+//     <Route
+//       {...rest}
+//       render={(props) => authed === true
+//         ? <Component {...props} />
+//         : <Redirect to={{pathname: '/login', state: {from: props.location}}} />}
+//     />
+//   )
+// }
+
+const renderMergedProps = (component, ...rest) => {
+  const finalProps = Object.assign({}, ...rest);
+  return (
+    React.createElement(component, finalProps)
+  );
+}
+
+const PrivateRoute = ({ component, authed, ...rest }) => {
+  return (
+    <Route {...rest} render={routeProps => {
+      return authed === true
+      ? (
+        renderMergedProps(component, routeProps, rest)
+      ) : (
+        <Redirect to={{
+          pathname: '/login',
+          state: { from: routeProps.location }
+        }}/>
+      );
+    }}/>
+  );
+};
+
+
 class App extends React.Component {
 
     constructor(props) {
         super(props);
         this.state = {
+            authed: false,
+            loading: true,
             page: null,
             title: null,
             currentServiceKey: null,
+            uid: null
         };
         this.changePage = this.changePage.bind(this);
     }
@@ -147,6 +187,26 @@ class App extends React.Component {
     componentDidMount() {
         // sets default page here
         this.changePage(0);
+
+        this.removeListener = firebaseAuth().onAuthStateChanged((user) => {
+            if (user) {
+                this.setState({
+                    uid: user.uid,
+                    authed: true,
+                    loading: false,
+                })
+            } else {
+                this.setState({
+                    uid: null,
+                    authed: false,
+                    loading: false
+                })
+            }
+        })
+    }
+
+    componentWillUnmount () {
+        this.removeListener()
     }
 
     render(){
@@ -154,8 +214,10 @@ class App extends React.Component {
         return (
             <Router>
                 <div>
-                    <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />}/>
-                    <Route path="/services/:id" render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
+                    <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />} />
+                    <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
+                    <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
+                    <Route path="/services/:id"  render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
                             <Link to="/Runsheets">
                                 <IconButton>
                                     <FontIcon className="material-icons" color={white}>arrow_back</FontIcon>
@@ -163,8 +225,11 @@ class App extends React.Component {
                             </Link>} style={AppBarStyle} /> } />
                     <div style={{paddingTop: '56px'}}>
                         <Route exact path="/" component={Home}/>
-                        <Route exact path="/Runsheets" component={RunsheetList}/>
-                        <Route path="/services/:id" component={Service}/>
+                        <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Select} uid={this.state.uid} />
+                        <PrivateRoute authed={this.state.authed} path='/services/:id' component={Service} uid={this.state.uid} />
+                        <Route path="/admin" component={Admin2} />
+                        <Route path="/login" component={Login} />
+                        {/* <Route path="/services/:id/edit" component={Edit} /> */}
                     </div>
                 </div>
             </Router>
