@@ -11,7 +11,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey100, grey200, grey500, indigo500, cyan50, yellow500, white, black} from 'material-ui/styles/colors';
+import {grey100, grey200, grey500, indigo500, indigo800, cyan50, yellow500, white, black} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
@@ -44,7 +44,8 @@ const listItemStyle = {
 const TimePickerStyle = {
     width: '72px',
     marginTop: '-4px',
-    float: 'left'
+    float: 'left',
+    color: indigo500
 }
 
 const TimePickerAddStyle = {
@@ -63,18 +64,22 @@ const deleteButtonStyle = {
 }
 
 const TextFieldViewStyle = {
-    backgroundColor: cyan50,
-    borderRadius: '3px',
     marginTop: '8px',
-    padding: '4px 8px',
     color: black,
     height: 'auto',
     lineHeight: '1.6',
     width: '98%',
     fontFamily: 'Roboto, sans-serif',
+    background: '#F0EEEC',
+    padding: '4px 8px',
+    borderLeft: '2px solid',
+    borderLeftColor: indigo500,
+    borderRight: 'none',
+    borderTop: 'none',
+    borderBottom: 'none',
+    fontWeight: '400',
     fontSize: '16px',
     lineHeight: '26px',
-    border: 'none',
     resize: 'none'
 }
 
@@ -84,7 +89,7 @@ const TextFieldStyle = {
     borderRadius: '0px',
     border: '1px solid #ccc',
     padding: '4px 8px',
-    color: '#000',
+    color: indigo800,
     width: '95%',
     height: 'auto',
     fontFamily: 'Roboto, sans-serif',
@@ -488,9 +493,9 @@ class Programme extends Component {
                             var key = item[".key"];
 
                             // highlight new item
-                            var ListItemBGStyle = { clear: 'both', background: 'none', overflow: 'auto' };
+                            var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
                             if(this.state.newItemKey == key){
-                                ListItemBGStyle = { clear: 'both', background: yellow500, overflow: 'auto' };
+                                ListItemBGStyle = { clear: 'both', background: yellow500, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
                             }
 
                             // DELETE BUTTON
@@ -515,9 +520,9 @@ class Programme extends Component {
                             var timePick;
                             // allow start time to change everyone else
                             if (index == 0){
-                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000'}}  /></div>;
+                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
                             } else {
-                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={true} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} /></div>;
+                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
                             }
 
                             return (
@@ -535,18 +540,18 @@ class Programme extends Component {
                                                 </div>
                                             </div>
                                             <div style={RightColumnStyle}>
-                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldStyle} />
+                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldViewStyle} />
                                                 {(item.remarks == undefined || item.remarks == "") ?
                                                     ''
                                                 :
-                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksEditStyle} />
+                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksViewStyle} />
                                                 }
                                             </div>
                                         </div>
                                         :
                                         <div style={ListItemBGStyle}>
                                             <div style={LeftColumnStyle}>
-                                                <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: '#000' }} dialogStyle={{ zIndex: '3000' }} />
+                                                <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: indigo500 }} dialogStyle={{ zIndex: '3000' }} />
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
@@ -574,7 +579,7 @@ class Programme extends Component {
                     (isAdmin) ?
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={true} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
                                     <ModeEdit />
                                 </FloatingActionButton>
                             </MediaQuery>
@@ -588,7 +593,7 @@ class Programme extends Component {
                         :
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={true} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
                                     <AddFloatingIcon />
                                 </FloatingActionButton>
                             </MediaQuery>
@@ -601,7 +606,7 @@ class Programme extends Component {
                             <MediaQuery maxWidth={1023}>
                                 <Snackbar
                                     open={true}
-                                    message="Editing (All changes are auto saved)"
+                                    message="Editing: Tap on any item to edit"
                                     action="DONE"
                                     onActionTouchTap={this.toggleEditMode}
                                     onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
@@ -610,7 +615,7 @@ class Programme extends Component {
                             <MediaQuery minWidth={1024}>
                                 <Snackbar
                                     open={true}
-                                    message="Editing (All changes are auto saved)"
+                                    message="Editing: Tap on any item to edit"
                                     action="DONE"
                                     onActionTouchTap={this.toggleEditMode}
                                     onRequestClose={(reason) => {if (reason == 'clickaway') {} }}

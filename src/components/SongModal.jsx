@@ -20,36 +20,42 @@ const TextFieldEditStyle = {
 }
 
 
-export default class Modal extends React.Component {
+export default class SongModal extends React.Component {
 
     constructor(props) {
         super(props);
 
         this.state = {
-            time: "",
-            text: "",
-            remarks: "",
+            order: "",
+            title: "",
+            lyrics: "",
+            copyright: "",
         };
 
     }
 
-    updateTime(e) {
-        this.setState({time: e.target.value})
+    updateOrder(e) {
+        this.setState({order: e.target.value})
     }
 
-    updateText(e) {
-        this.setState({text: e.target.value})
+    updateTitle(e) {
+        this.setState({title: e.target.value})
     }
 
-    updateRemarks(e) {
-        this.setState({remarks: e.target.value})
+    updateLyrics(e) {
+        this.setState({lyrics: e.target.value})
+    }
+
+    updateCopyright(e) {
+        this.setState({copyright: e.target.value})
     }
 
     componentDidMount(){
         this.setState({
-            time: this.props.time,
-            text: this.props.text,
-            remarks: this.props.remarks
+            order: this.props.order,
+            title: this.props.title,
+            lyrics: this.props.lyrics,
+            copyright: this.props.copyright
         })
     }
 
@@ -68,7 +74,7 @@ export default class Modal extends React.Component {
                     <RaisedButton
                         label="Add"
                         primary={true}
-                        onTouchTap={() => this.props.handleSubmit(this.state.time, this.state.text, this.state.remarks)}
+                        onTouchTap={() => this.props.handleSubmit(this.state.order, this.state.title, this.state.lyrics, this.state.copyright)}
                         />,
                 ];
             // for edit modals
@@ -77,7 +83,7 @@ export default class Modal extends React.Component {
                     <RaisedButton
                         label="Done"
                         primary={true}
-                        onTouchTap={() => this.props.handleSubmit(this.props.theKey, this.state.time, this.state.text, this.state.remarks)}
+                        onTouchTap={() => this.props.handleSubmit(this.props.theKey, this.state.order, this.state.title, this.state.lyrics, this.state.copyright)}
                         />,
                 ];
             }
@@ -95,13 +101,15 @@ export default class Modal extends React.Component {
 
         var children =
             <div>
-                <TextField type="number" name="Time" placeholder="Time (hhmm) (24h)" value={this.state.time} onChange={this.updateTime.bind(this)}  />
+                <TextField type="number" name="Order" placeholder="Song Order Number" value={this.state.order} onChange={this.updateOrder.bind(this)}  />
                 <br />
-                <Textarea name="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
+                <Textarea name="Text" placeholder="Song Title" value={this.state.title} onChange={this.updateTitle.bind(this)} style={TextFieldEditStyle} />
                 <br />
-                <Textarea name="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
-                <br /><br />
-                <small>Note: After editing the time, the runsheet will be re-ordered chronologically.</small>
+                <Textarea name="Lyrics" placeholder="Lyrics" value={this.state.lyrics} onChange={this.updateLyrics.bind(this)} style={TextFieldEditStyle} />
+                <br />
+                <Textarea name="Copyright" placeholder="Copyright" value={this.state.copyright} onChange={this.updateCopyright.bind(this)} style={TextFieldEditStyle} />
+                <br />
+                <small>Note: After editing the order, the songs list will be re-ordered.</small>
             </div>
 
         return (

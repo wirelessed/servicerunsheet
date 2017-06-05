@@ -20,6 +20,9 @@ import Snackbar from 'material-ui/Snackbar';
 import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
 import Textarea from 'react-textarea-autosize';
 import Popup from './Popup.jsx';
+import Modal from './SongModal.jsx';
+import MediaQuery from 'react-responsive';
+import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 
 moment().format();
 
@@ -40,7 +43,7 @@ const deleteButtonStyle = {
     height: '48px',
     lineHeight: '48px',
     paddingRight: '8px',
-    marginTop: '10px'
+    marginTop: '0px'
 }
 
 const TextFieldStyle = {
@@ -116,6 +119,7 @@ class Songs extends Component {
         this.state = {
             thePopup: null,
             editMode: false,
+            theModal: null,
             description: "",
             text: "",
             copyright: "",
@@ -152,50 +156,97 @@ class Songs extends Component {
         //this.firebaseRef.off();
     }
 
-    handleSubmit = (e) => {
-        e.preventDefault();
+    // handleSubmit = (e) => {
+    //     e.preventDefault();
+    //
+    //     var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/songs").push();
+    //
+    //     newItem.update({
+    //         text: this.state.text,
+    //         description: this.state.description,
+    //         copyright: this.state.copyright,
+    //         order: this.state.order
+    //     });
+    //     this.setState({ text: "", description: "", copyright: "", order: ""});
+    // }
+
+    addNewItem = (order, title, lyrics, copyright) => {
+
+        var tempText = title;
 
         var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/songs").push();
 
         newItem.update({
-            text: this.state.text,
-            description: this.state.description,
-            copyright: this.state.copyright,
-            order: this.state.order
+            order: order,
+            title: title,
+            lyrics: lyrics,
+            copyright: copyright
         });
-        this.setState({ text: "", description: "", copyright: "", order: ""});
+
+        var _self = this;
+        // highlight new child
+        this.firebaseRefs.items.on("child_added", function(snapshot) {
+            if(snapshot.val().text == tempText){
+                _self.setState({newItemKey: snapshot.key})
+            }
+        });
+
+        this.handleCloseModal();
     }
 
-    onTextChange = (e) => {
-        this.setState({text: e.target.value});
+    // edit item after popup closes
+    editItem = (theKey, order, title, lyrics, copyright) => {
+        if(order == undefined) order = "1";
+        if(title == undefined) title = "";
+        if(lyrics == undefined) lyrics = "";
+        if(copyright == undefined) copyright = "";
+
+        this.firebaseRefs.items.child(theKey).update({order: order});
+        this.firebaseRefs.items.child(theKey).update({title: title});
+        this.firebaseRefs.items.child(theKey).update({lyrics: lyrics});
+        this.firebaseRefs.items.child(theKey).update({copyright: copyright});
+
+        this.handleCloseModal();
     }
 
-    onDescriptionChange = (e) => {
-        this.setState({description: e.target.value});
+    // popup to edit item
+    editItemModal = (theKey, order, title, lyrics, copyright) => {
+        const modal =
+            <Modal
+                isPopupOpen={true}
+                handleClosePopup={this.handleCloseModal}
+                handleSubmit={this.editItem}
+                numActions={2}
+                title="Edit Item"
+                theKey={theKey}
+                order={order}
+                title={title}
+                lyrics={lyrics}
+                copyright={copyright}
+                >
+            </Modal>
+
+        this.setState({theModal: modal});
     }
 
-    onCopyrightChange = (e) => {
-        this.setState({copyright: e.target.value});
-    }
+    // popup to add new item
+    addNewItemModal = () => {
+        const modal =
+            <Modal
+                isPopupOpen={true}
+                handleClosePopup={this.handleCloseModal}
+                handleSubmit={this.addNewItem}
+                numActions={2}
+                title="Add New Item"
+                type="add"
+                order=""
+                title=""
+                lyrics=""
+                copyright=""
+                >
+            </Modal>
 
-    onOrderChange = (e) => {
-        this.setState({order: e.target.value});
-    }
-
-    onExistingTextChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({text: e.target.value});
-    }
-
-    onExistingDescriptionChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({description: e.target.value});
-    }
-
-    onExistingCopyrightChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({copyright: e.target.value});
-    }
-
-    onExistingOrderChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({order: e.target.value});
+        this.setState({theModal: modal});
     }
 
     setTimeFocus= (key) => {
@@ -205,6 +256,10 @@ class Songs extends Component {
     handleClosePopup = () => {
         this.setState({thePopup: null});
     };
+
+    handleCloseModal = () => {
+        this.setState({theModal: null});
+    }
 
     deleteItemPopup = (key) => {
         const popup =
@@ -260,55 +315,52 @@ class Songs extends Component {
 
                         var deleteButton = null;
                         if(this.state.editMode) {
-                            deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                            deleteButton =
+                            <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                         }
 
-                        var textfield;
-                        if (this.state.editMode){
-                            textfield = <div>
-                            <TextField name="Text" hintText="No." onChange={this.onExistingOrderChange.bind(this, key)} value={ item.order } multiLine={false} underlineShow={true} inputStyle={{width: '30px'}} style={{width: '30px', float: 'left'}}/>
-                            <Textarea name="Text" placeholder="Enter Song Title" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldEditStyle} />
-                            </div>
-                        } else {
-                            textfield = <div>
+                        var textfield =
+                            <div>
                                 <TextField name="Text" disabled={true} value={ item.order } multiLine={false} underlineShow={false} inputStyle={{width: '30px'}} style={{width: '30px', height: 'auto', float: 'left'}} />
-                                <Textarea name="Text" readOnly={true} value={ item.text } style={TextFieldViewStyle} />
+                                <Textarea name="Text" readOnly={true} value={ item.title } style={TextFieldViewStyle} />
                             </div>
-                        }
+
 
                         return (
                             <Card key={index}>
                                 { (this.state.editMode) ?
                                     <CardHeader
-                                        title={<div>{deleteButton}{textfield}</div>}
-                                        showExpandableButton={true}
-                                        style={{backgroundColor: cyan50, borderBottom: '1px solid #fff'}}
+                                        title={<div>{textfield}</div>}
+                                        showExpandableButton={false}
+                                        style={{backgroundColor: '#F0EEEC', borderBottom: '1px solid #fff'}}
                                         textStyle={{width: '80%', paddingRight: '0'}}
                                     /> :
                                     <CardHeader
                                         title={textfield}
                                         actAsExpander={true}
                                         showExpandableButton={true}
-                                        style={{backgroundColor: cyan50, borderBottom: '1px solid #fff'}}
+                                        style={{backgroundColor: '#F0EEEC', borderBottom: '1px solid #fff'}}
                                         textStyle={{width: '80%', paddingRight: '0'}}
                                     />
+                                }
+                                { (this.state.editMode) ?
+                                    <CardActions>
+                                        <FlatButton label="Delete" onTouchTap={() => this.deleteItemPopup(key)} />
+                                        <FlatButton label="Edit" onTouchTap={() => this.editItemModal(key, item.order, item.title, item.lyrics, item.copyright)} />
+                                    </CardActions>
+                                    :''
                                 }
                                 <CardText expandable={true}>
                                     <div style={{marginBottom: '32px'}}>
                                         <strong>Lyrics:</strong>
-                                        { (this.state.editMode) ?
-                                            <Textarea name="Description" placeholder="Lyrics" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } style={DescriptionEditStyle} />
-                                            :
-                                            <Textarea name="Description" readOnly={true} value={ item.description } style={DescriptionViewStyle}/>
-                                        }
-                                        </div>
+
+                                        <Textarea name="Lyrics" readOnly={true} value={ item.lyrics } style={DescriptionViewStyle}/>
+                                    </div>
                                     <div>
                                         <strong>Copyright:</strong>
-                                        { (this.state.editMode) ?
-                                            <Textarea name="Copyright" placeholder="Copyright" onChange={this.onExistingCopyrightChange.bind(this, key)} value={ item.copyright } style={DescriptionEditStyle} />
-                                            :
-                                            <Textarea name="Copyright" readOnly={true} value={ item.copyright } style={DescriptionViewStyle}/>
-                                        }
+
+                                        <Textarea name="Copyright" readOnly={true} value={ item.copyright } style={DescriptionViewStyle} />
+
                                     </div>
                                 </CardText>
                             </Card>
@@ -319,35 +371,55 @@ class Songs extends Component {
 
                 { (!this.state.editMode) ? // floating edit button
                     (isAdmin) ?
-                       <FloatingActionButton style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '99999'}} onTouchTap={this.toggleEditMode}>
-                            <ModeEdit />
-                       </FloatingActionButton>
+                        <div>
+                            <MediaQuery maxWidth={1023}>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                    <ModeEdit />
+                                </FloatingActionButton>
+                            </MediaQuery>
+                            <MediaQuery minWidth={1024}>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                    <ModeEdit />
+                                </FloatingActionButton>
+                            </MediaQuery>
+                        </div>
                     : ''
-                       :
-
-                       <Snackbar
-                       open={true}
-                       message="Editing (All changes are auto saved)"
-                       action="DONE"
-                       onActionTouchTap={this.toggleEditMode}
-                       onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
-                       style={{bottom: '57px'}} />
-
-               }
-
-                { (this.state.editMode) ? // add new form at the bottom
-
+                    :
                     <div>
-                    <Divider style={{ marginTop: '16px'}}/>
-                    <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
-                        <p style={{padding: '0 16px'}}>Add New Song Title</p>
-                        <TextField name="Text" hintText="No." onChange={this.onOrderChange} value={ this.state.order } multiLine={false} underlineShow={true} inputStyle={{width: '30px'}} style={{width: '30px', float: 'left', marginLeft: '16px'}}/>
-                        <Textarea name="Text" onChange={ this.onTextChange } value={ this.state.text } placeholder="Enter Song Title" style={TextFieldAddStyle} />
-                        <RaisedButton label="Add" type="submit" primary={true} style={{ marginRight: '16px', float: 'right'}}/>
-                    </form>
+                        <MediaQuery maxWidth={1023}>
+                            <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                <AddFloatingIcon />
+                            </FloatingActionButton>
+                        </MediaQuery>
+                        <MediaQuery minWidth={1024}>
+                            <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                <AddFloatingIcon />
+                            </FloatingActionButton>
+                        </MediaQuery>
+
+                        <MediaQuery maxWidth={1023}>
+                            <Snackbar
+                                open={true}
+                                message="Editing: Tap on any item to edit"
+                                action="DONE"
+                                onActionTouchTap={this.toggleEditMode}
+                                onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                style={{bottom: '57px'}} />
+                            </MediaQuery>
+                        <MediaQuery minWidth={1024}>
+                            <Snackbar
+                                open={true}
+                                message="Editing: Tap on any item to edit"
+                                action="DONE"
+                                onActionTouchTap={this.toggleEditMode}
+                                onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                style={{bottom: '0px'}} />
+                        </MediaQuery>
                     </div>
-                    :  <div></div>
                 }
+
+
+                {this.state.theModal}
 
                 {this.state.thePopup}
             </div>
