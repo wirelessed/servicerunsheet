@@ -68,6 +68,13 @@ class Admin extends Component {
         firebase.auth().onAuthStateChanged(function(user) {
             if (user) {
                 _self.setState({redirectToReferrer: true, loading: true});
+                var promise = firebase.database().ref("users/" + user.uid).update({
+                    role: "admin"
+                });
+
+                promise.then(function(){
+                    window.location.href = '/Runsheets';
+                });
             } else {
                 _self.setState({ loading: false });
             }

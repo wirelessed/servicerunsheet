@@ -45,7 +45,7 @@ const TimePickerStyle = {
     width: '72px',
     marginTop: '16px',
     float: 'left',
-    color: indigo800
+    color: black
 }
 
 const TimePickerAddStyle = {
@@ -454,7 +454,7 @@ class Programme extends Component {
         if (this.state.editMode){
             showDate = <ListItem
                 leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
-                primaryText={<DatePicker name="Date" onChange={this.submitServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} /> }
+                primaryText={<DatePicker name="Date" onChange={this.submitServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
                 href="#"
                 innerDivStyle={listItemStyle}
                 disableTouchRipple
@@ -490,6 +490,7 @@ class Programme extends Component {
                         this.state.items.map((item, index) => {
                             var theDate = moment(item.time,"HHmm");
                             var theDateInNumbers = item.time;
+                            var theTime = theDate.format("LT");
                             var key = item[".key"];
 
                             // highlight new item
@@ -552,7 +553,7 @@ class Programme extends Component {
                                         :
                                         <div style={ListItemBGStyle}>
                                             <div style={LeftColumnStyle}>
-                                                <div style={TimePickerStyle}>{theDateInNumbers}</div>
+                                                <div style={TimePickerStyle}>{theTime}</div>
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
@@ -580,12 +581,12 @@ class Programme extends Component {
                     (isAdmin) ?
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
                                     <ModeEdit />
                                 </FloatingActionButton>
                             </MediaQuery>
                             <MediaQuery minWidth={1024}>
-                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.toggleEditMode}>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
                                     <ModeEdit />
                                 </FloatingActionButton>
                             </MediaQuery>
@@ -594,12 +595,12 @@ class Programme extends Component {
                         :
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={this.addNewItemModal}>
                                     <AddFloatingIcon />
                                 </FloatingActionButton>
                             </MediaQuery>
                             <MediaQuery minWidth={1024}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '9999'}} onTouchTap={this.addNewItemModal}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.addNewItemModal}>
                                     <AddFloatingIcon />
                                 </FloatingActionButton>
                             </MediaQuery>
