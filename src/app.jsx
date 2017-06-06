@@ -13,6 +13,7 @@ import Copyrights from './components/Copyrights.jsx';
 import Lyrics from './components/Lyrics.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import Login from './auth/Login.js';
+import Admin from './auth/Admin.js';
 import Admin2 from './auth/Admin2.js';
 import { firebaseAuth } from './firebase/Firebase';
 import './css/App.css';
@@ -188,7 +189,7 @@ class App extends React.Component {
         // sets default page here
         this.changePage(0);
 
-        this.removeListener = firebaseAuth().onAuthStateChanged((user) => {
+        firebaseAuth().onAuthStateChanged((user) => {
             if (user) {
                 this.setState({
                     uid: user.uid,
@@ -206,7 +207,7 @@ class App extends React.Component {
     }
 
     componentWillUnmount () {
-        this.removeListener()
+        //this.removeListener()
     }
 
     render(){
@@ -215,6 +216,7 @@ class App extends React.Component {
             <Router>
                 <div>
                     <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />} />
+                    <Route exact path="/admin/login" render={() => <AppBar title="Login As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                     <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                     <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
                     <Route path="/services/:id"  render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
@@ -227,8 +229,9 @@ class App extends React.Component {
                         <Route exact path="/" component={Home}/>
                         <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Select} uid={this.state.uid} />
                         <PrivateRoute authed={this.state.authed} path='/services/:id' component={Service} uid={this.state.uid} />
-                        <Route path="/admin" component={Admin2} />
-                        <Route path="/login" component={Login} />
+                        <Route exact path="/admin" component={Admin2} />
+                        <Route exact path="/admin/login" component={Admin} />
+                        <Route exact path="/login" component={Login} />
                         {/* <Route path="/services/:id/edit" component={Edit} /> */}
                     </div>
                 </div>

@@ -43,9 +43,9 @@ const listItemStyle = {
 
 const TimePickerStyle = {
     width: '72px',
-    marginTop: '-4px',
+    marginTop: '16px',
     float: 'left',
-    color: indigo500
+    color: indigo800
 }
 
 const TimePickerAddStyle = {
@@ -516,14 +516,14 @@ class Programme extends Component {
                                 showDuration = <div style={{ paddingLeft: (this.state.editMode) ? '120px' : '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
                             }
 
-                            // TIME
-                            var timePick;
-                            // allow start time to change everyone else
-                            if (index == 0){
-                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
-                            } else {
-                                timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
-                            }
+                            // // TIME
+                            // var timePick;
+                            // // allow start time to change everyone else
+                            // if (index == 0){
+                            //     timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
+                            // } else {
+                            //     timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
+                            // }
 
                             return (
                                 <div key={index}>
@@ -534,7 +534,8 @@ class Programme extends Component {
                                     {(this.state.editMode) ?
                                         <div style={ListItemBGStyle}>
                                             <div style={LeftColumnEditStyle} >
-                                                {timePick}
+                                                {deleteButton}
+                                                <div style={TimePickerStyle}>{theDateInNumbers}</div>
                                                 <div style={{clear: 'both'}} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
                                                     <ModeEdit color={indigo500}/>
                                                 </div>
@@ -551,7 +552,7 @@ class Programme extends Component {
                                         :
                                         <div style={ListItemBGStyle}>
                                             <div style={LeftColumnStyle}>
-                                                <TimePicker name="Time" disabled={true} value={theDate.toDate()} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{textTransform: 'uppercase', color: indigo500 }} dialogStyle={{ zIndex: '3000' }} />
+                                                <div style={TimePickerStyle}>{theDateInNumbers}</div>
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />

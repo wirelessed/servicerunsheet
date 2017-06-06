@@ -101,7 +101,7 @@ const TextFieldEditStyle = {
 }
 
 const TextFieldEditWrapper = {
-    paddingTop: '4px',
+    paddingTop: '0px',
     width: '96px',
     height: '40px'
 }
@@ -289,7 +289,7 @@ class People extends Component {
                         <Divider style={{ marginTop: '16px'}}/>
                         <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
                             <ListItem
-                            leftAvatar={<TextField name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Role" multiLine={false} rowsMax={99} inputStyle={TextFieldEditStyle} style={TextFieldEditWrapper} />}
+                            leftAvatar={<Textarea name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Role" placeholder="Role" style={TextFieldEditStyle} />}
                             primaryText={<Textarea name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } placeholder="Person" style={DescriptionEditStyle} />}
                             innerDivStyle={listItemStyle}
                             disableTouchRipple

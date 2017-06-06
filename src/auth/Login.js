@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Link, Redirect } from 'react-router';
 import * as firebase from 'firebase';
 import firebaseApp from '../firebase/Firebase';
+import CircularProgress from 'material-ui/CircularProgress';
 // import isEmail from 'validator/lib/isEmail';
 
 class Login extends Component {
@@ -33,6 +34,10 @@ class Login extends Component {
             // This gives you a Google Access Token. You can use it to access the Google API.
             //var token = result.credential.accessToken;
             // The signed-in user info.
+            if(!_self.state.loading){
+                _self.setState({loading: true});
+            }
+
             if (result.credential) {
                 var user = result.user;
                 if(!_self.checkIfUserExists(user.uid)){
@@ -43,13 +48,7 @@ class Login extends Component {
                 } else {
                     console.log('User exists');
                 }
-
-                if(!_self.state.loading){
-                    _self.setState({loading: true});
-                }
             }
-
-
         }).catch(function(error) {
             var errorMessage = error.message;
             alert("Google sign in error: "+ errorMessage);
@@ -59,14 +58,9 @@ class Login extends Component {
             if (user) {
                 _self.setState({redirectToReferrer: true, loading: true});
             } else {
-                this.setState({ loading: false });
+                _self.setState({ loading: false });
             }
         });
-
-        var user = firebase.auth().currentUser;
-        if(!user){
-            this.setState({ loading: false });
-        }
     }
 
     handleGoogle(e) {
@@ -84,9 +78,10 @@ class Login extends Component {
             <div style={{marginTop: '100px', textAlign: 'center'}}>
                 {(this.state.loading) ?
                     <div>
-                        <p>Logging in...</p>
+                        <CircularProgress />
+                        <p>Logging in...</p><p>Please Wait</p>
                         {(this.state.redirectToReferrer) ?
-                            <Redirect to={from || '/Runsheets'}/>
+                            <Redirect to={'/Runsheets'}/>
                         :''}
                     </div>
                 :

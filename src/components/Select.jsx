@@ -51,7 +51,7 @@ class Select extends Component {
     }
 
     componentWillMount() {
-        var ref = firebase.database().ref("services");
+        var ref = firebase.database().ref("services").orderByChild('name');
         this.bindAsArray(ref, "items");
 
         var userRole = firebase.database().ref("users/" + this.props.uid);
@@ -224,18 +224,22 @@ class Select extends Component {
                     {
                         this.state.items.map((item, index) => {
                             var serviceDate = moment(item.date, "DD-MM-YYYY");
+                            var sideMenu = <div></div>;
+                            if (isAdmin) {
+                                sideMenu = <IconMenu iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
+                                                        anchorOrigin={{horizontal: 'right', vertical: 'top'}}
+                                                        targetOrigin={{horizontal: 'right', vertical: 'top'}} >
+                                <MenuItem primaryText="Rename" onTouchTap={() => this.renameServicePopup(item, item['.key'])}  />
+                                <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item['.key'])} />
+                                <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} /></IconMenu>;
+                            }
+
                             return (
 
                                     <div key={index} style={{position:'relative'}}>
                                         <ListItem primaryText={item.name}
                                                   secondaryText={serviceDate.format("dddd, D MMMM YYYY")}
-                                                  rightIconButton={<IconMenu iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
-                                                                          anchorOrigin={{horizontal: 'right', vertical: 'top'}}
-                                                                          targetOrigin={{horizontal: 'right', vertical: 'top'}} >
-                                                  <MenuItem primaryText="Rename" onTouchTap={() => this.renameServicePopup(item, item['.key'])}  />
-                                                  <MenuItem primaryText="Delete" onTouchTap={() => this.removeServicePopup(item['.key'])} />
-                                                  <MenuItem primaryText="Duplicate" onTouchTap={() => this.duplicateServiceSetName(item)} /></IconMenu>}>
-
+                                                  rightIconButton={sideMenu}>
                                         </ListItem>
                                         <Link to={"/services/" + item.name+"/Programme"} key={index} style={{
                                             display: 'block',
