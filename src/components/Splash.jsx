@@ -1,8 +1,6 @@
 import React, {Component} from 'react';
 import RaisedButton from 'material-ui/RaisedButton';
 import {
-  BrowserRouter as Router,
-  Route,
   Link
 } from 'react-router-dom';
 
@@ -31,8 +29,6 @@ class Splash extends Component {
 
     render() {
 
-        var previousTime = new Date();
-        //
         // const { router } = this.context;
 
         return (

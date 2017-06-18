@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import * as firebase from "firebase";
-import firebaseApp from './firebase/Firebase';
+// import * as firebase from "firebase";
+// import firebaseApp from './firebase/Firebase';
 
 import {indigo500} from 'material-ui/styles/colors'
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';

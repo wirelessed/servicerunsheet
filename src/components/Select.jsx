@@ -1,38 +1,26 @@
 import React, {Component} from 'react';
-import update from 'react-addons-update';
+//import update from 'react-addons-update';
 import {List, ListItem} from 'material-ui/List';
-import MobileDetect from 'mobile-detect';
 import * as firebase from "firebase";
 import ReactFireMixin from 'reactfire';
 import reactMixin from 'react-mixin';
-import TimePicker from 'material-ui/TimePicker';
+//import TimePicker from 'material-ui/TimePicker';
 import TextField from 'material-ui/TextField';
-import RaisedButton from 'material-ui/RaisedButton';
+//import RaisedButton from 'material-ui/RaisedButton';
 import Divider from 'material-ui/Divider';
 import IconMenu from 'material-ui/IconMenu';
 import MenuItem from 'material-ui/MenuItem';
 import IconButton from 'material-ui/IconButton';
 import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
 import AddIcon from 'material-ui/svg-icons/content/add';
-import {grey200, grey500} from 'material-ui/styles/colors';
 import Popup from './Popup.jsx';
 import moment from 'moment';
 import {
-  BrowserRouter as Router,
-  Route,
   Link
 } from 'react-router-dom';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import updateArray from 'immutability-helper';
 
-const listItemStyle = {
-    padding: '4px 16px 4px 16px'
-}
-
-const TimePickerStyle = {
-    width: '100px',
-    top: 'inherit'
-}
 
 class Select extends Component {
 
@@ -205,14 +193,10 @@ class Select extends Component {
 
     render() {
 
-        var previousTime = new Date();
-        //
-        // const { router } = this.context;
-
         // check if user is admin
         var isAdmin = false;
         if(this.state.userRole) {
-            if(this.state.userRole.role == "admin"){
+            if(this.state.userRole.role === "admin"){
                 isAdmin = true;
             }
         }
@@ -224,7 +208,7 @@ class Select extends Component {
                     {
                         this.state.items.map((item, index) => {
                             var serviceDate = moment(item.date, "DD-MM-YYYY");
-                            var sideMenu = <div></div>;
+                            var sideMenu = null;
                             if (isAdmin) {
                                 sideMenu = <IconMenu iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
                                                         anchorOrigin={{horizontal: 'right', vertical: 'top'}}

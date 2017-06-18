@@ -1,33 +1,32 @@
 import React, {Component} from 'react';
-import update from 'react-addons-update';
+// import update from 'react-addons-update';
 import {List, ListItem} from 'material-ui/List';
-import MobileDetect from 'mobile-detect';
+// import MobileDetect from 'mobile-detect';
 import * as firebase from "firebase";
 import ReactFireMixin from 'reactfire';
 import reactMixin from 'react-mixin';
 import TimePicker from 'material-ui/TimePicker';
-import TextField from 'material-ui/TextField';
+// import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey100, grey200, grey500, indigo500, indigo800, cyan50, yellow500, white, black} from 'material-ui/styles/colors';
+import {grey100, grey200, grey500, indigo500, indigo800, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 import ShareIcon from 'material-ui/svg-icons/social/share';
-import DoneIcon from 'material-ui/svg-icons/action/done';
-import AddIcon from 'material-ui/svg-icons/content/add-circle';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
-import Toggle from 'material-ui/Toggle';
 import Popup from './Popup.jsx';
 import Modal from './Modal.jsx';
 import MediaQuery from 'react-responsive';
-import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
 import $ from 'jquery';
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
+
 moment().format();
 
 
@@ -79,7 +78,6 @@ const TextFieldViewStyle = {
     borderBottom: 'none',
     fontWeight: '400',
     fontSize: '16px',
-    lineHeight: '26px',
     resize: 'none'
 }
 
@@ -98,7 +96,7 @@ const TextFieldStyle = {
 }
 
 const RemarksViewStyle = {
-    backgroundColor: white,
+    backgroundColor: 'transparent',
     marginTop: '0px',
     borderRadius: '0px',
     border: 'none',
@@ -113,7 +111,7 @@ const RemarksViewStyle = {
 }
 
 const RemarksEditStyle = {
-    backgroundColor: white,
+    backgroundColor: 'transparent',
     marginTop: '8px',
     borderRadius: '0px',
     border: '1px solid #ccc',
@@ -161,7 +159,8 @@ class Programme extends Component {
             currentKey: null,
             newItemKey: null,
             items: [],
-            userRole: null
+            userRole: null,
+            prevHighlightSlot: null
         };
 
     }
@@ -188,11 +187,15 @@ class Programme extends Component {
             userRole = firebase.database().ref("users/" + user.uid);
             this.bindAsObject(userRole, "userRole");
         }
+
+        // update time every minute
+        setInterval(this.highlightCurrentTime, 30000);
     }
 
     componentWillReceiveProps = () => {
         // re-order whenever there's new items
         this.firebaseRefs.items.orderByChild('time');
+        this.highlightCurrentTime();
     }
 
     addNewItem = (time, text, remarks) => {
@@ -210,7 +213,7 @@ class Programme extends Component {
         var _self = this;
         // highlight new child
         this.firebaseRefs.items.on("child_added", function(snapshot) {
-            if(snapshot.val().text == tempText){
+            if(snapshot.val().text === tempText){
                 _self.setState({newItemKey: snapshot.key})
             }
         });
@@ -307,10 +310,10 @@ class Programme extends Component {
 
     // edit item after popup closes
     editItem = (theKey, time, text, remarks) => {
-        if(time == undefined) time = "0000";
-        if(text == undefined) text = "";
-        if(remarks == undefined) remarks = "";
-        console.log("hello", time, text, remarks);
+        if(time === undefined) time = "0000";
+        if(text === undefined) text = "";
+        if(remarks === undefined) remarks = "";
+        // console.log("hello", time, text, remarks);
         this.firebaseRefs.items.child(theKey).update({time: time});
         this.firebaseRefs.items.child(theKey).update({text: text});
         this.firebaseRefs.items.child(theKey).update({remarks: remarks});
@@ -407,16 +410,33 @@ class Programme extends Component {
             return composeMessage;
         });
         composeMessage=encodeURIComponent(composeMessage);
-        console.log(composeMessage);
+        // console.log(composeMessage);
+
+        ReactGA.event({
+            category: 'Share',
+            action: 'Share Whatsapp',
+            label: 'Programme'
+        });
+
         window.location = "whatsapp://send?text=" + composeMessage;
     }
 
     toggleEditMode = () => {
         if (this.state.editMode) {
+            ReactGA.event({
+                category: 'Edit',
+                action: 'Edit Off',
+                label: 'Programme'
+            });
             this.setState({
                 editMode: false
             });
         } else {
+            ReactGA.event({
+                category: 'Edit',
+                action: 'Edit On',
+                label: 'Programme'
+            });
             this.setState({
                 editMode: true
             });
@@ -430,18 +450,46 @@ class Programme extends Component {
         this.setState({time: newTime});
     }
 
+    // highlight timeslot based on current time
+    highlightCurrentTime = () => {
+        // get current Time
+        var newTime = moment().format("HHmm");
+        var timeSlot = $('.' + newTime);
+        //console.log("timeslot", newTime);
+        // check if it exists
+        if(timeSlot.length > 0){
+            //console.log("timeslot exists");
+
+            // unhighlight previous state
+            if(this.state.prevHighlightSlot){
+                this.state.prevHighlightSlot.css('backgroundColor','white');
+                this.state.prevHighlightSlot.css('opacity','0.5');
+            }
+
+            var offset = timeSlot.offset();
+            $('body').scrollTop(offset);
+            timeSlot.css('backgroundColor','#E8EAF6');
+
+            // save state
+            this.setState({prevHighlightSlot: timeSlot});
+        }
+    }
+
     render() {
         // check if user is admin
         var isAdmin = false;
         if(this.state.userRole) {
-            if(this.state.userRole.role == "admin"){
+            if(this.state.userRole.role === "admin"){
                 isAdmin = true;
-                console.log("admin");
+                // console.log("admin");
             }
         }
 
         var previousTime = moment();
         var serviceDate = moment(this.state.serviceDate[".value"], "DD-MM-YYYY");
+
+        // check if service date is today
+        var isToday = moment().isSame(serviceDate,'day');
 
         // show date depending on editMode
         let showDate = <ListItem
@@ -495,8 +543,12 @@ class Programme extends Component {
 
                             // highlight new item
                             var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
-                            if(this.state.newItemKey == key){
-                                ListItemBGStyle = { clear: 'both', background: yellow500, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
+                            if(this.state.newItemKey === key){
+                                ListItemBGStyle = { clear: 'both', background: yellow200, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
+                            }
+                            var opacity = {};
+                            if(isToday && moment().isAfter(theDate,'minute')){
+                                opacity = { opacity: '0.5' };
                             }
 
                             // DELETE BUTTON
@@ -514,7 +566,7 @@ class Programme extends Component {
 
                             var showDuration = null;
                             if (index > 0){
-                                showDuration = <div style={{ paddingLeft: (this.state.editMode) ? '120px' : '100px', marginBottom: '16px', color: grey500 }}>{theDuration}</div>;
+                                showDuration = <div style={{ paddingLeft: (this.state.editMode) ? '120px' : '100px', paddingBottom: '16px', color: grey500 }} className="duration">{theDuration}</div>;
                             }
 
                             // // TIME
@@ -533,17 +585,17 @@ class Programme extends Component {
                                     </div>
 
                                     {(this.state.editMode) ?
-                                        <div style={ListItemBGStyle}>
+                                        <div style={ListItemBGStyle} className={theDateInNumbers}>
                                             <div style={LeftColumnEditStyle} >
                                                 {deleteButton}
-                                                <div style={TimePickerStyle}>{theDateInNumbers}</div>
+                                                <div style={TimePickerStyle} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)}>{theDateInNumbers}</div>
                                                 <div style={{clear: 'both'}} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
                                                     <ModeEdit color={indigo500}/>
                                                 </div>
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldViewStyle} />
-                                                {(item.remarks == undefined || item.remarks == "") ?
+                                                {(item.remarks === undefined || item.remarks === "") ?
                                                     ''
                                                 :
                                                     <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksViewStyle} />
@@ -551,13 +603,13 @@ class Programme extends Component {
                                             </div>
                                         </div>
                                         :
-                                        <div style={ListItemBGStyle}>
+                                        <div style={ListItemBGStyle,opacity} className={theDateInNumbers}>
                                             <div style={LeftColumnStyle}>
                                                 <div style={TimePickerStyle}>{theTime}</div>
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
-                                                {(item.remarks == undefined || item.remarks == "") ?
+                                                {(item.remarks === undefined || item.remarks === "") ?
                                                     ''
                                                 : <Textarea name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} readOnly={true} />
                                                 }
@@ -611,7 +663,7 @@ class Programme extends Component {
                                     message="Editing: Tap on any item to edit"
                                     action="DONE"
                                     onActionTouchTap={this.toggleEditMode}
-                                    onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                    onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
                                     style={{bottom: '57px'}} />
                                 </MediaQuery>
                             <MediaQuery minWidth={1024}>
@@ -620,7 +672,7 @@ class Programme extends Component {
                                     message="Editing: Tap on any item to edit"
                                     action="DONE"
                                     onActionTouchTap={this.toggleEditMode}
-                                    onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                    onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
                                     style={{bottom: '0px'}} />
                             </MediaQuery>
                         </div>

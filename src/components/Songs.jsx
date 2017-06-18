@@ -23,6 +23,8 @@ import Popup from './Popup.jsx';
 import Modal from './SongModal.jsx';
 import MediaQuery from 'react-responsive';
 import AddFloatingIcon from 'material-ui/svg-icons/content/add';
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
 
 moment().format();
 
@@ -287,9 +289,19 @@ class Songs extends Component {
             this.setState({
                 editMode: false
             });
+            ReactGA.event({
+                category: 'Edit',
+                action: 'Edit Off',
+                label: 'Songs'
+            });
         } else {
             this.setState({
                 editMode: true
+            });
+            ReactGA.event({
+                category: 'Edit',
+                action: 'Edit On',
+                label: 'Songs'
             });
         }
     }

@@ -3,7 +3,6 @@ import MediaQuery from 'react-responsive';
 import AppBar from 'material-ui/AppBar';
 import IconButton from 'material-ui/IconButton';
 import FontIcon from 'material-ui/FontIcon';
-import View from './components/View.jsx';
 import Splash from './components/Splash.jsx';
 import Select from './components/Select.jsx';
 import Programme from './components/Programme.jsx';
@@ -17,15 +16,25 @@ import Admin from './auth/Admin.js';
 import Admin2 from './auth/Admin2.js';
 import { firebaseAuth } from './firebase/Firebase';
 import './css/App.css';
-import {white, black, indigo500} from 'material-ui/styles/colors';
-import {Tabs, Tab} from 'material-ui/Tabs';
+import {white, indigo500} from 'material-ui/styles/colors';
 import {
   BrowserRouter as Router,
   Route,
   Link,
   Redirect
 } from 'react-router-dom';
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
 
+const track = () => {
+    ReactGA.set({ page: window.location.pathname });
+    ReactGA.pageview(window.location.pathname);
+}
+class TrackPageView extends React.Component {
+    componentWillMount() { track() }
+    componentWillUpdate() { track() }
+    render() { return <Route children={this.props.children}/> }
+}
 
 const AppBarStyle = {
     position: 'fixed',
@@ -57,24 +66,6 @@ const LyricsTab = ({ match }) => (
     <Lyrics serviceKey={`${match.params.id}`} />
 )
 
-const Service = ({ match, location }) => {
-    return (
-
-        <div className="Service">
-            {routes.map((route, i) => (
-                <RouteWithSubRoutes key={i} {...route}/>
-            ))}
-            <MediaQuery maxWidth={1023}>
-                <BottomNav serviceKey={match.url} currLocation={location.pathname} />
-            </MediaQuery>
-            <MediaQuery minWidth={1024}>
-                <BottomNav serviceKey={match.url} isDesktop={true} currLocation={location.pathname}/>
-            </MediaQuery>
-        </div>
-
-    )
-}
-
 // then our route config
 const routes = [
     { path: '/services/:id/Programme',
@@ -94,6 +85,24 @@ const routes = [
         component: LyricsTab
     }
 ]
+
+const Service = ({ match, location }) => {
+    return (
+
+        <div className="Service">
+            {routes.map((route, i) => (
+                <RouteWithSubRoutes key={i} {...route}/>
+            ))}
+            <MediaQuery maxWidth={1023}>
+                <BottomNav serviceKey={match.url} currLocation={location.pathname} />
+            </MediaQuery>
+            <MediaQuery minWidth={1024}>
+                <BottomNav serviceKey={match.url} isDesktop={true} currLocation={location.pathname}/>
+            </MediaQuery>
+        </div>
+
+    )
+}
 
 // wrap <Route> and use this everywhere instead, then when
 // sub routes are added to any route it'll work
@@ -213,28 +222,30 @@ class App extends React.Component {
     render(){
 
         return (
-            <Router>
-                <div>
-                    <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />} />
-                    <Route exact path="/admin/login" render={() => <AppBar title="Login As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
-                    <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
-                    <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
-                    <Route path="/services/:id"  render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
-                            <Link to="/Runsheets">
-                                <IconButton>
-                                    <FontIcon className="material-icons" color={white}>arrow_back</FontIcon>
-                                </IconButton>
-                            </Link>} style={AppBarStyle} /> } />
-                    <div style={{paddingTop: '56px'}}>
-                        <Route exact path="/" component={Home}/>
-                        <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Select} uid={this.state.uid} />
-                        <PrivateRoute authed={this.state.authed} path='/services/:id' component={Service} uid={this.state.uid} />
-                        <Route exact path="/admin" component={Admin2} />
-                        <Route exact path="/admin/login" component={Admin} />
-                        <Route exact path="/login" component={Login} />
-                        {/* <Route path="/services/:id/edit" component={Edit} /> */}
+            <Router history={history}>
+                <TrackPageView>
+                    <div>
+                        <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />} />
+                        <Route exact path="/admin/login" render={() => <AppBar title="Login As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
+                        <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
+                        <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
+                        <Route path="/services/:id"  render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
+                                <Link to="/Runsheets">
+                                    <IconButton>
+                                        <FontIcon className="material-icons" color={white}>arrow_back</FontIcon>
+                                    </IconButton>
+                                </Link>} style={AppBarStyle} /> } />
+                        <div style={{paddingTop: '56px'}}>
+                            <Route exact path="/" component={Home}/>
+                            <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Select} uid={this.state.uid} />
+                            <PrivateRoute authed={this.state.authed} path='/services/:id' component={Service} uid={this.state.uid} />
+                            <Route exact path="/admin" component={Admin2} />
+                            <Route exact path="/admin/login" component={Admin} />
+                            <Route exact path="/login" component={Login} />
+                            {/* <Route path="/services/:id/edit" component={Edit} /> */}
+                        </div>
                     </div>
-                </div>
+                </TrackPageView>
             </Router>
         );
     }

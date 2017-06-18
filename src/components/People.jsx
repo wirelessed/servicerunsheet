@@ -1,24 +1,20 @@
 import React, {Component} from 'react';
-import update from 'react-addons-update';
 import {List, ListItem} from 'material-ui/List';
-import MobileDetect from 'mobile-detect';
 import * as firebase from "firebase";
 import ReactFireMixin from 'reactfire';
 import reactMixin from 'react-mixin';
-import TimePicker from 'material-ui/TimePicker';
-import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
-import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
 import {grey200, grey500, indigo500, yellow500, cyan500} from 'material-ui/styles/colors';
 import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
-import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
 import Popup from './Popup.jsx';
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
 
 moment().format();
 
@@ -45,22 +41,12 @@ const listItemStyle = {
     height: 'auto'
 }
 
-const TimePickerStyle = {
-    width: '72px',
-    marginTop: '-4px',
-    float: 'left'
-}
-
 const deleteButtonStyle = {
     float: 'left',
     height: '48px',
     lineHeight: '48px',
     paddingRight: '8px',
     marginTop: '2px'
-}
-
-const TextFieldStyle = {
-    marginTop: '8px'
 }
 
 const TextFieldViewStyle = {
@@ -87,10 +73,6 @@ const DescriptionViewStyle = {
     resize: 'none'
 }
 
-const DescriptionViewWrapper = {
-    width: '100%'
-}
-
 const TextFieldEditStyle = {
     color: '#000',
     width: '96px',
@@ -100,14 +82,7 @@ const TextFieldEditStyle = {
     border: '1px solid #ccc'
 }
 
-const TextFieldEditWrapper = {
-    paddingTop: '0px',
-    width: '96px',
-    height: '40px'
-}
-
 const DescriptionEditStyle = {
-    padding: '0px',
     color: '#000',
     width: '98%',
     border: '1px solid #ccc',
@@ -115,10 +90,6 @@ const DescriptionEditStyle = {
     fontFamily: 'Roboto, sans-serif',
     fontSize: '16px',
     lineHeight: '26px'
-}
-
-const DescriptionEditWrapper = {
-    width: '100%'
 }
 
 class People extends Component {
@@ -221,9 +192,19 @@ class People extends Component {
             this.setState({
                 editMode: false
             });
+            ReactGA.event({
+                category: 'Edit',
+                action: 'Edit Off',
+                label: 'People'
+            });
         } else {
             this.setState({
                 editMode: true
+            });
+            ReactGA.event({
+                category: 'Edit',
+                action: 'Edit On',
+                label: 'People'
             });
         }
     }
@@ -289,7 +270,7 @@ class People extends Component {
                         <Divider style={{ marginTop: '16px'}}/>
                         <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
                             <ListItem
-                            leftAvatar={<Textarea name="Text" onChange={ this.onTextChange } value={ this.state.text } hintText="Role" placeholder="Role" style={TextFieldEditStyle} />}
+                            leftAvatar={<Textarea name="Text" onChange={ this.onTextChange } value={ this.state.text } placeholder="Role" style={TextFieldEditStyle} />}
                             primaryText={<Textarea name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } placeholder="Person" style={DescriptionEditStyle} />}
                             innerDivStyle={listItemStyle}
                             disableTouchRipple
