@@ -22,6 +22,7 @@ import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
 import Popup from './Popup.jsx';
 import Modal from './Modal.jsx';
+import ModalStartTime from './ModalStartTime.jsx';
 import MediaQuery from 'react-responsive';
 import $ from 'jquery';
 var ReactGA = require('react-ga');
@@ -267,33 +268,53 @@ class Programme extends Component {
         this.firebaseRefs.items.child(key).update({time: newTime});
     }
 
-    onServiceStartTimeChange = (key, e) => {
-        var time = e.target.value;
+    onServiceStartTimeChange = (newTime) => {
+        var time = newTime;
         var currTime = moment(time,"HHmm");
         var prevTime = moment(this.state.items[0].time,"HHmm");
 
         // count duration
         var durationChange = moment.duration(currTime.diff(prevTime));
-
+        console.log("durationChange",durationChange);
         // check if it's before or after
         var addOrSub = moment(currTime).isAfter(prevTime);
-        // console.log(addOrSub,durationChange);
-        // update other items
-        this.state.items.map((item, index) => {
-             if (index > 0){
-                 var oldTime = moment(item.time,"HHmm");
-                 var newTime;
-                 newTime = oldTime.add(durationChange);
+        console.log("addOrSub",addOrSub);
 
-                 newTime = moment(newTime).format("HHmm");
-                 var childkey = item[".key"];
-                 this.firebaseRefs.items.child(childkey).update({time: newTime});
-             }
+        // update items
+        var tempItems = this.state.items;
+        tempItems.map((item, index) => {
+            console.log("text old", item.text);
+            console.log("newTime old", item.time);
+             var oldTime = moment(item.time,"HHmm");
+             var newTime;
+             newTime = oldTime.add(durationChange);
+
+             newTime = moment(newTime).format("HHmm");
+             item.time = newTime;
+             // console.log("childkey", childKey);
+             console.log("text", item.text);
+             console.log("newTime", item.time);
         });
 
-        // update first item
-        var newTime = moment(time).format("HHmm");
-        this.firebaseRefs.items.child(key).update({time: newTime});
+        console.log("items", tempItems);
+        this.setState({items: tempItems});
+
+        this.handleClosePopup();
+    }
+
+    changeServiceStartTime = () => {
+        const changePopup =
+            <ModalStartTime
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={this.onServiceStartTimeChange}
+                numActions={2}
+                title="Change Service Start Time"
+                time={this.state.items[0].time}
+                >
+            </ModalStartTime>
+
+        this.setState({thePopup: changePopup});
     }
 
     setTimeFocus= (key) => {
@@ -633,9 +654,11 @@ class Programme extends Component {
                     (isAdmin) ?
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
-                                    <ModeEdit />
-                                </FloatingActionButton>
+                                <div>
+                                    <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
+                                        <ModeEdit />
+                                    </FloatingActionButton>
+                                </div>
                             </MediaQuery>
                             <MediaQuery minWidth={1024}>
                                 <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
@@ -658,22 +681,29 @@ class Programme extends Component {
                             </MediaQuery>
 
                             <MediaQuery maxWidth={1023}>
-                                <Snackbar
-                                    open={true}
-                                    message="Editing: Tap on any item to edit"
-                                    action="DONE"
-                                    onActionTouchTap={this.toggleEditMode}
-                                    onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
-                                    style={{bottom: '57px'}} />
-                                </MediaQuery>
+                                <div>
+                                    <RaisedButton style={{position: 'fixed', right: '120px', bottom: '115px', zIndex: '1499'}} primary={true} onTouchTap={this.changeServiceStartTime} label="Change Service Start Time" />
+
+                                    <Snackbar
+                                        open={true}
+                                        message="Editing: Tap on any item to edit"
+                                        action="DONE"
+                                        onActionTouchTap={this.toggleEditMode}
+                                        onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
+                                        style={{bottom: '57px'}} />
+                                </div>
+                            </MediaQuery>
                             <MediaQuery minWidth={1024}>
-                                <Snackbar
-                                    open={true}
-                                    message="Editing: Tap on any item to edit"
-                                    action="DONE"
-                                    onActionTouchTap={this.toggleEditMode}
-                                    onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
-                                    style={{bottom: '0px'}} />
+                                <div>
+                                    <RaisedButton style={{position: 'fixed', right: '120px', bottom: '40px', zIndex: '1499'}} primary={true} onTouchTap={this.changeServiceStartTime} label="Change Service Start Time" />
+                                    <Snackbar
+                                        open={true}
+                                        message="Editing: Tap on any item to edit"
+                                        action="DONE"
+                                        onActionTouchTap={this.toggleEditMode}
+                                        onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
+                                        style={{bottom: '0px'}} />
+                                </div>
                             </MediaQuery>
                         </div>
                     }
