@@ -27,6 +27,7 @@ import MediaQuery from 'react-responsive';
 import $ from 'jquery';
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
+var deepcopy = require("deepcopy");
 
 moment().format();
 
@@ -281,7 +282,10 @@ class Programme extends Component {
         console.log("addOrSub",addOrSub);
 
         // update items
-        var tempItems = this.state.items;
+        var tempItems = deepcopy(this.state.items);
+        console.log("tempItems",tempItems);
+
+        var _self = this;
         tempItems.map((item, index) => {
             console.log("text old", item.text);
             console.log("newTime old", item.time);
@@ -290,14 +294,21 @@ class Programme extends Component {
              newTime = oldTime.add(durationChange);
 
              newTime = moment(newTime).format("HHmm");
+             delete item['.key']; 
              item.time = newTime;
-             // console.log("childkey", childKey);
+
              console.log("text", item.text);
              console.log("newTime", item.time);
         });
 
         console.log("items", tempItems);
         this.setState({items: tempItems});
+
+        // update firebase
+        var newFirebaseItems = firebase.database().ref("services/"+this.props.serviceKey);
+        newFirebaseItems.update({items: null});
+        newFirebaseItems.update({items: tempItems});
+
 
         this.handleClosePopup();
     }

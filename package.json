@@ -6,6 +6,7 @@
     "react-scripts": "0.7.0"
   },
   "dependencies": {
+    "deepcopy": "^0.6.3",
     "firebase": "^3.6.1",
     "firebase-admin": "^4.0.3",
     "firebase-tools": "^3.9.0",
