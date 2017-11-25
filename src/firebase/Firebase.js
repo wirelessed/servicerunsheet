@@ -1,13 +1,15 @@
 import * as firebase from 'firebase';
 
 var config = {
-    apiKey: "AIzaSyAm3wY5fF1qkQBYeR4DYzFhYzc-TuSynYU",
-    authDomain: "runsheetpro.com",
-    databaseURL: "https://servicerunsheet.firebaseio.com",
-    storageBucket: "servicerunsheet.appspot.com",
-  };
+    apiKey: "AIzaSyC5tRc37qob3t2dYartKzQO3Pe2supelfA",
+    authDomain: "runsheet22.firebaseapp.com",
+    databaseURL: "https://runsheet22.firebaseio.com",
+    projectId: "runsheet22",
+    storageBucket: "runsheet22.appspot.com",
+    messagingSenderId: "442170353088"
+};
 
- const firebaseApp  = firebase.initializeApp(config);
+const firebaseApp  = firebase.initializeApp(config);
 
 export default firebaseApp;
 
