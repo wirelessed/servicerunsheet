@@ -6,8 +6,9 @@
     "react-scripts": "0.7.0"
   },
   "dependencies": {
+    "@firebase/firestore": "^0.1.4",
     "deepcopy": "^0.6.3",
-    "firebase": "^3.6.1",
+    "firebase": "^4.6.2",
     "firebase-admin": "^4.0.3",
     "firebase-tools": "^3.9.0",
     "immutability-helper": "^2.2.0",

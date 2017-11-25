@@ -20,6 +20,7 @@ import {
 } from 'react-router-dom';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import updateArray from 'immutability-helper';
+import RunsheetApi from './../api/RunsheetApi.js';
 
 
 class Runsheets extends Component {
@@ -94,6 +95,8 @@ class Runsheets extends Component {
             name: this.state.newName,
             date: moment().format("DD-MM-YYYY")
         })
+
+        RunsheetApi.createService(this.state.newName, moment().format("DD-MM-YYYY"));
 
         this.handleClosePopup();
     }
