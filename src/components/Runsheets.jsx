@@ -22,7 +22,7 @@ import FloatingActionButton from 'material-ui/FloatingActionButton';
 import updateArray from 'immutability-helper';
 
 
-class Select extends Component {
+class Runsheets extends Component {
 
     constructor(props) {
         super(props);
@@ -260,6 +260,6 @@ class Select extends Component {
 //   router: React.PropTypes.object
 // }
 
-reactMixin(Select.prototype, ReactFireMixin);
+reactMixin(Runsheets.prototype, ReactFireMixin);
 
-export default Select;
+export default Runsheets;

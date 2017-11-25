@@ -4,7 +4,7 @@ import AppBar from 'material-ui/AppBar';
 import IconButton from 'material-ui/IconButton';
 import FontIcon from 'material-ui/FontIcon';
 import Splash from './components/Splash.jsx';
-import Select from './components/Select.jsx';
+import Runsheets from "./components/Runsheets.jsx";
 import Programme from './components/Programme.jsx';
 import People from './components/People.jsx';
 import Songs from './components/Songs.jsx';
@@ -237,7 +237,7 @@ class App extends React.Component {
                                 </Link>} style={AppBarStyle} /> } />
                         <div style={{paddingTop: '56px'}}>
                             <Route exact path="/" component={Home}/>
-                            <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Select} uid={this.state.uid} />
+                            <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Runsheets} uid={this.state.uid} />
                             <PrivateRoute authed={this.state.authed} path='/services/:id' component={Service} uid={this.state.uid} />
                             <Route exact path="/admin" component={Admin2} />
                             <Route exact path="/admin/login" component={Admin} />
