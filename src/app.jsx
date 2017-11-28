@@ -171,7 +171,6 @@ class App extends React.Component {
                 title: "View RunsheetPro",
                 currentServiceKey: null
             });
-            console.log(this.state.currentServiceKey);
         }
         if (index === 0){
             this.setState({
@@ -180,14 +179,6 @@ class App extends React.Component {
                 currentServiceKey: null
             });
         }
-    }
-
-    goToService = (key) => {
-        this.setState({
-            // page: <TabView serviceKey={key} />,
-            title: "View RunsheetPro",
-            currentServiceKey: key
-        });
     }
 
     handleBackToHome = () => {
@@ -222,7 +213,7 @@ class App extends React.Component {
     render(){
 
         return (
-            <Router history={history}>
+            <Router>
                 <TrackPageView>
                     <div>
                         <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />} />

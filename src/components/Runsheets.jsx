@@ -1,9 +1,6 @@
 import React, {Component} from 'react';
 import moment from 'moment';
 import {Link} from 'react-router-dom';
-import updateArray from 'immutability-helper';
-import { initFirestorter, Collection } from 'firestorter';
-import { observer } from 'mobx-react';
 // UI COMPONENTS
 import {List, ListItem} from 'material-ui/List';
 import TextField from 'material-ui/TextField';
@@ -15,14 +12,17 @@ import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
 import AddIcon from 'material-ui/svg-icons/content/add';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 // Subcomponents
-import firebaseApp from "../firebase/Firebase";
 import Popup from './Popup.jsx';
 
-// Initialize `firestorter`
+// Firebase Store
+import { observer } from 'mobx-react';
+import { firebaseStore } from "../firebase/FirebaseStore";
+import firebaseApp from "../firebase/Firebase";
+import { initFirestorter, Collection, Document } from 'firestorter';
 initFirestorter({ firebase: firebaseApp });
-
-// Define collection
-const runsheets = new Collection('runsheets');
+const runsheets = firebaseStore.runsheets;
+const runsheet = firebaseStore.runsheet;
+const programme = firebaseStore.programme;
 
 const Runsheets = observer(class Runsheets extends Component {
 
@@ -38,14 +38,6 @@ const Runsheets = observer(class Runsheets extends Component {
             userRole: null,
         };
 
-    }
-
-    componentWillMount() {
-
-    }
-
-    componentWillUnmount() {
-        //this.firebaseRef.off();
     }
 
     checkIfAdmin(uid){
@@ -233,8 +225,14 @@ const Runsheets = observer(class Runsheets extends Component {
 
 const RunsheetItem = observer(class RunsheetItem extends Component {
 
+    handleClickRunsheet = () => {
+        const id = this.props.doc.id;
+        console.log("click",id);
+        programme.path = 'runsheets/' + id + '/programme';
+    }
+
     render(){
-        var doc = this.props.doc;
+        const doc = this.props.doc;
         const { name, date } = this.props.doc.data;
         
         var serviceDate = moment(date, "DD-MM-YYYY");
@@ -256,7 +254,9 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
                     secondaryText={serviceDate.format("dddd, D MMMM YYYY")}
                     rightIconButton={sideMenu}>
                 </ListItem>
-                <Link to={"/services/" + name + "/Programme"} style={{
+                <Link to={"/services/" + doc.id + "/Programme"} 
+                onClick={() => this.handleClickRunsheet()}
+                style={{
                     display: 'block',
                     color: '#00',
                     position: 'absolute',

@@ -118,7 +118,7 @@ const BottomNavStyleDesktop = {
              TheInnerNavStyle = { backgroundColor: grey200 };
          }
 
-         console.log(this.state.selectedIndex);
+         // console.log("selectedTab", this.state.selectedIndex);
 
          return (
              <Paper zDepth={2} style={TheBottomNavStyle}>

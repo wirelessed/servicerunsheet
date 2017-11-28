@@ -1,18 +1,21 @@
 import React, {Component} from 'react';
-// import update from 'react-addons-update';
+import MediaQuery from 'react-responsive';
+import * as firebase from 'firebase';
+import $ from 'jquery';
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
+var deepcopy = require("deepcopy");
+import moment from 'moment';
+moment().format();
+
+// UI COMPONENTS
 import {List, ListItem} from 'material-ui/List';
-// import MobileDetect from 'mobile-detect';
-import * as firebase from "firebase";
-import ReactFireMixin from 'reactfire';
-import reactMixin from 'react-mixin';
 import TimePicker from 'material-ui/TimePicker';
-// import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
 import {grey100, grey200, grey500, indigo500, indigo800, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
-import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
@@ -20,17 +23,15 @@ import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 import ShareIcon from 'material-ui/svg-icons/social/share';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
+// Subcomponents
 import Popup from './Popup.jsx';
 import Modal from './Modal.jsx';
 import ModalStartTime from './ModalStartTime.jsx';
-import MediaQuery from 'react-responsive';
-import $ from 'jquery';
-var ReactGA = require('react-ga');
-ReactGA.initialize('UA-101242277-1');
-var deepcopy = require("deepcopy");
 
-moment().format();
-
+// Firebase Store
+import { observer } from 'mobx-react';
+import { firebaseStore } from "../firebase/FirebaseStore";
+const programme = firebaseStore.programme;
 
 const listItemViewStyle = {
     padding: '4px 16px 4px 100px',
@@ -143,7 +144,7 @@ const RightColumnStyle = {
     float: 'left'
 }
 
-class Programme extends Component {
+const Programme = observer(class Programme extends Component {
 
     constructor(props) {
         super(props);
@@ -168,27 +169,26 @@ class Programme extends Component {
     }
 
     componentWillMount() {
-        // get date from firebase
-        var serviceDate = firebase.database().ref("services/"+this.props.serviceKey+"/date");
-        this.bindAsObject(serviceDate, "serviceDate");
+         // get date from firebase
 
-        // get items from firebase
-        // order by time
-        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items").orderByChild('time');
-        this.bindAsArray(ref, "items");
+    //     // get items from firebase
+    //     // order by time
+    //     var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items").orderByChild('time');
+    //     this.bindAsArray(ref, "items");
     }
 
-    componentWillUnmount() {
-        //this.firebaseRef.off();
-    }
+    // componentWillUnmount() {
+    //     //this.firebaseRef.off();
+    // }
 
     componentDidMount(){
-        var user = firebase.auth().currentUser;
-        var userRole;
-        if (user != null) {
-            userRole = firebase.database().ref("users/" + user.uid);
-            this.bindAsObject(userRole, "userRole");
-        }
+        // var user = firebase.auth().currentUser;
+        // var userRole;
+        // if (user != null) {
+        //     userRole = firebase.database().ref("users/" + user.uid);
+        //     this.bindAsObject(userRole, "userRole");
+        // }
+        console.log("path", firebaseStore.programme.path);
 
         // update time every minute
         setInterval(this.highlightCurrentTime, 30000);
@@ -196,8 +196,8 @@ class Programme extends Component {
 
     componentWillReceiveProps = () => {
         // re-order whenever there's new items
-        this.firebaseRefs.items.orderByChild('time');
-        this.highlightCurrentTime();
+        // this.firebaseRefs.items.orderByChild('time');
+        // this.highlightCurrentTime();
     }
 
     addNewItem = (time, text, remarks) => {
@@ -725,8 +725,6 @@ class Programme extends Component {
         </div>
         );
     }
-}
-
-reactMixin(Programme.prototype, ReactFireMixin);
+});
 
 export default Programme;
