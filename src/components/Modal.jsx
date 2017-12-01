@@ -77,7 +77,7 @@ export default class Modal extends React.Component {
                     <RaisedButton
                         label="Done"
                         primary={true}
-                        onTouchTap={() => this.props.handleSubmit(this.props.theKey, this.state.time, this.state.text, this.state.remarks)}
+                        onTouchTap={() => this.props.handleSubmit(this.props.doc, this.state.time, this.state.text, this.state.remarks)}
                         />,
                 ];
             }

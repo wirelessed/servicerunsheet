@@ -32,6 +32,7 @@ import ModalStartTime from './ModalStartTime.jsx';
 import { observer } from 'mobx-react';
 import { firebaseStore } from "../firebase/FirebaseStore";
 const programme = firebaseStore.programme;
+const runsheet = firebaseStore.runsheet;
 
 const listItemViewStyle = {
     padding: '4px 16px 4px 100px',
@@ -170,7 +171,6 @@ const Programme = observer(class Programme extends Component {
 
     componentWillMount() {
          // get date from firebase
-
     //     // get items from firebase
     //     // order by time
     //     var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items").orderByChild('time');
@@ -188,8 +188,9 @@ const Programme = observer(class Programme extends Component {
         //     userRole = firebase.database().ref("users/" + user.uid);
         //     this.bindAsObject(userRole, "userRole");
         // }
-        console.log("path", firebaseStore.programme.path);
-
+        console.log("path", programme.path);
+        programme.query = programme.ref.orderBy('time', 'asc');
+        
         // update time every minute
         setInterval(this.highlightCurrentTime, 30000);
     }
@@ -200,27 +201,20 @@ const Programme = observer(class Programme extends Component {
         // this.highlightCurrentTime();
     }
 
-    addNewItem = (time, text, remarks) => {
-
-        var tempText = text;
-
-        var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/items").push();
-
-        newItem.update({
-            time: time,
-            text: text,
-            remarks: remarks
-        });
-
-        var _self = this;
-        // highlight new child
-        this.firebaseRefs.items.on("child_added", function(snapshot) {
-            if(snapshot.val().text === tempText){
-                _self.setState({newItemKey: snapshot.key})
-            }
-        });
-
-        this.handleCloseModal();
+    addNewItem = async (time, text, remarks) => {
+        try {
+            await programme.add({
+                time: time,
+                text: text,
+                remarks: remarks
+            }).then(function (doc) {
+                this.setState({ newItemKey: doc.id }); 
+            });
+        }
+        catch (err) {
+            console.log(err);
+        }
+        
     }
 
     onTextChange = (e) => {
@@ -244,9 +238,7 @@ const Programme = observer(class Programme extends Component {
     submitServiceDate = (e, time) => {
         var newTime = moment(time).format("DD-MM-YYYY");
 
-        var newServiceDate = firebase.database().ref("services/"+this.props.serviceKey);
-
-        newServiceDate.update({
+        var newServiceDate = runsheet.update({
             date: newTime
         })
     }
@@ -270,44 +262,39 @@ const Programme = observer(class Programme extends Component {
     }
 
     onServiceStartTimeChange = (newTime) => {
-        var time = newTime;
-        var currTime = moment(time,"HHmm");
-        var prevTime = moment(this.state.items[0].time,"HHmm");
+        // var time = newTime;
+        // var currTime = moment(time,"HHmm");
+        // var prevTime = moment(programme.docs[0].data.time,"HHmm");
 
-        // count duration
-        var durationChange = moment.duration(currTime.diff(prevTime));
-        console.log("durationChange",durationChange);
-        // check if it's before or after
-        var addOrSub = moment(currTime).isAfter(prevTime);
-        console.log("addOrSub",addOrSub);
+        // // count duration
+        // var durationChange = moment.duration(currTime.diff(prevTime));
+        // console.log("durationChange",durationChange);
+        // // check if it's before or after
+        // var addOrSub = moment(currTime).isAfter(prevTime);
+        // console.log("addOrSub",addOrSub);
 
-        // update items
-        var tempItems = deepcopy(this.state.items);
-        console.log("tempItems",tempItems);
+        // // update items
+        // var tempItems = deepcopy(programme.docs);
+        // console.log("tempItems",tempItems);
 
-        var _self = this;
-        tempItems.map((item, index) => {
-            console.log("text old", item.text);
-            console.log("newTime old", item.time);
-             var oldTime = moment(item.time,"HHmm");
-             var newTime;
-             newTime = oldTime.add(durationChange);
+        // var _self = this;
+        // tempItems.map((doc, index) => {
+        //     var item = doc.text;
+        //     console.log("text old", item.text);
+        //     console.log("newTime old", item.time);
+        //      var oldTime = moment(item.time,"HHmm");
+        //      var newTime;
+        //      newTime = oldTime.add(durationChange);
 
-             newTime = moment(newTime).format("HHmm");
-             delete item['.key']; 
-             item.time = newTime;
+        //      newTime = moment(newTime).format("HHmm");
+        //      item.time = newTime;
 
-             console.log("text", item.text);
-             console.log("newTime", item.time);
-        });
+        //      console.log("text", item.text);
+        //      console.log("newTime", item.time);
+        // });
 
-        console.log("items", tempItems);
-        this.setState({items: tempItems});
-
-        // update firebase
-        var newFirebaseItems = firebase.database().ref("services/"+this.props.serviceKey);
-        newFirebaseItems.update({items: null});
-        newFirebaseItems.update({items: tempItems});
+        // console.log("items", tempItems);
+        // programme.docs.update({items: tempItems});
 
 
         this.handleClosePopup();
@@ -321,7 +308,7 @@ const Programme = observer(class Programme extends Component {
                 handleSubmit={this.onServiceStartTimeChange}
                 numActions={2}
                 title="Change Service Start Time"
-                time={this.state.items[0].time}
+                time={programme.docs[0].data.time}
                 >
             </ModalStartTime>
 
@@ -341,30 +328,32 @@ const Programme = observer(class Programme extends Component {
     }
 
     // edit item after popup closes
-    editItem = (theKey, time, text, remarks) => {
+    editItem = async (doc, time, text, remarks) => {
         if(time === undefined) time = "0000";
         if(text === undefined) text = "";
         if(remarks === undefined) remarks = "";
         // console.log("hello", time, text, remarks);
-        this.firebaseRefs.items.child(theKey).update({time: time});
-        this.firebaseRefs.items.child(theKey).update({text: text});
-        this.firebaseRefs.items.child(theKey).update({remarks: remarks});
-        this.handleCloseModal();
+        await doc.update({
+            time: time,
+            text: text,
+            remarks: remarks
+        });
+        
     }
 
     // popup to edit item
-    editItemModal = (theKey, time, text, remarks) => {
+    editItemModal = (doc) => {
         const modal =
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={this.editItem}
+                handleSubmit={(doc, item, text, remarks) => this.editItem(doc, item, text, remarks).then(this.handleCloseModal())}
                 numActions={2}
                 title="Edit Item"
-                theKey={theKey}
-                time={time}
-                text={text}
-                remarks={remarks}
+                doc={doc}
+                time={doc.data.time}
+                text={doc.data.text}
+                remarks={doc.data.remarks}
                 >
             </Modal>
 
@@ -373,11 +362,12 @@ const Programme = observer(class Programme extends Component {
 
     // popup to add new item
     addNewItemModal = () => {
+        var _self = this;
         const modal =
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={this.addNewItem}
+                handleSubmit={(time, text, remarks) => this.addNewItem(time, text, remarks).then(_self.handleCloseModal() )}
                 numActions={2}
                 title="Add New Item"
                 type="add"
@@ -391,12 +381,12 @@ const Programme = observer(class Programme extends Component {
     }
 
 
-    deleteItemPopup = (key) => {
+    deleteItemPopup = (doc) => {
         const popup =
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => this.removeItem(key)}
+                handleSubmit={() => this.removeItem(doc).then(this.handleClosePopup())}
                 numActions={2}
                 title="Delete Item"
                 message={"Are you sure you want to delete this item?"}>
@@ -405,18 +395,24 @@ const Programme = observer(class Programme extends Component {
         this.setState({thePopup: popup});
     }
 
-    removeItem = (key) => {
-        var firebaseRef = firebase.database().ref("services/"+this.props.serviceKey+'/items');
-        firebaseRef.child(key).remove();
-
-        this.handleClosePopup();
-    }
+    removeItem = async (doc) => {
+        if (this._deleting) return;
+        this._deleting = true;
+        try {
+            await doc.delete();
+            this._deleting = false;
+        }
+        catch (err) {
+            this._deleting = false;
+        }
+    };
 
     sendWhatsapp = () => {
         var composeMessage = "";
         var previousTime = moment();
 
-        this.state.items.map((item, index) => {
+        programme.docs.map((doc, index) => {
+            var item = doc.data;
 
             if (item.time !== null){
                 var theTime = moment(item.time,"HHmm");
@@ -509,16 +505,15 @@ const Programme = observer(class Programme extends Component {
 
     render() {
         // check if user is admin
-        var isAdmin = false;
+        var isAdmin = true; // @TODO Change back later
         if(this.state.userRole) {
             if(this.state.userRole.role === "admin"){
                 isAdmin = true;
                 // console.log("admin");
             }
         }
-
         var previousTime = moment();
-        var serviceDate = moment(this.state.serviceDate[".value"], "DD-MM-YYYY");
+        var serviceDate = moment(runsheet.data.date, "DD-MM-YYYY");
 
         // check if service date is today
         var isToday = moment().isSame(serviceDate,'day');
@@ -567,11 +562,12 @@ const Programme = observer(class Programme extends Component {
 
                     {
 
-                        this.state.items.map((item, index) => {
+                        programme.docs.map((doc, index) => {
+                            var item = doc.data;
                             var theDate = moment(item.time,"HHmm");
                             var theDateInNumbers = item.time;
                             var theTime = theDate.format("LT");
-                            var key = item[".key"];
+                            var key = doc.id;
 
                             // highlight new item
                             var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
@@ -586,7 +582,7 @@ const Programme = observer(class Programme extends Component {
                             // DELETE BUTTON
                             var deleteButton = null;
                             if(this.state.editMode) {
-                                deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                                deleteButton = <div onTouchTap={() => this.deleteItemPopup(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
                             // DURATION counting
@@ -620,17 +616,17 @@ const Programme = observer(class Programme extends Component {
                                         <div style={ListItemBGStyle} className={theDateInNumbers}>
                                             <div style={LeftColumnEditStyle} >
                                                 {deleteButton}
-                                                <div style={TimePickerStyle} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)}>{theDateInNumbers}</div>
-                                                <div style={{clear: 'both'}} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} >
+                                                <div style={TimePickerStyle} onTouchTap={() => this.editItemModal(doc)}>{theDateInNumbers}</div>
+                                                <div style={{clear: 'both'}} onTouchTap={() => this.editItemModal(doc)} >
                                                     <ModeEdit color={indigo500}/>
                                                 </div>
                                             </div>
                                             <div style={RightColumnStyle}>
-                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldViewStyle} />
+                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldViewStyle} />
                                                 {(item.remarks === undefined || item.remarks === "") ?
                                                     ''
                                                 :
-                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksViewStyle} />
+                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksViewStyle} />
                                                 }
                                             </div>
                                         </div>

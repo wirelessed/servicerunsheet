@@ -229,6 +229,8 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
         const id = this.props.doc.id;
         console.log("click",id);
         programme.path = 'runsheets/' + id + '/programme';
+        runsheet.path = 'runsheets/' + id;
+        
     }
 
     render(){

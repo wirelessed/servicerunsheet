@@ -3066,9 +3066,9 @@ firebase@^4.6.2:
     dom-storage "^2.0.2"
     xmlhttprequest "^1.8.0"
 
-firestorter@^0.6.1:
-  version "0.6.2"
-  resolved "https://registry.yarnpkg.com/firestorter/-/firestorter-0.6.2.tgz#5311393d4b24710c299c11bdf16e2b474cbf1a9e"
+firestorter@^0.6.3:
+  version "0.6.3"
+  resolved "https://registry.yarnpkg.com/firestorter/-/firestorter-0.6.3.tgz#41054da2610d7394ee4a50bc9af692c265a53fab"
   dependencies:
     mobx "^3.3.1"
     mobx-react "^4.3.3"
