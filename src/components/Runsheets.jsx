@@ -16,13 +16,10 @@ import Popup from './Popup.jsx';
 
 // Firebase Store
 import { observer } from 'mobx-react';
-import { firebaseStore } from "../firebase/FirebaseStore";
-import firebaseApp from "../firebase/Firebase";
-import { initFirestorter, Collection, Document } from 'firestorter';
-initFirestorter({ firebase: firebaseApp });
-const runsheets = firebaseStore.runsheets;
-const runsheet = firebaseStore.runsheet;
-const programme = firebaseStore.programme;
+import  * as FirebaseStore from "../firebase/FirebaseStore";
+const runsheets = FirebaseStore.store.runsheets;
+const runsheet = FirebaseStore.store.runsheet;
+const programme = FirebaseStore.store.programme;
 
 const Runsheets = observer(class Runsheets extends Component {
 
@@ -64,7 +61,10 @@ const Runsheets = observer(class Runsheets extends Component {
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => this.addRunsheet().then(this.handleClosePopup())}
+                handleSubmit={() => FirebaseStore.addDocToCollection(runsheets, {
+                    name: this.state.newName,
+                    date: moment().format("DD-MM-YYYY")
+                }).then(this.handleClosePopup())}
                 numActions={2}
                 title="Add New Service"
                 message={""}>
@@ -75,19 +75,6 @@ const Runsheets = observer(class Runsheets extends Component {
             </Popup>
 
         this.setState({thePopup: popup});
-    }
-
-
-    addRunsheet = async () => {
-        try {
-            await runsheets.add({
-                name: this.state.newName,
-                date: moment().format("DD-MM-YYYY")
-            });
-        }
-        catch (err) {
-            console.log(err);
-        }
     }
 
     changeName = (e) => {
@@ -122,6 +109,15 @@ const Runsheets = observer(class Runsheets extends Component {
             await runsheets.add({
                 name: this.state.newName,
                 date: runsheet.data.date
+            }).then(function(doc){
+                // get old programme data
+                programme.path = "runsheets/" + runsheet.id + "/programme";
+                var tempData = programme.docs;
+                // copy to new programme data
+                programme.path = "runsheets/" + doc.id + "/programme";
+                tempData.map((doc) => {
+                    programme.add(doc.data);
+                });
             });
         }
         catch (err) {
@@ -135,7 +131,7 @@ const Runsheets = observer(class Runsheets extends Component {
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => this.deleteRunsheet(runsheet).then(this.handleClosePopup())}
+                handleSubmit={() => FirebaseStore.deleteDoc(runsheet).then(this.handleClosePopup())}
                 numActions={2}
                 title="Delete Service"
                 message={"Are you sure you want to delete this service?"}>
@@ -143,19 +139,6 @@ const Runsheets = observer(class Runsheets extends Component {
 
         this.setState({thePopup: popup});
     }
-
-    // delete service 
-    deleteRunsheet = async (runsheet) => {
-        if (this._deleting) return;
-        this._deleting = true;
-        try {
-            await runsheet.delete();
-            this._deleting = false;
-        }
-        catch (err) {
-            this._deleting = false;
-        }
-    };
 
     // rename service in a popup
     confirmRenameRunsheet = (runsheet) => {
@@ -179,11 +162,15 @@ const Runsheets = observer(class Runsheets extends Component {
         this.setState({thePopup: popup});
     }
 
-    // renames by creating a duplicate of the service
+    // renames runsheet's name
     renameRunsheet = async (runsheet, newName) => {
         await runsheet.update({
             name: newName
         });
+    }
+
+    componentDidMount() {
+        runsheets.query = runsheets.ref.orderBy('name', 'asc');
     }
 
     render() {

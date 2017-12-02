@@ -30,9 +30,9 @@ import ModalStartTime from './ModalStartTime.jsx';
 
 // Firebase Store
 import { observer } from 'mobx-react';
-import { firebaseStore } from "../firebase/FirebaseStore";
-const programme = firebaseStore.programme;
-const runsheet = firebaseStore.runsheet;
+import * as FirebaseStore from "../firebase/FirebaseStore";
+const programme = FirebaseStore.store.programme;
+const runsheet = FirebaseStore.store.runsheet;
 
 const listItemViewStyle = {
     padding: '4px 16px 4px 100px',
@@ -169,18 +169,6 @@ const Programme = observer(class Programme extends Component {
 
     }
 
-    componentWillMount() {
-         // get date from firebase
-    //     // get items from firebase
-    //     // order by time
-    //     var ref = firebase.database().ref("services/"+this.props.serviceKey+"/items").orderByChild('time');
-    //     this.bindAsArray(ref, "items");
-    }
-
-    // componentWillUnmount() {
-    //     //this.firebaseRef.off();
-    // }
-
     componentDidMount(){
         // var user = firebase.auth().currentUser;
         // var userRole;
@@ -199,22 +187,6 @@ const Programme = observer(class Programme extends Component {
         // re-order whenever there's new items
         // this.firebaseRefs.items.orderByChild('time');
         // this.highlightCurrentTime();
-    }
-
-    addNewItem = async (time, text, remarks) => {
-        try {
-            await programme.add({
-                time: time,
-                text: text,
-                remarks: remarks
-            }).then(function (doc) {
-                this.setState({ newItemKey: doc.id }); 
-            });
-        }
-        catch (err) {
-            console.log(err);
-        }
-        
     }
 
     onTextChange = (e) => {
@@ -241,24 +213,6 @@ const Programme = observer(class Programme extends Component {
         var newServiceDate = runsheet.update({
             date: newTime
         })
-    }
-
-    onExistingTextChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({text: e.target.value});
-    }
-
-    // onExistingTransitionChange = (key, e) => {
-    //     this.firebaseRefs.items.child(key).update({transition: e.target.value});
-    // }
-
-    onExistingRemarksChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({remarks: e.target.value});
-    }
-
-    onExistingTimeChange = (key, e) => {
-        // save the time as a string only (no date)
-        var newTime = e.target.value;
-        this.firebaseRefs.items.child(key).update({time: newTime});
     }
 
     onServiceStartTimeChange = (newTime) => {
@@ -315,10 +269,6 @@ const Programme = observer(class Programme extends Component {
         this.setState({thePopup: changePopup});
     }
 
-    setTimeFocus= (key) => {
-        this.setState({currentKey: key});
-    }
-
     handleClosePopup = () => {
         this.setState({thePopup: null});
     }
@@ -367,7 +317,7 @@ const Programme = observer(class Programme extends Component {
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={(time, text, remarks) => this.addNewItem(time, text, remarks).then(_self.handleCloseModal() )}
+                handleSubmit={(time, text, remarks) => FirebaseStore.addDocToCollection(programme, {time: time, text: text, remarks: remarks}).then(_self.handleCloseModal() )}
                 numActions={2}
                 title="Add New Item"
                 type="add"
@@ -386,7 +336,7 @@ const Programme = observer(class Programme extends Component {
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => this.removeItem(doc).then(this.handleClosePopup())}
+                handleSubmit={() => FirebaseStore.deleteDoc(doc).then(this.handleClosePopup())}
                 numActions={2}
                 title="Delete Item"
                 message={"Are you sure you want to delete this item?"}>
@@ -394,18 +344,6 @@ const Programme = observer(class Programme extends Component {
 
         this.setState({thePopup: popup});
     }
-
-    removeItem = async (doc) => {
-        if (this._deleting) return;
-        this._deleting = true;
-        try {
-            await doc.delete();
-            this._deleting = false;
-        }
-        catch (err) {
-            this._deleting = false;
-        }
-    };
 
     sendWhatsapp = () => {
         var composeMessage = "";
@@ -622,11 +560,11 @@ const Programme = observer(class Programme extends Component {
                                                 </div>
                                             </div>
                                             <div style={RightColumnStyle}>
-                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Description" placeholder="Description" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldViewStyle} />
+                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Description" placeholder="Description" value={ item.text } style={TextFieldViewStyle} />
                                                 {(item.remarks === undefined || item.remarks === "") ?
                                                     ''
                                                 :
-                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Remarks" placeholder="Remarks (Optional)" onChange={this.onExistingRemarksChange.bind(this, key)} value={ item.remarks } style={RemarksViewStyle} />
+                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} />
                                                 }
                                             </div>
                                         </div>
