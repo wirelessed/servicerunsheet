@@ -5,19 +5,43 @@ import firebaseApp from '../firebase/Firebase';
 import CircularProgress from 'material-ui/CircularProgress';
 // import isEmail from 'validator/lib/isEmail';
 
-class Login extends Component {
+// Firebase Store
+import { observer } from 'mobx-react';
+import * as FirebaseStore from "../firebase/FirebaseStore";
+const allUsers = FirebaseStore.store.allUsers;
+const currentUser = FirebaseStore.store.currentUser;
+var db = firebaseApp.firestore();
+
+const Login = observer(class Login extends Component {
     constructor(props) {
         super(props);
         this.state = {users: null, loggedIn: true, loading: true};
         this.handleGoogle = this.handleGoogle.bind(this);
     }
 
-    checkIfUserExists(userId) {
-        var usersRef = firebase.database().ref("users");
-        usersRef.child(userId).once('value', function(snapshot) {
-            var exists = (snapshot.val() !== null);
-            return exists;
-        });
+    checkIfUserExists(user) {
+        db.doc('/users/' + user.uid).get()
+            .then(docSnapshot => {
+                if (docSnapshot.exists) {
+                    console.log("user exists");
+                    return;
+                } else {
+                    this.addNewUser(user);
+                }
+            });
+    }
+
+    addNewUser = async (user) => {
+        try {
+            // add the normal way so that can set UID
+            db.collection('users').doc(user.uid).set({
+                email: user.email,
+                role: "user"
+            });
+        }
+        catch (err) {
+            console.log(err);
+        }
     }
 
     componentWillMount(){
@@ -25,10 +49,6 @@ class Login extends Component {
     }
 
     componentDidMount() {
-        // get people items from firebase
-        // var ref = firebase.database().ref("users");
-        // this.bindAsArray(ref, "users");
-
         var _self = this;
         firebase.auth().getRedirectResult().then(function(result) {
             // This gives you a Google Access Token. You can use it to access the Google API.
@@ -40,14 +60,8 @@ class Login extends Component {
 
             if (result.credential) {
                 var user = result.user;
-                if(!_self.checkIfUserExists(user.uid)){
-                    var newItem = firebase.database().ref("users/" + user.uid).set({
-                        email: user.email,
-                        role: "user"
-                    });
-                } else {
-                    console.log('User exists');
-                }
+                _self.checkIfUserExists(user);
+                currentUser.path = "users/" + user.uid;
             }
         }).catch(function(error) {
             var errorMessage = error.message;
@@ -76,6 +90,7 @@ class Login extends Component {
 
         return (
             <div style={{marginTop: '100px', textAlign: 'center'}}>
+                
                 {(this.state.loading) ?
                     <div>
                         <CircularProgress />
@@ -130,6 +145,6 @@ class Login extends Component {
             </div>
         );
     }
-}
+});
 
 export default Login;

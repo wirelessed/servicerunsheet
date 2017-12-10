@@ -32,5 +32,7 @@ export const store = {
     programme: new Collection(),                // programme in the runsheet
     people: new Collection(),                   // people in the runsheet
     songs: new Collection(),                   // people in the runsheet
-    currentUser: new Document()
+    allUsers: new Collection('users','on'),
+    currentUser: new Document(),
+    runsheetsByUser: new Collection(),     // collection of runsheets
 };
