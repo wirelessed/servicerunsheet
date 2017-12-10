@@ -1,22 +1,29 @@
 import React, {Component} from 'react';
 import {List, ListItem} from 'material-ui/List';
 import * as firebase from "firebase";
-import ReactFireMixin from 'reactfire';
-import reactMixin from 'react-mixin';
+
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
+
+import moment from 'moment';
+moment().format();
+// UI COMPONENTS
 import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import Divider from 'material-ui/Divider';
 import {grey200, grey500, indigo500, yellow500, cyan500} from 'material-ui/styles/colors';
-import moment from 'moment';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
+//Subcomponents
 import Popup from './Popup.jsx';
-var ReactGA = require('react-ga');
-ReactGA.initialize('UA-101242277-1');
+// Firebase Store
+import { observer } from 'mobx-react';
+import * as FirebaseStore from "../firebase/FirebaseStore";
+const people = FirebaseStore.store.people;
+const runsheet = FirebaseStore.store.runsheet;
 
-moment().format();
 
 const LeftColumnStyle = {
     minWidth: '128px',
@@ -34,7 +41,6 @@ const RightColumnStyle = {
     width: '50%',
     float: 'left'
 }
-
 
 const listItemStyle = {
     padding: '4px 16px 4px 160px',
@@ -92,7 +98,7 @@ const DescriptionEditStyle = {
     lineHeight: '26px'
 }
 
-class People extends Component {
+const People = observer(class People extends Component {
 
     constructor(props) {
         super(props);
@@ -109,35 +115,19 @@ class People extends Component {
 
     }
 
-    componentWillMount() {
-        // get people items from firebase
-        var ref = firebase.database().ref("services/"+this.props.serviceKey+"/people");
-        this.bindAsArray(ref, "items");
-    }
-
-    componentWillUnmount() {
-        //this.firebaseRef.off();
-    }
-
     componentDidMount(){
-        var user = firebase.auth().currentUser;
-        var userRole;
-        if (user != null) {
-            userRole = firebase.database().ref("users/" + user.uid);
-            this.bindAsObject(userRole, "userRole");
-        }
+        people.query = people.ref.orderBy('timestamp', 'asc');
     }
 
-
-    handleSubmit = (e) => {
+    addItem = (e) => {
         e.preventDefault();
-
-        var newItem = firebase.database().ref("services/"+this.props.serviceKey+"/people").push();
-
-        newItem.update({
+        FirebaseStore.addDocToCollection(people, {
             text: this.state.text,
-            description: this.state.description
+            description: this.state.description,
+            timestamp: moment().format()
         });
+        runsheet.update({ lastUpdated: moment().format() });
+
         this.setState({ text: "", description: "" });
     }
 
@@ -149,12 +139,14 @@ class People extends Component {
         this.setState({description: e.target.value});
     }
 
-    onExistingTextChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({text: e.target.value});
+    onEditExistingText = async (doc, e) => {
+        await doc.update({text: e.target.value});
+        runsheet.update({ lastUpdated: moment().format() });
     }
 
-    onExistingDescriptionChange = (key, e) => {
-        this.firebaseRefs.items.child(key).update({description: e.target.value});
+    onEditExistingDescription = async (doc, e) => {
+        await doc.update({ description: e.target.value });
+        runsheet.update({ lastUpdated: moment().format() });
     }
 
     setTimeFocus= (key) => {
@@ -165,26 +157,22 @@ class People extends Component {
         this.setState({thePopup: null});
     };
 
-    deleteItemPopup = (key) => {
+    confirmDeleteItem = (doc) => {
+        var _self = this;
         const popup =
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => this.removeItem(key)}
+                handleSubmit={() => FirebaseStore.deleteDoc(doc).then(function(){
+                    runsheet.update({ lastUpdated: moment().format() });
+                    _self.handleClosePopup();
+                })}
                 numActions={2}
                 title="Delete Item"
                 message={"Are you sure you want to delete this item?"}>
             </Popup>
 
         this.setState({thePopup: popup});
-    }
-
-
-    removeItem = (key) => {
-        var firebaseRef = firebase.database().ref("services/"+this.props.serviceKey+'/people');
-        firebaseRef.child(key).remove();
-
-        this.handleClosePopup();
     }
 
     toggleEditMode = () => {
@@ -211,7 +199,7 @@ class People extends Component {
 
     render() {
         // check if user is admin
-        var isAdmin = false;
+        var isAdmin = true;
         if(this.state.userRole) {
             if(this.state.userRole.role == "admin"){
                 isAdmin = true;
@@ -223,9 +211,9 @@ class People extends Component {
             <div style={{paddingBottom: '150px'}}>
                 <List>
                     {
-
-                        this.state.items.map((item, index) => {
-                            var key = item[".key"];
+                        people.docs.map((doc, index) => {
+                            var item = doc.data;
+                            var key = doc.id;
 
                             // highlight new item
                             var ListItemBGStyle = { clear: 'both', background: 'none', overflow: 'auto', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #eee' };
@@ -235,7 +223,7 @@ class People extends Component {
 
                             var deleteButton = null;
                             if(this.state.editMode) {
-                                deleteButton = <div onTouchTap={() => this.deleteItemPopup(key)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                                deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
                             return (
@@ -243,10 +231,10 @@ class People extends Component {
                                     {(this.state.editMode) ?
                                         <div style={ListItemBGStyle}>
                                             <div style={LeftColumnEditStyle}>
-                                                <div>{deleteButton}<Textarea name="Text" placeholder="Role" onChange={this.onExistingTextChange.bind(this, key)} value={ item.text } style={TextFieldEditStyle} /></div>
+                                                <div>{deleteButton}<Textarea name="Text" placeholder="Role" onChange={this.onEditExistingText.bind(this, doc)} value={ item.text } style={TextFieldEditStyle} /></div>
                                             </div>
                                             <div style={RightColumnStyle}>
-                                                <Textarea name="Description" placeholder="Person" onChange={this.onExistingDescriptionChange.bind(this, key)} value={ item.description } style={DescriptionEditStyle} />
+                                                <Textarea name="Description" placeholder="Person" onChange={this.onEditExistingDescription.bind(this, doc)} value={ item.description } style={DescriptionEditStyle} />
                                             </div>
                                         </div>
                                     :
@@ -268,7 +256,7 @@ class People extends Component {
                     { (this.state.editMode) ?
                         <div>
                         <Divider style={{ marginTop: '16px'}}/>
-                        <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
+                        <form onSubmit={ this.addItem } style={{ backgroundColor: grey200, padding: '16px 0px 56px 0px'}}>
                             <ListItem
                             leftAvatar={<Textarea name="Text" onChange={ this.onTextChange } value={ this.state.text } placeholder="Role" style={TextFieldEditStyle} />}
                             primaryText={<Textarea name="Description" onChange={ this.onDescriptionChange } value={ this.state.description } placeholder="Person" style={DescriptionEditStyle} />}
@@ -304,8 +292,6 @@ class People extends Component {
         </div>
         );
     }
-}
-
-reactMixin(People.prototype, ReactFireMixin);
+});
 
 export default People;

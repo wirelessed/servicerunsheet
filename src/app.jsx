@@ -8,8 +8,6 @@ import Runsheets from "./components/Runsheets.jsx";
 import Programme from './components/Programme.jsx';
 import People from './components/People.jsx';
 import Songs from './components/Songs.jsx';
-import Copyrights from './components/Copyrights.jsx';
-import Lyrics from './components/Lyrics.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import Login from './auth/Login.js';
 import Admin from './auth/Admin.js';
@@ -58,14 +56,6 @@ const SonglistTab = ({ match }) => (
     <Songs serviceKey={`${match.params.id}`} />
 )
 
-const CopyrightsTab = ({ match }) => (
-    <Copyrights serviceKey={`${match.params.id}`} />
-)
-
-const LyricsTab = ({ match }) => (
-    <Lyrics serviceKey={`${match.params.id}`} />
-)
-
 // then our route config
 const routes = [
     { path: '/services/:id/Programme',
@@ -77,12 +67,6 @@ const routes = [
     },
     { path: '/services/:id/Songlist',
         component: SonglistTab
-    },
-    { path: '/services/:id/Copyrights',
-        component: CopyrightsTab
-    },
-    { path: '/services/:id/Lyrics',
-        component: LyricsTab
     }
 ]
 

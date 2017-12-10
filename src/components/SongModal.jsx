@@ -83,7 +83,7 @@ export default class SongModal extends React.Component {
                     <RaisedButton
                         label="Done"
                         primary={true}
-                        onTouchTap={() => this.props.handleSubmit(this.props.theKey, this.state.order, this.state.title, this.state.lyrics, this.state.copyright)}
+                        onTouchTap={() => this.props.handleSubmit(this.props.doc, this.state.order, this.state.title, this.state.lyrics, this.state.copyright)}
                         />,
                 ];
             }

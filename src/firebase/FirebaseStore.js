@@ -27,8 +27,10 @@ export const deleteDoc = async (doc) => {
 };
 
 export const store = {
-    runsheets: new Collection('runsheets'),  // collection of runsheets
-    runsheet: new Document(),               // 1 runsheet
-    programme: new Collection('runsheets'),           // programme in the runsheet
+    runsheets: new Collection('runsheets'),     // collection of runsheets
+    runsheet: new Document(),                   // 1 runsheet
+    programme: new Collection(),                // programme in the runsheet
+    people: new Collection(),                   // people in the runsheet
+    songs: new Collection(),                   // people in the runsheet
     currentUser: new Document()
 };

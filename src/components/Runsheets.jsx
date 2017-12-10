@@ -20,6 +20,8 @@ import  * as FirebaseStore from "../firebase/FirebaseStore";
 const runsheets = FirebaseStore.store.runsheets;
 const runsheet = FirebaseStore.store.runsheet;
 const programme = FirebaseStore.store.programme;
+const people = FirebaseStore.store.people;
+const songs = FirebaseStore.store.songs;
 
 const Runsheets = observer(class Runsheets extends Component {
 
@@ -63,7 +65,8 @@ const Runsheets = observer(class Runsheets extends Component {
                 handleClosePopup={this.handleClosePopup}
                 handleSubmit={() => FirebaseStore.addDocToCollection(runsheets, {
                     name: this.state.newName,
-                    date: moment().format("DD-MM-YYYY")
+                    date: moment().format("DD-MM-YYYY"),
+                    lastUpdated: moment().format()
                 }).then(this.handleClosePopup())}
                 numActions={2}
                 title="Add New Service"
@@ -108,7 +111,8 @@ const Runsheets = observer(class Runsheets extends Component {
         try {
             await runsheets.add({
                 name: this.state.newName,
-                date: runsheet.data.date
+                date: runsheet.data.date,
+                lastUpdated: moment().format()
             }).then(function(doc){
                 // get old programme data
                 programme.path = "runsheets/" + runsheet.id + "/programme";
@@ -216,6 +220,8 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
         const id = this.props.doc.id;
         console.log("click",id);
         programme.path = 'runsheets/' + id + '/programme';
+        people.path = 'runsheets/' + id + '/people';
+        songs.path = 'runsheets/' + id + '/songs';
         runsheet.path = 'runsheets/' + id;
         
     }
@@ -240,7 +246,12 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
 
             <div key={doc.id} style={{ position: 'relative' }}>
                 <ListItem primaryText={name}
-                    secondaryText={serviceDate.format("dddd, D MMMM YYYY")}
+                    secondaryText={
+                        <p>
+                            {serviceDate.format("dddd, D MMMM YYYY")}<br/>
+                            Last updated {moment(this.props.doc.data.lastUpdated).fromNow()}
+                        </p>}
+                    secondaryTextLines={2}
                     rightIconButton={sideMenu}>
                 </ListItem>
                 <Link to={"/services/" + doc.id + "/Programme"} 

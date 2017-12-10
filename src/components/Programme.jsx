@@ -2,9 +2,10 @@ import React, {Component} from 'react';
 import MediaQuery from 'react-responsive';
 import * as firebase from 'firebase';
 import $ from 'jquery';
+
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
-var deepcopy = require("deepcopy");
+
 import moment from 'moment';
 moment().format();
 
@@ -185,17 +186,11 @@ const Programme = observer(class Programme extends Component {
 
     componentWillReceiveProps = () => {
         // re-order whenever there's new items
-        // this.firebaseRefs.items.orderByChild('time');
-        // this.highlightCurrentTime();
     }
 
     onTextChange = (e) => {
         this.setState({text: e.target.value});
     }
-
-    // onTransitionChange = (e) => {
-    //     this.setState({transition: e.target.value});
-    // }
 
     onRemarksChange = (e) => {
         this.setState({remarks: e.target.value});
@@ -213,6 +208,7 @@ const Programme = observer(class Programme extends Component {
         var newServiceDate = runsheet.update({
             date: newTime
         })
+        runsheet.update({ lastUpdated: moment().format() });
     }
 
     onServiceStartTimeChange = (newTime) => {
@@ -288,11 +284,11 @@ const Programme = observer(class Programme extends Component {
             text: text,
             remarks: remarks
         });
-        
+        runsheet.update({ lastUpdated: moment().format() });
     }
 
     // popup to edit item
-    editItemModal = (doc) => {
+    confirmEditItem = (doc) => {
         const modal =
             <Modal
                 isPopupOpen={true}
@@ -311,13 +307,17 @@ const Programme = observer(class Programme extends Component {
     }
 
     // popup to add new item
-    addNewItemModal = () => {
+    confirmAddItem = () => {
         var _self = this;
         const modal =
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={(time, text, remarks) => FirebaseStore.addDocToCollection(programme, {time: time, text: text, remarks: remarks}).then(_self.handleCloseModal() )}
+                handleSubmit={(time, text, remarks) => FirebaseStore.addDocToCollection(programme, {time: time, text: text, remarks: remarks})
+                                                                    .then(function(){
+                                                                        runsheet.update({ lastUpdated: moment().format() });
+                                                                        _self.handleCloseModal();
+                                                                    })}
                 numActions={2}
                 title="Add New Item"
                 type="add"
@@ -331,12 +331,16 @@ const Programme = observer(class Programme extends Component {
     }
 
 
-    deleteItemPopup = (doc) => {
+    confirmDeleteItem = (doc) => {
+        var _self = this;
         const popup =
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => FirebaseStore.deleteDoc(doc).then(this.handleClosePopup())}
+                handleSubmit={() => FirebaseStore.deleteDoc(doc).then(function () {
+                    runsheet.update({ lastUpdated: moment().format() });
+                    _self.handleClosePopup();
+                })}
                 numActions={2}
                 title="Delete Item"
                 message={"Are you sure you want to delete this item?"}>
@@ -499,13 +503,12 @@ const Programme = observer(class Programme extends Component {
                 <List>
 
                     {
-
                         programme.docs.map((doc, index) => {
                             var item = doc.data;
+                            var key = doc.id;
                             var theDate = moment(item.time,"HHmm");
                             var theDateInNumbers = item.time;
                             var theTime = theDate.format("LT");
-                            var key = doc.id;
 
                             // highlight new item
                             var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
@@ -520,7 +523,7 @@ const Programme = observer(class Programme extends Component {
                             // DELETE BUTTON
                             var deleteButton = null;
                             if(this.state.editMode) {
-                                deleteButton = <div onTouchTap={() => this.deleteItemPopup(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+                                deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
                             // DURATION counting
@@ -554,17 +557,17 @@ const Programme = observer(class Programme extends Component {
                                         <div style={ListItemBGStyle} className={theDateInNumbers}>
                                             <div style={LeftColumnEditStyle} >
                                                 {deleteButton}
-                                                <div style={TimePickerStyle} onTouchTap={() => this.editItemModal(doc)}>{theDateInNumbers}</div>
-                                                <div style={{clear: 'both'}} onTouchTap={() => this.editItemModal(doc)} >
+                                                <div style={TimePickerStyle} onTouchTap={() => this.confirmEditItem(doc)}>{theDateInNumbers}</div>
+                                                <div style={{ clear: 'both' }} onTouchTap={() => this.confirmEditItem(doc)} >
                                                     <ModeEdit color={indigo500}/>
                                                 </div>
                                             </div>
                                             <div style={RightColumnStyle}>
-                                                <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Description" placeholder="Description" value={ item.text } style={TextFieldViewStyle} />
+                                                <Textarea readOnly={true} onTouchTap={() => this.confirmEditItem(doc)} name="Description" placeholder="Description" value={ item.text } style={TextFieldViewStyle} />
                                                 {(item.remarks === undefined || item.remarks === "") ?
                                                     ''
                                                 :
-                                                    <Textarea readOnly={true} onTouchTap={() => this.editItemModal(doc)} name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} />
+                                                    <Textarea readOnly={true} onTouchTap={() => this.confirmEditItem(doc)} name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} />
                                                 }
                                             </div>
                                         </div>
@@ -615,12 +618,12 @@ const Programme = observer(class Programme extends Component {
                         :
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={this.addNewItemModal}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={this.confirmAddItem}>
                                     <AddFloatingIcon />
                                 </FloatingActionButton>
                             </MediaQuery>
                             <MediaQuery minWidth={1024}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.addNewItemModal}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.confirmAddItem}>
                                     <AddFloatingIcon />
                                 </FloatingActionButton>
                             </MediaQuery>

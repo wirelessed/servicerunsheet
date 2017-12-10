@@ -7,7 +7,6 @@
   },
   "dependencies": {
     "@firebase/firestore": "^0.1.4",
-    "deepcopy": "^0.6.3",
     "firebase": "^4.6.2",
     "firebase-admin": "^4.0.3",
     "firebase-tools": "^3.9.0",
@@ -29,8 +28,7 @@
     "react-rte-material": "^0.12.5",
     "react-select": "^1.0.0-rc.5",
     "react-tap-event-plugin": "^2.0.0",
-    "react-textarea-autosize": "^4.3.0",
-    "reactfire": "^1.0.0"
+    "react-textarea-autosize": "^4.3.0"
   },
   "scripts": {
     "start": "react-scripts start",
