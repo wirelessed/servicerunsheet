@@ -1,4 +1,5 @@
 import firebaseApp from "../firebase/Firebase";
+import * as firebase from 'firebase';
 import 'firebase/firestore';
 import { initFirestorter, Collection, Document } from 'firestorter';
 
@@ -25,6 +26,19 @@ export const deleteDoc = async (doc) => {
         console.log(err);
     }
 };
+
+export const getUserId = () => {
+    var userId = null;
+    var user = firebase.auth().currentUser;
+    if (user) {
+        // User is signed in.
+        userId = user.uid;
+    } else {
+        // No user is signed in.
+    }
+    return userId;
+}
+
 
 export const store = {
     runsheets: new Collection('runsheets'),     // collection of runsheets

@@ -16,12 +16,19 @@ import Popup from './Popup.jsx';
 
 // Firebase Store
 import { observer } from 'mobx-react';
+import { Document } from 'firestorter';
 import  * as FirebaseStore from "../firebase/FirebaseStore";
 const runsheets = FirebaseStore.store.runsheets;
 const runsheet = FirebaseStore.store.runsheet;
+const currentUser = FirebaseStore.store.currentUser;
 const programme = FirebaseStore.store.programme;
 const people = FirebaseStore.store.people;
 const songs = FirebaseStore.store.songs;
+const runsheetsByUser = FirebaseStore.store.runsheetsByUser;
+
+// setup
+import firebaseApp from '../firebase/Firebase';
+var db = firebaseApp.firestore();
 
 const Runsheets = observer(class Runsheets extends Component {
 
@@ -35,6 +42,8 @@ const Runsheets = observer(class Runsheets extends Component {
             newName: null,
             items: [],
             userRole: null,
+            userId: null,
+            displayRunsheets: []
         };
 
     }
@@ -55,7 +64,28 @@ const Runsheets = observer(class Runsheets extends Component {
         this.setState({text: e.target.value});
     }
 
-    // add new service
+    // add new runsheet
+    // add to runsheets collection
+    // and add to users collection
+    createRunsheet = async (data) => {
+        var userId = this.state.userId;
+        var _self = this;
+
+        runsheets.add(data).then(function(doc){
+            var id = doc.id;
+            _self.addRunsheetToUser(id);
+            _self.displayRunsheetsByUser();        
+            
+        });
+    }
+
+    addRunsheetToUser = (id) => {
+        db.collection('users/' + this.state.userId + '/runsheets').doc(id).set({
+            id: id,
+            role: "owner"
+        });
+    }
+
     confirmAddRunsheet = (item) => {
         var newName = "No Name";
         this.setState({newName: newName});
@@ -63,7 +93,7 @@ const Runsheets = observer(class Runsheets extends Component {
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => FirebaseStore.addDocToCollection(runsheets, {
+                handleSubmit={() => this.createRunsheet({
                     name: this.state.newName,
                     date: moment().format("DD-MM-YYYY"),
                     lastUpdated: moment().format()
@@ -108,6 +138,7 @@ const Runsheets = observer(class Runsheets extends Component {
 
     // creates a duplicate of the service
     duplicateRunsheet = async (runsheet) => {
+        var _self = this;
         try {
             await runsheets.add({
                 name: this.state.newName,
@@ -122,6 +153,27 @@ const Runsheets = observer(class Runsheets extends Component {
                 tempData.map((doc) => {
                     programme.add(doc.data);
                 });
+
+                // get old people data
+                people.path = "runsheets/" + runsheet.id + "/people";
+                var tempData = people.docs;
+                // copy to new people data
+                people.path = "runsheets/" + doc.id + "/people";
+                tempData.map((doc) => {
+                    people.add(doc.data);
+                });
+
+                // get old songs data
+                songs.path = "runsheets/" + runsheet.id + "/songs";
+                var tempData = songs.docs;
+                // copy to new songs data
+                songs.path = "runsheets/" + doc.id + "/songs";
+                tempData.map((doc) => {
+                    songs.add(doc.data);
+                });
+
+                // make sure add to runsheetsByUser too
+                _self.addRunsheetToUser(doc.id);   
             });
         }
         catch (err) {
@@ -135,13 +187,20 @@ const Runsheets = observer(class Runsheets extends Component {
             <Popup
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
-                handleSubmit={() => FirebaseStore.deleteDoc(runsheet).then(this.handleClosePopup())}
+                handleSubmit={() => this.deleteRunsheet(runsheet).then(this.handleClosePopup())}
                 numActions={2}
                 title="Delete Service"
                 message={"Are you sure you want to delete this service?"}>
             </Popup>
 
         this.setState({thePopup: popup});
+    }
+
+    // delete runsheet and also from users' runsheet
+    deleteRunsheet = async (runsheet) => {
+        await FirebaseStore.deleteDoc(runsheet);
+        var thisRunsheet = new Document();
+        await db.collection("users/" + this.state.userId + "/runsheets").doc(runsheet.id).delete();
     }
 
     // rename service in a popup
@@ -174,10 +233,47 @@ const Runsheets = observer(class Runsheets extends Component {
     }
 
     componentDidMount() {
-        runsheets.query = runsheets.ref.orderBy('name', 'asc');
+        var userId = FirebaseStore.getUserId();
+        this.setState({userId: userId});
+        currentUser.path = "users/" + userId;
+        runsheetsByUser.path = "users/" + userId + "/runsheets";
+        this.displayRunsheetsByUser();
+    }
+
+    // get 2 databases: runsheets by user and all runsheets
+    // filter all runsheets with runsheetsByUser's Ids
+    displayRunsheetsByUser() {
+        var _self = this;
+        var runsheetsByUser2 = db.collection("users/" + FirebaseStore.getUserId() + "/runsheets");
+
+        _self.setState({displayRunsheets: []});
+
+        runsheetsByUser2.get().then(function(querySnapshot) {
+            
+            querySnapshot.forEach((doc) => {
+                var thisRunsheet = db.collection("runsheets").doc(doc.id);
+                thisRunsheet.get().then(function(doc) {
+                    const newDoc = new Document();
+                    newDoc.path = "runsheets/" + doc.id;
+                    var item = <RunsheetItem
+                            isAdmin={true}
+                            renameRunsheet={_self.confirmRenameRunsheet}
+                            deleteRunsheet={_self.confirmDeleteRunsheet}
+                            duplicateRunsheet={_self.confirmDuplicateRunsheet}
+                            key={doc.id}
+                            doc={newDoc}
+                            data={doc.data()}
+                        />;
+                    var displayRunsheets = _self.state.displayRunsheets.slice();
+                    displayRunsheets.push(item);
+                    _self.setState({displayRunsheets: displayRunsheets });
+                });
+            })
+        });
     }
 
     render() {
+        var _self = this;
 
         // check if user is admin
         var isAdmin = true; // @TODO set to false
@@ -186,21 +282,13 @@ const Runsheets = observer(class Runsheets extends Component {
                 isAdmin = true;
             }
         }
-
         return (
             <div style={{marginBottom: '170px'}}>
 
                 <List>
-                    {runsheets.docs.map((doc) => (
-                        <RunsheetItem
-                            isAdmin={isAdmin}
-                            renameRunsheet={this.confirmRenameRunsheet}
-                            deleteRunsheet={this.confirmDeleteRunsheet}
-                            duplicateRunsheet={this.confirmDuplicateRunsheet}
-                            key={doc.id}
-                            doc={doc} />
-                    ))}
-
+                    {this.state.displayRunsheets.map((doc) => {
+                        return (doc);
+                    })}
                 </List>
 
                 {this.state.thePopup}
@@ -228,7 +316,7 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
 
     render(){
         const doc = this.props.doc;
-        const { name, date } = this.props.doc.data;
+        const { name, date, lastUpdated } = this.props.data;
         
         var serviceDate = moment(date, "DD-MM-YYYY");
         var sideMenu = null;
@@ -249,7 +337,7 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
                     secondaryText={
                         <p>
                             {serviceDate.format("dddd, D MMMM YYYY")}<br/>
-                            Last updated {moment(this.props.doc.data.lastUpdated).fromNow()}
+                            Last updated {moment(lastUpdated).fromNow()}
                         </p>}
                     secondaryTextLines={2}
                     rightIconButton={sideMenu}>
