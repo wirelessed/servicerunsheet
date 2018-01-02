@@ -11,6 +11,7 @@ import IconButton from 'material-ui/IconButton';
 import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
 import AddIcon from 'material-ui/svg-icons/content/add';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
+import RefreshIndicator from 'material-ui/RefreshIndicator';
 // Subcomponents
 import Popup from './Popup.jsx';
 
@@ -41,6 +42,7 @@ const Runsheets = observer(class Runsheets extends Component {
             thePopup: null,
             newName: null,
             items: [],
+            loading: true,
             userRole: null,
             userId: null,
             displayRunsheets: []
@@ -73,18 +75,11 @@ const Runsheets = observer(class Runsheets extends Component {
 
         runsheets.add(data).then(function(doc){
             var id = doc.id;
-            _self.addRunsheetToUser(id);
+            FirebaseStore.addRunsheetToUser(id, _self.state.userId);
             _self.displayRunsheetsByUser();        
-            
         });
     }
 
-    addRunsheetToUser = (id) => {
-        db.collection('users/' + this.state.userId + '/runsheets').doc(id).set({
-            id: id,
-            role: "owner"
-        });
-    }
 
     confirmAddRunsheet = (item) => {
         var newName = "No Name";
@@ -173,7 +168,8 @@ const Runsheets = observer(class Runsheets extends Component {
                 });
 
                 // make sure add to runsheetsByUser too
-                _self.addRunsheetToUser(doc.id);   
+                FirebaseStore.addRunsheetToUser(doc.id, _self.state.userId);   
+                _self.displayRunsheetsByUser();
             });
         }
         catch (err) {
@@ -201,6 +197,7 @@ const Runsheets = observer(class Runsheets extends Component {
         await FirebaseStore.deleteDoc(runsheet);
         var thisRunsheet = new Document();
         await db.collection("users/" + this.state.userId + "/runsheets").doc(runsheet.id).delete();
+        this.displayRunsheetsByUser();
     }
 
     // rename service in a popup
@@ -246,15 +243,14 @@ const Runsheets = observer(class Runsheets extends Component {
         var _self = this;
         var runsheetsByUser2 = db.collection("users/" + FirebaseStore.getUserId() + "/runsheets");
 
-        _self.setState({displayRunsheets: []});
+        _self.setState({displayRunsheets: [], loading: true});
 
         runsheetsByUser2.get().then(function(querySnapshot) {
             
             querySnapshot.forEach((doc) => {
                 var thisRunsheet = db.collection("runsheets").doc(doc.id);
                 thisRunsheet.get().then(function(doc) {
-                    const newDoc = new Document();
-                    newDoc.path = "runsheets/" + doc.id;
+                    const newDoc = new Document("runsheets/" + doc.id);
                     var item = <RunsheetItem
                             isAdmin={true}
                             renameRunsheet={_self.confirmRenameRunsheet}
@@ -266,9 +262,10 @@ const Runsheets = observer(class Runsheets extends Component {
                         />;
                     var displayRunsheets = _self.state.displayRunsheets.slice();
                     displayRunsheets.push(item);
-                    _self.setState({displayRunsheets: displayRunsheets });
+                    _self.setState({displayRunsheets: displayRunsheets});
                 });
             })
+            _self.setState({ loading: false });
         });
     }
 
@@ -286,9 +283,20 @@ const Runsheets = observer(class Runsheets extends Component {
             <div style={{marginBottom: '170px'}}>
 
                 <List>
-                    {this.state.displayRunsheets.map((doc) => {
-                        return (doc);
-                    })}
+                    {(this.state.loading === true) ?
+                        <div style={{textAlign: 'center'}}>
+                         <RefreshIndicator
+                         size={40}
+                         left={10}
+                         top={0}
+                         status="loading"
+                         style={{position: 'relative', display: 'inline-block'}}
+                         />
+                       </div>
+                    :   
+                        this.state.displayRunsheets.map((doc) => {
+                            return (doc);
+                        })}
                 </List>
 
                 {this.state.thePopup}
@@ -342,7 +350,7 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
                     secondaryTextLines={2}
                     rightIconButton={sideMenu}>
                 </ListItem>
-                <Link to={"/services/" + doc.id + "/Programme"} 
+                <Link to={"/services/" + doc.id + "/" + doc.data.name + "/Programme"} 
                 onClick={() => this.handleClickRunsheet()}
                 style={{
                     display: 'block',

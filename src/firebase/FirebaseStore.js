@@ -2,7 +2,8 @@ import firebaseApp from "../firebase/Firebase";
 import * as firebase from 'firebase';
 import 'firebase/firestore';
 import { initFirestorter, Collection, Document } from 'firestorter';
-
+// setup
+const db = firebaseApp.firestore();
 initFirestorter({ firebase: firebaseApp });
 
 // API to add doc to a collection
@@ -32,13 +33,19 @@ export const getUserId = () => {
     var user = firebase.auth().currentUser;
     if (user) {
         // User is signed in.
-        userId = user.uid;
+        userId = user.email;
     } else {
         // No user is signed in.
     }
     return userId;
 }
 
+export const addRunsheetToUser = (id, userId, role) => {
+    db.collection('users/' + userId + '/runsheets').doc(id).set({
+        id: id,
+        role: "owner"
+    });
+}
 
 export const store = {
     runsheets: new Collection('runsheets'),     // collection of runsheets

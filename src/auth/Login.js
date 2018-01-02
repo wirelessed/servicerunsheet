@@ -20,10 +20,11 @@ const Login = observer(class Login extends Component {
     }
 
     checkIfUserExists(user) {
-        db.doc('/users/' + user.uid).get()
+        db.doc('/users/' + user.email).get()
             .then(docSnapshot => {
                 if (docSnapshot.exists) {
                     console.log("user exists");
+                    this.addNewUser(user);
                     return;
                 } else {
                     this.addNewUser(user);
@@ -34,7 +35,8 @@ const Login = observer(class Login extends Component {
     addNewUser = async (user) => {
         try {
             // add the normal way so that can set UID
-            db.collection('users').doc(user.uid).set({
+            db.collection('users').doc(user.email).set({
+                uid: user.uid,
                 email: user.email,
                 role: "user"
             });
@@ -61,7 +63,7 @@ const Login = observer(class Login extends Component {
             if (result.credential) {
                 var user = result.user;
                 _self.checkIfUserExists(user);
-                currentUser.path = "users/" + user.uid;
+                currentUser.path = "users/" + user.email;
             }
         }).catch(function(error) {
             var errorMessage = error.message;

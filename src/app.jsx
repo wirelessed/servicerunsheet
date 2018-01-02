@@ -24,6 +24,9 @@ import {
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
 
+import  * as FirebaseStore from "./firebase/FirebaseStore";
+const runsheet = FirebaseStore.store.runsheet;
+
 const track = () => {
     ReactGA.set({ page: window.location.pathname });
     ReactGA.pageview(window.location.pathname);
@@ -58,14 +61,14 @@ const SonglistTab = ({ match }) => (
 
 // then our route config
 const routes = [
-    { path: '/services/:id/Programme',
+    { path: '/services/:id/:name/Programme',
         component: ProgrammeTab,
         uid: 'this.state.uid'
     },
-    { path: '/services/:id/People',
+    { path: '/services/:id/:name/People',
         component: PeopleTab
     },
-    { path: '/services/:id/Songlist',
+    { path: '/services/:id/:name/Songlist',
         component: SonglistTab
     }
 ]
@@ -204,16 +207,21 @@ class App extends React.Component {
                         <Route exact path="/admin/login" render={() => <AppBar title="Login As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                         <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                         <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
-                        <Route path="/services/:id"  render={({ match }) => <AppBar title={match.params.id} iconElementLeft={
-                                <Link to="/Runsheets">
-                                    <IconButton>
-                                        <FontIcon className="material-icons" color={white}>arrow_back</FontIcon>
-                                    </IconButton>
-                                </Link>} style={AppBarStyle} /> } />
+                        <Route path="/services/:id/:name" render={({ match }) => {
+                            return (
+                                <AppBar title={match.params.name} iconElementLeft={
+                                    <Link to="/Runsheets">
+                                        <IconButton>
+                                            <FontIcon className="material-icons" color={white}>arrow_back</FontIcon>
+                                        </IconButton>
+                                    </Link>} 
+                                style={AppBarStyle} /> 
+                            )}}
+                        />
                         <div style={{paddingTop: '56px'}}>
                             <Route exact path="/" component={Home}/>
                             <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Runsheets} uid={this.state.uid} />
-                            <PrivateRoute authed={this.state.authed} path='/services/:id' component={Service} uid={this.state.uid} />
+                            <PrivateRoute authed={this.state.authed} path='/services/:id/:name' component={Service} uid={this.state.uid} />
                             <Route exact path="/admin" component={Admin2} />
                             <Route exact path="/admin/login" component={Admin} />
                             <Route exact path="/login" component={Login} />

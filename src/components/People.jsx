@@ -16,6 +16,9 @@ import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
+import SelectField from 'material-ui/SelectField';
+import MenuItem from 'material-ui/MenuItem';
+import TextField from 'material-ui/TextField';
 //Subcomponents
 import Popup from './Popup.jsx';
 // Firebase Store
@@ -237,6 +240,7 @@ const People = observer(class People extends Component {
                                                 <Textarea name="Description" placeholder="Person" onChange={this.onEditExistingDescription.bind(this, doc)} value={ item.description } style={DescriptionEditStyle} />
                                             </div>
                                         </div>
+                                        
                                     :
                                         <div style={ListItemBGStyle}>
                                             <div style={LeftColumnStyle}>
@@ -263,6 +267,19 @@ const People = observer(class People extends Component {
                             innerDivStyle={listItemStyle}
                             disableTouchRipple
                             >
+                            <div >
+                                            <SelectField
+                                                floatingLabelText="Frequency"
+                                                value={this.state.value}
+                                                onChange={this.handleChange}
+                                                >
+                                                <MenuItem value={1} primaryText="Never" />
+                                                <MenuItem value={2} primaryText="Every Night" />
+                                                <MenuItem value={3} primaryText="Weeknights" />
+                                                <MenuItem value={4} primaryText="Weekends" />
+                                                <MenuItem value={5} primaryText="Weekly" />
+                                                </SelectField>
+                                            </div>    
                             </ListItem>
                             <RaisedButton label="Add" type="submit" primary={true} style={{ marginRight: '16px', float: 'right'}}/>
                         </form>
