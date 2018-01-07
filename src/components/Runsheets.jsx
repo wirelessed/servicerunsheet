@@ -93,6 +93,8 @@ const Runsheets = observer(class Runsheets extends Component {
                 handleSubmit={() => this.createRunsheet({
                     name: this.state.newName,
                     date: moment().format("DD-MM-YYYY"),
+                    time: moment("1000", "HHmm").format("HHmm"),
+                    orderCount: 0,
                     lastUpdated: moment().format()
                 }).then(this.handleClosePopup())}
                 numActions={2}
@@ -140,6 +142,8 @@ const Runsheets = observer(class Runsheets extends Component {
             await runsheets.add({
                 name: this.state.newName,
                 date: runsheet.data.date,
+                time: runsheet.data.time,
+                orderCount: runsheet.data.orderCount,
                 lastUpdated: moment().format()
             }).then(function(newDoc){
                 // set new paths
@@ -257,20 +261,24 @@ const Runsheets = observer(class Runsheets extends Component {
             querySnapshot.forEach((doc) => {
                 var thisRunsheet = db.collection("runsheets").doc(doc.id);
                 thisRunsheet.get().then(function(doc){
-                    const newDoc = new Document("runsheets/" + doc.id);
-                    const newUserinRunsheet = new Document("runsheets/" + doc.id + "/users/" + currentUser.id);
-                    var item = <RunsheetItem
-                            currentUserInRunsheet={newUserinRunsheet}
-                            renameRunsheet={_self.confirmRenameRunsheet}
-                            deleteRunsheet={_self.confirmDeleteRunsheet}
-                            duplicateRunsheet={_self.confirmDuplicateRunsheet}
-                            key={doc.id}
-                            doc={newDoc}
-                            data={doc.data()}
-                        />;
-                    var displayRunsheets = _self.state.displayRunsheets.slice();
-                    displayRunsheets.push(item);
-                    _self.setState({displayRunsheets: displayRunsheets});
+                    if(doc.exists){
+                        const newDoc = new Document("runsheets/" + doc.id);
+                        const newUserinRunsheet = new Document("runsheets/" + doc.id + "/users/" + currentUser.id);
+                        var item = <RunsheetItem
+                                currentUserInRunsheet={newUserinRunsheet}
+                                renameRunsheet={_self.confirmRenameRunsheet}
+                                deleteRunsheet={_self.confirmDeleteRunsheet}
+                                duplicateRunsheet={_self.confirmDuplicateRunsheet}
+                                key={doc.id}
+                                doc={newDoc}
+                                data={doc.data()}
+                            />;
+                        var displayRunsheets = _self.state.displayRunsheets.slice();
+                        displayRunsheets.push(item);
+                        _self.setState({displayRunsheets: displayRunsheets});
+                    } else {
+                        // doc has been deleted previously
+                    }
                 });
                     
             })

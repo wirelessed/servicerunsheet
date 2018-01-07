@@ -156,11 +156,7 @@ const Programme = observer(class Programme extends Component {
             theModal: null,
             editMode: false,
             snackbarOpen: false,
-            time: moment().format("HHmm"),
-            serviceDate: moment().format("DD-MM-YYYY"),
-            text: "",
             // transition: "",
-            remarks: "",
             currentKey: null,
             newItemKey: null,
             items: [],
@@ -171,14 +167,8 @@ const Programme = observer(class Programme extends Component {
     }
 
     componentDidMount(){
-        // var user = firebase.auth().currentUser;
-        // var userRole;
-        // if (user != null) {
-        //     userRole = firebase.database().ref("users/" + user.uid);
-        //     this.bindAsObject(userRole, "userRole");
-        // }
         console.log("path", programme.path);
-        programme.query = programme.ref.orderBy('time', 'asc');
+        programme.query = programme.ref.orderBy('orderCount', 'asc');
         
         // update time every minute
         setInterval(this.highlightCurrentTime, 30000);
@@ -188,21 +178,21 @@ const Programme = observer(class Programme extends Component {
         // re-order whenever there's new items
     }
 
-    onTextChange = (e) => {
-        this.setState({text: e.target.value});
-    }
+    // onTextChange = (e) => {
+    //     this.setState({text: e.target.value});
+    // }
 
-    onRemarksChange = (e) => {
-        this.setState({remarks: e.target.value});
-    }
+    // onRemarksChange = (e) => {
+    //     this.setState({remarks: e.target.value});
+    // }
 
-    onTimeChange = (e, time) => {
-        var newTime = time;
-        this.setState({time: newTime});
-        // console.log(newTime);
-    }
+    // onTimeChange = (e, time) => {
+    //     var newTime = time;
+    //     this.setState({time: newTime});
+    //     // console.log(newTime);
+    // }
 
-    submitServiceDate = (e, time) => {
+    changeServiceDate = (e, time) => {
         var newTime = moment(time).format("DD-MM-YYYY");
 
         var newServiceDate = runsheet.update({
@@ -211,58 +201,12 @@ const Programme = observer(class Programme extends Component {
         runsheet.update({ lastUpdated: moment().format() });
     }
 
-    onServiceStartTimeChange = (newTime) => {
-        // var time = newTime;
-        // var currTime = moment(time,"HHmm");
-        // var prevTime = moment(programme.docs[0].data.time,"HHmm");
-
-        // // count duration
-        // var durationChange = moment.duration(currTime.diff(prevTime));
-        // console.log("durationChange",durationChange);
-        // // check if it's before or after
-        // var addOrSub = moment(currTime).isAfter(prevTime);
-        // console.log("addOrSub",addOrSub);
-
-        // // update items
-        // var tempItems = deepcopy(programme.docs);
-        // console.log("tempItems",tempItems);
-
-        // var _self = this;
-        // tempItems.map((doc, index) => {
-        //     var item = doc.text;
-        //     console.log("text old", item.text);
-        //     console.log("newTime old", item.time);
-        //      var oldTime = moment(item.time,"HHmm");
-        //      var newTime;
-        //      newTime = oldTime.add(durationChange);
-
-        //      newTime = moment(newTime).format("HHmm");
-        //      item.time = newTime;
-
-        //      console.log("text", item.text);
-        //      console.log("newTime", item.time);
-        // });
-
-        // console.log("items", tempItems);
-        // programme.docs.update({items: tempItems});
-
-
-        this.handleClosePopup();
-    }
-
-    changeServiceStartTime = () => {
-        const changePopup =
-            <ModalStartTime
-                isPopupOpen={true}
-                handleClosePopup={this.handleClosePopup}
-                handleSubmit={this.onServiceStartTimeChange}
-                numActions={2}
-                title="Change Service Start Time"
-                time={programme.docs[0].data.time}
-                >
-            </ModalStartTime>
-
-        this.setState({thePopup: changePopup});
+    changeStartTime = (e, time) => {
+        var newTime = moment(time).format("HHmm");
+        runsheet.update({
+            time: newTime
+        });
+        runsheet.update({ lastUpdated: moment().format() });
     }
 
     handleClosePopup = () => {
@@ -274,13 +218,15 @@ const Programme = observer(class Programme extends Component {
     }
 
     // edit item after popup closes
-    editItem = async (doc, time, text, remarks) => {
-        if(time === undefined) time = "0000";
+    editItem = async (doc, orderCount, duration, text, remarks) => {
+        if(orderCount === undefined) orderCount = "0";
+        if(duration === undefined) duration = "0";
         if(text === undefined) text = "";
         if(remarks === undefined) remarks = "";
         // console.log("hello", time, text, remarks);
         await doc.update({
-            time: time,
+            orderCount: orderCount,
+            duration: duration,
             text: text,
             remarks: remarks
         });
@@ -293,11 +239,12 @@ const Programme = observer(class Programme extends Component {
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={(doc, item, text, remarks) => this.editItem(doc, item, text, remarks).then(this.handleCloseModal())}
+                handleSubmit={(doc, orderCount, duration, text, remarks) => this.editItem(doc, orderCount, duration, text, remarks).then(this.handleCloseModal())}
                 numActions={2}
                 title="Edit Item"
                 doc={doc}
-                time={doc.data.time}
+                orderCount={doc.data.orderCount}
+                duration={doc.data.duration}
                 text={doc.data.text}
                 remarks={doc.data.remarks}
                 >
@@ -307,13 +254,15 @@ const Programme = observer(class Programme extends Component {
     }
 
     // popup to add new item
-    confirmAddItem = () => {
+    confirmAddItem = (orderCount) => {
         var _self = this;
+        var newOrderCount = orderCount + 1;
+
         const modal =
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={(time, text, remarks) => FirebaseStore.addDocToCollection(programme, {time: time, text: text, remarks: remarks})
+                handleSubmit={(orderCount, duration, text, remarks) => FirebaseStore.addDocToCollection(programme, {orderCount: orderCount, duration: duration, text: text, remarks: remarks})
                                                                     .then(function(){
                                                                         runsheet.update({ lastUpdated: moment().format() });
                                                                         _self.handleCloseModal();
@@ -321,7 +270,8 @@ const Programme = observer(class Programme extends Component {
                 numActions={2}
                 title="Add New Item"
                 type="add"
-                time=""
+                orderCount={newOrderCount}
+                duration=""
                 text=""
                 remarks=""
                 >
@@ -349,48 +299,6 @@ const Programme = observer(class Programme extends Component {
         this.setState({thePopup: popup});
     }
 
-    sendWhatsapp = () => {
-        var composeMessage = "";
-        var previousTime = moment();
-
-        programme.docs.map((doc, index) => {
-            var item = doc.data;
-
-            if (item.time !== null){
-                var theTime = moment(item.time,"HHmm");
-
-                // get duration
-                var printDuration;
-                if (index > 0){
-                    printDuration = "(" + theTime.diff(previousTime, 'minutes') + " min)";
-                    composeMessage += printDuration + "\n\n";
-                }
-                previousTime = theTime;
-
-                // print time
-                composeMessage +=  theTime.format("h:mm a") + ": ";
-            } else {
-                composeMessage += "      ";
-            }
-
-
-            if (item.text !== null)
-                composeMessage += item.text + "\n";
-
-            return composeMessage;
-        });
-        composeMessage=encodeURIComponent(composeMessage);
-        // console.log(composeMessage);
-
-        ReactGA.event({
-            category: 'Share',
-            action: 'Share Whatsapp',
-            label: 'Programme'
-        });
-
-        window.location = "whatsapp://send?text=" + composeMessage;
-    }
-
     toggleEditMode = () => {
         if (this.state.editMode) {
             ReactGA.event({
@@ -411,13 +319,6 @@ const Programme = observer(class Programme extends Component {
                 editMode: true
             });
         }
-    }
-
-    handleExpandChange = (time) => {
-        var newTime = moment(time,"HHmm");
-        newTime.subtract(5, "minutes");
-        newTime = newTime.format("HHmm")
-        this.setState({time: newTime});
     }
 
     // highlight timeslot based on current time
@@ -447,13 +348,13 @@ const Programme = observer(class Programme extends Component {
 
     render() {
         // check if user is admin
-        var isAdmin = false; // @TODO Change back later
+        var isAdmin = false;
         if(currentUserInRunsheet.data.role == "editor") {
             isAdmin = true;
         }
         var previousTime = moment();
         var serviceDate = moment(runsheet.data.date, "DD-MM-YYYY");
-
+        var startTime = moment(runsheet.data.time, "HHmm");
         // check if service date is today
         var isToday = moment().isSame(serviceDate,'day');
 
@@ -465,30 +366,58 @@ const Programme = observer(class Programme extends Component {
             innerDivStyle={listItemViewStyle}
             disableTouchRipple
             ></ListItem>;
+
         if (this.state.editMode){
             showDate = <ListItem
-                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
-                primaryText={<DatePicker name="Date" onChange={this.submitServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
+                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date:</div>}
+                primaryText={<DatePicker name="Date" onChange={this.changeServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
                 href="#"
                 innerDivStyle={listItemStyle}
                 disableTouchRipple
                 ></ListItem>;
         }
 
-        var AddNewLine =
-            <div>
-            <Divider style={{ marginTop: '8px'}}/>
-            <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey100, padding: '16px 0px 56px 0px'}}>
-                <div style={LeftColumnStyle}>
-                    <TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} dialogStyle={{zIndex: '3000'}} />
-                </div>
-                <div style={RightColumnStyle}>
-                    <Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />
-                    <Textarea name="Remarks" placeholder="Remarks (Optional)" onChange={this.onRemarksChange} value={ this.state.remarks } style={RemarksEditStyle} />
-                </div>
-                <RaisedButton label="Add" type="submit" primary={true} style={{ margin: '0 8px', float: 'right'}}/>
-            </form>
-        </div>;
+        // show startTime depending on editMode
+        let showStartTime = <ListItem
+            leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Start Time:</div>}
+            primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px', }}>{startTime.format('LT')}</div>}
+            href="#"
+            innerDivStyle={listItemViewStyle}
+            disableTouchRipple
+            ></ListItem>;
+
+        if (this.state.editMode){
+            showStartTime = <ListItem
+                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Start Time</div>}
+                primaryText={<TimePicker
+                    format="ampm"
+                    value={startTime.toDate()}
+                    onChange={this.changeStartTime}
+                    style={{zIndex: 500}}
+                  /> }
+                href="#"
+                innerDivStyle={listItemStyle}
+                disableTouchRipple
+                ></ListItem>;
+        }
+
+        // var AddNewLine =
+        //     <div>
+        //     <Divider style={{ marginTop: '8px'}}/>
+        //     <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey100, padding: '16px 0px 56px 0px'}}>
+        //         <div style={LeftColumnStyle}>
+        //             <TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} dialogStyle={{zIndex: '3000'}} />
+        //         </div>
+        //         <div style={RightColumnStyle}>
+        //             <Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />
+        //             <Textarea name="Remarks" placeholder="Remarks (Optional)" onChange={this.onRemarksChange} value={ this.state.remarks } style={RemarksEditStyle} />
+        //         </div>
+        //         <RaisedButton label="Add" type="submit" primary={true} style={{ margin: '0 8px', float: 'right'}}/>
+        //     </form>
+        // </div>;
+
+        var previousDuration = 0; // store previous item duration
+        var previousTime = startTime;
 
         return (
             <div style={{marginBottom: '170px'}} id="prog">
@@ -497,23 +426,38 @@ const Programme = observer(class Programme extends Component {
                     {showDate}
                 </div>
 
+                <div style={{height: '56px'}}>
+                    {showStartTime}
+                </div>
+
                 <List>
 
                     {
                         programme.docs.map((doc, index) => {
                             var item = doc.data;
                             var key = doc.id;
-                            var theDate = moment(item.time,"HHmm");
-                            var theDateInNumbers = item.time;
-                            var theTime = theDate.format("LT");
+
+                            // calculate time based on duration and order
+                            var itemTime;
+                            if(item.orderCount === 1 || item.orderCount === 0){
+                                itemTime = startTime;
+                            }
+                            else {
+                                itemTime = previousTime.add(previousDuration, 'm');
+                            }
+                            var itemTimeFormatted = itemTime.format("LT");
+                            previousTime = itemTime;
+                            previousDuration = item.duration;
 
                             // highlight new item
                             var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
                             if(this.state.newItemKey === key){
                                 ListItemBGStyle = { clear: 'both', background: yellow200, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
                             }
+
+                            // fade out old items
                             var opacity = {};
-                            if(isToday && moment().isAfter(theDate,'minute')){
+                            if(isToday && moment().isAfter(itemTime,'minute')){
                                 opacity = { opacity: '0.5' };
                             }
 
@@ -523,38 +467,15 @@ const Programme = observer(class Programme extends Component {
                                 deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
                             }
 
-                            // DURATION counting
-                            var theDuration;
-                            if (index > 0){
-                                theDuration = "(" + theDate.diff(previousTime, 'minutes') + " min)";
-                            }
-                            previousTime = theDate;
-
-                            var showDuration = null;
-                            if (index > 0){
-                                showDuration = <div style={{ paddingLeft: (this.state.editMode) ? '120px' : '100px', paddingBottom: '16px', color: grey500 }} className="duration">{theDuration}</div>;
-                            }
-
-                            // // TIME
-                            // var timePick;
-                            // // allow start time to change everyone else
-                            // if (index == 0){
-                            //     timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onServiceStartTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
-                            // } else {
-                            //     timePick  = <div>{deleteButton}<TextField readOnly={true} onTouchTap={() => this.editItemModal(key, item.time, item.text, item.remarks)} readOnly={true} name="Time" onChange={this.onExistingTimeChange.bind(this, key)} value={theDateInNumbers} underlineShow={false} fullWidth={true} style={TimePickerStyle} inputStyle={{color: indigo500}} /></div>;
-                            // }
-
                             return (
                                 <div key={index}>
-                                    <div style={{clear: 'both'}}>
-                                        {showDuration}
-                                    </div>
-
                                     {(this.state.editMode) ?
-                                        <div style={ListItemBGStyle} className={theDateInNumbers}>
+                                        <div style={ListItemBGStyle} className={itemTimeFormatted}>
                                             <div style={LeftColumnEditStyle} >
                                                 {deleteButton}
-                                                <div style={TimePickerStyle} onTouchTap={() => this.confirmEditItem(doc)}>{theDateInNumbers}</div>
+                                                <div style={TimePickerStyle} onTouchTap={() => this.confirmEditItem(doc)}>
+                                                    {itemTimeFormatted}
+                                                </div>
                                                 <div style={{ clear: 'both' }} onTouchTap={() => this.confirmEditItem(doc)} >
                                                     <ModeEdit color={indigo500}/>
                                                 </div>
@@ -567,11 +488,16 @@ const Programme = observer(class Programme extends Component {
                                                     <Textarea readOnly={true} onTouchTap={() => this.confirmEditItem(doc)} name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} />
                                                 }
                                             </div>
+                                            <div style={{paddingLeft:'120px', clear: 'left'}}>
+                                                <small>({item.duration} mins)</small>
+                                            </div>
                                         </div>
                                         :
-                                        <div style={ListItemBGStyle,opacity} className={theDateInNumbers}>
+                                        <div style={ListItemBGStyle} className={itemTimeFormatted}>
                                             <div style={LeftColumnStyle}>
-                                                <div style={TimePickerStyle}>{theTime}</div>
+                                                <div style={TimePickerStyle}>
+                                                    {itemTimeFormatted}
+                                                </div>
                                             </div>
                                             <div style={RightColumnStyle}>
                                                 <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
@@ -580,8 +506,14 @@ const Programme = observer(class Programme extends Component {
                                                 : <Textarea name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} readOnly={true} />
                                                 }
                                             </div>
+                                            <div style={{paddingLeft:'100px', clear: 'left'}}>
+                                                <small>({item.duration} mins)</small>
+                                            </div>
                                         </div>
                                     }
+                                    <div style={{clear: 'both', paddingLeft: '100px'}}>
+                                        
+                                    </div>
                                 </div>
                             );
                         })
@@ -615,7 +547,7 @@ const Programme = observer(class Programme extends Component {
                         :
                         <div>
                             <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={this.confirmAddItem}>
+                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={() => this.confirmAddItem(runsheet.data.orderCount)}>
                                     <AddFloatingIcon />
                                 </FloatingActionButton>
                             </MediaQuery>
@@ -627,8 +559,6 @@ const Programme = observer(class Programme extends Component {
 
                             <MediaQuery maxWidth={1023}>
                                 <div>
-                                    <RaisedButton style={{position: 'fixed', right: '120px', bottom: '115px', zIndex: '1499'}} primary={true} onTouchTap={this.changeServiceStartTime} label="Change Service Start Time" />
-
                                     <Snackbar
                                         open={true}
                                         message="Editing: Tap on any item to edit"
@@ -640,7 +570,6 @@ const Programme = observer(class Programme extends Component {
                             </MediaQuery>
                             <MediaQuery minWidth={1024}>
                                 <div>
-                                    <RaisedButton style={{position: 'fixed', right: '120px', bottom: '40px', zIndex: '1499'}} primary={true} onTouchTap={this.changeServiceStartTime} label="Change Service Start Time" />
                                     <Snackbar
                                         open={true}
                                         message="Editing: Tap on any item to edit"

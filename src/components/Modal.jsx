@@ -26,15 +26,20 @@ export default class Modal extends React.Component {
         super(props);
 
         this.state = {
-            time: "",
+            orderCount: "",
+            duration: "",
             text: "",
             remarks: "",
         };
 
     }
 
-    updateTime(e) {
-        this.setState({time: e.target.value})
+    updateOrderCount(e) {
+        this.setState({orderCount: e.target.value})
+    }
+
+    updateDuration(e) {
+        this.setState({duration: e.target.value})
     }
 
     updateText(e) {
@@ -47,7 +52,8 @@ export default class Modal extends React.Component {
 
     componentDidMount(){
         this.setState({
-            time: this.props.time,
+            orderCount: this.props.orderCount,
+            duration: this.props.duration,
             text: this.props.text,
             remarks: this.props.remarks
         })
@@ -68,7 +74,7 @@ export default class Modal extends React.Component {
                     <RaisedButton
                         label="Add"
                         primary={true}
-                        onTouchTap={() => this.props.handleSubmit(this.state.time, this.state.text, this.state.remarks)}
+                        onTouchTap={() => this.props.handleSubmit(this.state.orderCount, this.state.duration, this.state.text, this.state.remarks)}
                         />,
                 ];
             // for edit modals
@@ -77,7 +83,7 @@ export default class Modal extends React.Component {
                     <RaisedButton
                         label="Done"
                         primary={true}
-                        onTouchTap={() => this.props.handleSubmit(this.props.doc, this.state.time, this.state.text, this.state.remarks)}
+                        onTouchTap={() => this.props.handleSubmit(this.props.doc, this.state.orderCount, this.state.duration, this.state.text, this.state.remarks)}
                         />,
                 ];
             }
@@ -95,13 +101,15 @@ export default class Modal extends React.Component {
 
         var children =
             <div>
-                <TextField type="number" name="Time" placeholder="Time (hhmm) (24h)" value={this.state.time} onChange={this.updateTime.bind(this)}  />
+                <small>Just enter the duration in minutes and the time will be shown based on the service start time</small>
+                <TextField type="number" name="Order" id="Order" floatingLabelText="Order" value={this.state.orderCount} onChange={this.updateOrderCount.bind(this)}  />
+                <br />                
+                <TextField type="number" name="Duration" id="Duration" floatingLabelText="Duration (mins)" value={this.state.duration} onChange={this.updateDuration.bind(this)}  />
                 <br />
                 <Textarea name="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
                 <br />
                 <Textarea name="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
                 <br /><br />
-                <small>Note: After editing the time, the runsheet will be re-ordered chronologically.</small>
             </div>
 
         return (

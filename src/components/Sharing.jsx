@@ -113,6 +113,48 @@ const Sharing = observer(class Sharing extends Component {
         }
     }
 
+    // sendWhatsapp = () => {
+    //     var composeMessage = "";
+    //     var previousTime = moment();
+
+    //     programme.docs.map((doc, index) => {
+    //         var item = doc.data;
+
+    //         if (item.time !== null){
+    //             var theTime = moment(item.time,"HHmm");
+
+    //             // get duration
+    //             var printDuration;
+    //             if (index > 0){
+    //                 printDuration = "(" + theTime.diff(previousTime, 'minutes') + " min)";
+    //                 composeMessage += printDuration + "\n\n";
+    //             }
+    //             previousTime = theTime;
+
+    //             // print time
+    //             composeMessage +=  theTime.format("h:mm a") + ": ";
+    //         } else {
+    //             composeMessage += "      ";
+    //         }
+
+
+    //         if (item.text !== null)
+    //             composeMessage += item.text + "\n";
+
+    //         return composeMessage;
+    //     });
+    //     composeMessage=encodeURIComponent(composeMessage);
+    //     // console.log(composeMessage);
+
+    //     ReactGA.event({
+    //         category: 'Share',
+    //         action: 'Share Whatsapp',
+    //         label: 'Programme'
+    //     });
+
+    //     window.location = "whatsapp://send?text=" + composeMessage;
+    // }
+
     render() {
         // check if user is admin
         var isAdmin = false; // @TODO Change back later
