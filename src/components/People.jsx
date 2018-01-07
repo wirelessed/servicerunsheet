@@ -23,7 +23,7 @@ import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const people = FirebaseStore.store.people;
 const runsheet = FirebaseStore.store.runsheet;
-
+const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
 const LeftColumnStyle = {
     minWidth: '128px',
@@ -199,12 +199,9 @@ const People = observer(class People extends Component {
 
     render() {
         // check if user is admin
-        var isAdmin = true;
-        if(this.state.userRole) {
-            if(this.state.userRole.role == "admin"){
-                isAdmin = true;
-                console.log("admin");
-            }
+        var isAdmin = false; // @TODO Change back later
+        if(currentUserInRunsheet.data.role == "editor") {
+            isAdmin = true;
         }
 
         return (

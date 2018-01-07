@@ -21,7 +21,6 @@ import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import AddFloatingIcon from 'material-ui/svg-icons/content/add';
-import ShareIcon from 'material-ui/svg-icons/social/share';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
 // Subcomponents
@@ -34,6 +33,7 @@ import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const programme = FirebaseStore.store.programme;
 const runsheet = FirebaseStore.store.runsheet;
+const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
 const listItemViewStyle = {
     padding: '4px 16px 4px 100px',
@@ -447,12 +447,9 @@ const Programme = observer(class Programme extends Component {
 
     render() {
         // check if user is admin
-        var isAdmin = true; // @TODO Change back later
-        if(this.state.userRole) {
-            if(this.state.userRole.role === "admin"){
-                isAdmin = true;
-                // console.log("admin");
-            }
+        var isAdmin = false; // @TODO Change back later
+        if(currentUserInRunsheet.data.role == "editor") {
+            isAdmin = true;
         }
         var previousTime = moment();
         var serviceDate = moment(runsheet.data.date, "DD-MM-YYYY");
@@ -595,8 +592,8 @@ const Programme = observer(class Programme extends Component {
                         : ''
                     } */}
                 </List>
-
-                <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} onTouchTap={this.sendWhatsapp} data-action="share/whatsapp/share"  />
+{/* 
+                <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} odata-action="share/whatsapp/share"  /> */}
 
                 { (!this.state.editMode) ?
                     (isAdmin) ?

@@ -15,6 +15,7 @@ const listIcon = <FontIcon className="material-icons">list</FontIcon>;
 const musicIcon = <FontIcon className="material-icons">music_note</FontIcon>;
 const copyrightIcon = <FontIcon className="material-icons">copyright</FontIcon>;
 const lyricsIcon = <FontIcon className="material-icons">queue_music</FontIcon>;
+const sharingIcon = <FontIcon className="material-icons">share</FontIcon>;
 
 const BottomNavStyle = {
     position: 'fixed',
@@ -65,22 +66,19 @@ const BottomNavStyleDesktop = {
      select = (index) => {
          this.setState({selectedIndex: index});
          switch(index){
-             case 0:
+            case 0:
                 this.context.router.history.push(this.props.serviceKey + "/Programme");
                 break;
-             case 1:
+            case 1:
                 this.context.router.history.push(this.props.serviceKey + "/People");
                 break;
-             case 2:
+            case 2:
                 this.context.router.history.push(this.props.serviceKey + "/Songlist");
                 break;
-             case 3:
-                this.context.router.history.push(this.props.serviceKey + "/Copyrights");
+            case 3:
+                this.context.router.history.push(this.props.serviceKey + "/Sharing");
                 break;
-             case 4:
-                this.context.router.history.push(this.props.serviceKey + "/Lyrics");
-                break;
-             default:
+            default:
                 this.context.router.history.push(this.props.serviceKey + "/Programme");
                 break;
          }
@@ -94,10 +92,8 @@ const BottomNavStyleDesktop = {
              return 1;
          } else if(currentRoute.endsWith("Songlist")){
              return 2;
-         } else if(currentRoute.endsWith("Copyrights")){
+         } else if(currentRoute.endsWith("Sharing")){
              return 3;
-         } else if(currentRoute.endsWith("Lyrics")){
-             return 4;
          }
      }
 
@@ -124,7 +120,7 @@ const BottomNavStyleDesktop = {
              <Paper zDepth={2} style={TheBottomNavStyle}>
                  <BottomNavigation selectedIndex={this.state.selectedIndex} style={TheInnerNavStyle}>
 
-                         <BottomNavigationItem
+                        <BottomNavigationItem
                              label="Prog"
                              icon={listIcon}
                              onTouchTap={() => this.select(0)}
@@ -132,7 +128,7 @@ const BottomNavStyleDesktop = {
                              className="BottomNavItem"
                              />
 
-                         <BottomNavigationItem
+                        <BottomNavigationItem
                              label="People"
                              icon={peopleIcon}
                              onTouchTap={() => this.select(1)}
@@ -140,10 +136,18 @@ const BottomNavStyleDesktop = {
                              className="BottomNavItem"
                              />
 
-                         <BottomNavigationItem
+                        <BottomNavigationItem
                              label="Songs"
                              icon={musicIcon}
                              onTouchTap={() => this.select(2)}
+                             style={TheBottomNavItemStyle}
+                             className="BottomNavItem"
+                             />
+
+                        <BottomNavigationItem
+                             label="Share"
+                             icon={sharingIcon}
+                             onTouchTap={() => this.select(3)}
                              style={TheBottomNavItemStyle}
                              className="BottomNavItem"
                              />

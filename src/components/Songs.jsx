@@ -36,6 +36,7 @@ import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const songs = FirebaseStore.store.songs;
 const runsheet = FirebaseStore.store.runsheet;
+const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
 const listItemStyle = {
     padding: '4px 16px 4px 40px',
@@ -266,14 +267,10 @@ const Songs = observer(class Songs extends Component {
     }
 
     render() {
-
         // check if user is admin
-        var isAdmin = true;
-        if(this.state.userRole) {
-            if(this.state.userRole.role == "admin"){
-                isAdmin = true;
-                console.log("admin");
-            }
+        var isAdmin = false; // @TODO Change back later
+        if(currentUserInRunsheet.data.role == "editor") {
+            isAdmin = true;
         }
 
         return (

@@ -25,7 +25,9 @@ const currentUser = FirebaseStore.store.currentUser;
 const programme = FirebaseStore.store.programme;
 const people = FirebaseStore.store.people;
 const songs = FirebaseStore.store.songs;
+const users = FirebaseStore.store.users;
 const runsheetsByUser = FirebaseStore.store.runsheetsByUser;
+const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
 // setup
 import firebaseApp from '../firebase/Firebase';
@@ -75,7 +77,7 @@ const Runsheets = observer(class Runsheets extends Component {
 
         runsheets.add(data).then(function(doc){
             var id = doc.id;
-            FirebaseStore.addRunsheetToUser(id, _self.state.userId);
+            FirebaseStore.addRunsheetToUser(id, _self.state.userId, "editor");
             _self.displayRunsheetsByUser();        
         });
     }
@@ -158,6 +160,15 @@ const Runsheets = observer(class Runsheets extends Component {
                     people.add(doc.data);
                 });
 
+                // get old users data
+                people.path = "runsheets/" + runsheet.id + "/users";
+                var tempData = users.docs;
+                // copy to new users data
+                users.path = "runsheets/" + doc.id + "/users";
+                tempData.map((doc) => {
+                    users.add(doc.data);
+                });
+
                 // get old songs data
                 songs.path = "runsheets/" + runsheet.id + "/songs";
                 var tempData = songs.docs;
@@ -168,7 +179,7 @@ const Runsheets = observer(class Runsheets extends Component {
                 });
 
                 // make sure add to runsheetsByUser too
-                FirebaseStore.addRunsheetToUser(doc.id, _self.state.userId);   
+                FirebaseStore.addRunsheetToUser(doc.id, _self.state.userId, "editor");   
                 _self.displayRunsheetsByUser();
             });
         }
@@ -318,8 +329,9 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
         programme.path = 'runsheets/' + id + '/programme';
         people.path = 'runsheets/' + id + '/people';
         songs.path = 'runsheets/' + id + '/songs';
+        users.path = 'runsheets/' + id + '/users';
         runsheet.path = 'runsheets/' + id;
-        
+        currentUserInRunsheet.path = 'runsheets/' + id + '/users/' + currentUser.id;        
     }
 
     render(){

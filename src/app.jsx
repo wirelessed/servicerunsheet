@@ -8,6 +8,7 @@ import Runsheets from "./components/Runsheets.jsx";
 import Programme from './components/Programme.jsx';
 import People from './components/People.jsx';
 import Songs from './components/Songs.jsx';
+import Sharing from './components/Sharing.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import Login from './auth/Login.js';
 import Admin from './auth/Admin.js';
@@ -59,6 +60,10 @@ const SonglistTab = ({ match }) => (
     <Songs serviceKey={`${match.params.id}`} />
 )
 
+const SharingTab = ({ match }) => (
+    <Sharing serviceKey={`${match.params.id}`} />
+)
+
 // then our route config
 const routes = [
     { path: '/services/:id/:name/Programme',
@@ -70,6 +75,9 @@ const routes = [
     },
     { path: '/services/:id/:name/Songlist',
         component: SonglistTab
+    },
+    { path: '/services/:id/:name/Sharing',
+        component: SharingTab
     }
 ]
 

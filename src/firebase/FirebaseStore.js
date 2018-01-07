@@ -40,10 +40,34 @@ export const getUserId = () => {
     return userId;
 }
 
+// Add runsheet to a user
 export const addRunsheetToUser = (id, userId, role) => {
+    if (role === undefined){
+        role = "viewer";
+    }
+    // add this runsheet ID to the user's runsheets collection
     db.collection('users/' + userId + '/runsheets').doc(id).set({
         id: id,
-        role: "owner"
+    });
+    // add this user ID to the runsheet's users collection
+    db.collection('runsheets/' + id + '/users').doc(userId).set({
+        id: userId,
+        role: role
+    });
+}
+
+// Remove runsheet from a user
+export const removeRunsheetFromUser = (id, userId) => {
+    db.collection('users/' + userId + '/runsheets').doc(id).delete().then(function() {
+        console.log("Document successfully deleted!");
+    }).catch(function(error) {
+        console.error("Error removing document: ", error);
+    });
+
+    db.collection('runsheets/' + id + '/users').doc(userId).delete().then(function() {
+        console.log("Document successfully deleted!");
+    }).catch(function(error) {
+        console.error("Error removing document: ", error);
     });
 }
 
@@ -53,7 +77,9 @@ export const store = {
     programme: new Collection(),                // programme in the runsheet
     people: new Collection(),                   // people in the runsheet
     songs: new Collection(),                   // people in the runsheet
+    users: new Collection(),          // users in the runsheet
     allUsers: new Collection('users','on'),
     currentUser: new Document(),
+    currentUserInRunsheet: new Document(),
     runsheetsByUser: new Collection(),     // collection of runsheets
 };
