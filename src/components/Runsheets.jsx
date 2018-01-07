@@ -141,45 +141,41 @@ const Runsheets = observer(class Runsheets extends Component {
                 name: this.state.newName,
                 date: runsheet.data.date,
                 lastUpdated: moment().format()
-            }).then(function(doc){
-                // get old programme data
-                programme.path = "runsheets/" + runsheet.id + "/programme";
-                var tempData = programme.docs;
-                // copy to new programme data
-                programme.path = "runsheets/" + doc.id + "/programme";
-                tempData.map((doc) => {
-                    programme.add(doc.data);
+            }).then(function(newDoc){
+                // set new paths
+                programme.path = "runsheets/" + newDoc.id + "/programme";
+                people.path = "runsheets/" + newDoc.id + "/people";
+                users.path = "runsheets/" + newDoc.id + "/users";
+                songs.path = "runsheets/" + newDoc.id + "/songs";
+                var newDoc = newDoc;
+
+                db.collection("runsheets/" + runsheet.id + "/programme").get().then(function(querySnapshot) {
+                    querySnapshot.forEach(function(doc2) {
+                        programme.add(doc2.data());
+                    });
+                });
+                    
+                db.collection("runsheets/" + runsheet.id + "/people").get().then(function(querySnapshot) {
+                    querySnapshot.forEach(function(doc2) {
+                        people.add(doc2.data());
+                    });
                 });
 
-                // get old people data
-                people.path = "runsheets/" + runsheet.id + "/people";
-                var tempData = people.docs;
-                // copy to new people data
-                people.path = "runsheets/" + doc.id + "/people";
-                tempData.map((doc) => {
-                    people.add(doc.data);
+                db.collection("runsheets/" + runsheet.id + "/users").get().then(function(querySnapshot) {
+                    querySnapshot.forEach(function(doc2) {
+                        console.log("doc2.data().userId",doc2.data().id);
+                        FirebaseStore.addRunsheetToUser(newDoc.id, doc2.data().id, doc2.data().role);                        
+                    });
                 });
 
-                // get old users data
-                people.path = "runsheets/" + runsheet.id + "/users";
-                var tempData = users.docs;
-                // copy to new users data
-                users.path = "runsheets/" + doc.id + "/users";
-                tempData.map((doc) => {
-                    users.add(doc.data);
-                });
-
-                // get old songs data
-                songs.path = "runsheets/" + runsheet.id + "/songs";
-                var tempData = songs.docs;
-                // copy to new songs data
-                songs.path = "runsheets/" + doc.id + "/songs";
-                tempData.map((doc) => {
-                    songs.add(doc.data);
+                db.collection("runsheets/" + runsheet.id + "/songs").get().then(function(querySnapshot) {
+                    querySnapshot.forEach(function(doc2) {
+                        songs.add(doc2.data());
+                    });
                 });
 
                 // make sure add to runsheetsByUser too
-                FirebaseStore.addRunsheetToUser(doc.id, _self.state.userId, "editor");   
+                FirebaseStore.addRunsheetToUser(newDoc.id, _self.state.userId, "editor");   
                 _self.displayRunsheetsByUser();
             });
         }
@@ -260,10 +256,11 @@ const Runsheets = observer(class Runsheets extends Component {
             
             querySnapshot.forEach((doc) => {
                 var thisRunsheet = db.collection("runsheets").doc(doc.id);
-                thisRunsheet.get().then(function(doc) {
+                thisRunsheet.get().then(function(doc){
                     const newDoc = new Document("runsheets/" + doc.id);
+                    const newUserinRunsheet = new Document("runsheets/" + doc.id + "/users/" + currentUser.id);
                     var item = <RunsheetItem
-                            isAdmin={true}
+                            currentUserInRunsheet={newUserinRunsheet}
                             renameRunsheet={_self.confirmRenameRunsheet}
                             deleteRunsheet={_self.confirmDeleteRunsheet}
                             duplicateRunsheet={_self.confirmDuplicateRunsheet}
@@ -275,6 +272,7 @@ const Runsheets = observer(class Runsheets extends Component {
                     displayRunsheets.push(item);
                     _self.setState({displayRunsheets: displayRunsheets});
                 });
+                    
             })
             _self.setState({ loading: false });
         });
@@ -283,13 +281,7 @@ const Runsheets = observer(class Runsheets extends Component {
     render() {
         var _self = this;
 
-        // check if user is admin
-        var isAdmin = true; // @TODO set to false
-        if(this.state.userRole) {
-            if(this.state.userRole.role === "admin"){
-                isAdmin = true;
-            }
-        }
+        
         return (
             <div style={{marginBottom: '170px'}}>
 
@@ -311,11 +303,11 @@ const Runsheets = observer(class Runsheets extends Component {
                 </List>
 
                 {this.state.thePopup}
-                {(isAdmin) ?
-                    <FloatingActionButton style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '99999'}} onTouchTap={this.confirmAddRunsheet}>
-                         <AddIcon />
-                    </FloatingActionButton>
-                :''}
+            
+                <FloatingActionButton style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '99999'}} onTouchTap={this.confirmAddRunsheet}>
+                        <AddIcon />
+                </FloatingActionButton>
+            
             </div>
         );
     }
@@ -337,10 +329,14 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
     render(){
         const doc = this.props.doc;
         const { name, date, lastUpdated } = this.props.data;
-        
         var serviceDate = moment(date, "DD-MM-YYYY");
         var sideMenu = null;
-        if (this.props.isAdmin) {
+
+        var isAdmin = false;
+        if(this.props.currentUserInRunsheet.data.role === "editor"){
+            isAdmin = true;
+        }
+        if (isAdmin) {
             sideMenu = <IconMenu iconButtonElement={<IconButton><MoreVertIcon /></IconButton>}
                 anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
                 targetOrigin={{ horizontal: 'right', vertical: 'top' }} >
