@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@firebase/firestore": "^0.1.4",
+    "bootstrap": "4.0.0-beta.3",
     "firebase": "^4.6.2",
     "firebase-admin": "^4.0.3",
     "firebase-tools": "^3.9.0",
@@ -20,6 +21,7 @@
     "moment": "^2.17.1",
     "react": "^15.4.1",
     "react-addons-update": "^15.4.1",
+    "react-beautiful-dnd": "^3.0.0",
     "react-dom": "^15.4.0",
     "react-ga": "^2.2.0",
     "react-mixin": "^2.0.2",

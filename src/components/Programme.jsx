@@ -2,6 +2,7 @@ import React, {Component} from 'react';
 import MediaQuery from 'react-responsive';
 import * as firebase from 'firebase';
 import $ from 'jquery';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
@@ -23,6 +24,8 @@ import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
+import FontIcon from 'material-ui/FontIcon';
+
 // Subcomponents
 import Popup from './Popup.jsx';
 import Modal from './Modal.jsx';
@@ -34,6 +37,8 @@ import * as FirebaseStore from "../firebase/FirebaseStore";
 const programme = FirebaseStore.store.programme;
 const runsheet = FirebaseStore.store.runsheet;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
+import firebaseApp from "../firebase/Firebase";
+const db = firebaseApp.firestore();
 
 const listItemViewStyle = {
     padding: '4px 16px 4px 100px',
@@ -146,6 +151,85 @@ const RightColumnStyle = {
     float: 'left'
 }
 
+const backgroundGrey = '#F0F0F0';
+
+// Draggable
+
+const getItemStyle = (draggableStyle, isDragging) => ({
+  // some basic styles to make the items look a bit nicer
+  userSelect: 'none',
+  padding: '8px 0',
+  boxShadow: '0 1px 4px rgba(0,0,0,.05)',
+  margin: `8px 0 8px 0`,
+  
+  // change background colour if dragging
+  background: isDragging ? 'lightgreen' : 'white',
+  
+  // styles we need to apply on draggables
+  ...draggableStyle
+});
+
+const getListStyle = (isDraggingOver) => ({
+  background: isDraggingOver ? 'lightblue' : backgroundGrey,
+  padding: '2px 0',
+  width: '100%'
+});
+
+class ProgrammeItem extends Component {
+    render() {
+
+        // calculate time based on duration and order
+        // var itemTime;
+        // itemTime = this.props.previousTime.add(this.props.previousDuration, 'm');
+        
+        // var itemTimeFormatted = itemTime.format("LT");
+        // previousTime = itemTime;
+        // previousDuration = item.duration;
+
+        // highlight new item
+        // var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
+        // if(this.state.newItemKey === key){
+        //     ListItemBGStyle = { clear: 'both', background: yellow200, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
+        // }
+
+        // // fade out old items
+        // var opacity = {};
+        // if(isToday && moment().isAfter(itemTime,'minute')){
+        //     opacity = { opacity: '0.5' };
+        // }
+
+        // DELETE BUTTON
+        // var deleteButton = null;
+        // if(this.state.editMode) {
+        //     deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
+        // }
+
+        return (
+            <div key={this.props.item.id} style={{overflow: 'auto'}}>
+                <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', backgroundColor: 'white'}}>
+                    {this.props.itemTime.format("LT")}
+                </div>
+                <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: backgroundGrey}}>
+                    <div style={{color: indigo800, fontWeight: '500'}}>
+                        {this.props.item.data.text}                        
+                    </div>
+                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}>
+                        {this.props.item.data.remarks}
+                    </div>
+                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} mins)</small></div>
+                </div>
+                {(this.props.editMode) ? 
+                    <div style={{width: '20%', float: 'left'}}>
+                        <FontIcon className="material-icons" style={{color: indigo500, paddingRight: '8px'}} onTouchTap={() => this.props.confirmEditItem(this.props.item)}>mode_edit</FontIcon>
+                        <FontIcon className="material-icons" style={{color: grey500}} onTouchTap={() => this.props.confirmDeleteItem(this.props.item)}>close</FontIcon>
+                    </div>
+                :
+                ''}
+            </div>
+        )
+    }
+}
+      
 const Programme = observer(class Programme extends Component {
 
     constructor(props) {
@@ -164,17 +248,17 @@ const Programme = observer(class Programme extends Component {
             prevHighlightSlot: null
         };
 
+        this.editItem = this.editItem.bind(this);
     }
 
     componentDidMount(){
-        console.log("path", programme.path);
-        programme.query = programme.ref.orderBy('orderCount', 'asc');
+        this.reorder();
         
         // update time every minute
         setInterval(this.highlightCurrentTime, 30000);
     }
 
-    componentWillReceiveProps = () => {
+    componentDidUpdate = () => {
         // re-order whenever there's new items
     }
 
@@ -231,6 +315,7 @@ const Programme = observer(class Programme extends Component {
             remarks: remarks
         });
         runsheet.update({ lastUpdated: moment().format() });
+        this.reorder();
     }
 
     // popup to edit item
@@ -264,7 +349,7 @@ const Programme = observer(class Programme extends Component {
                 handleClosePopup={this.handleCloseModal}
                 handleSubmit={(orderCount, duration, text, remarks) => FirebaseStore.addDocToCollection(programme, {orderCount: orderCount, duration: duration, text: text, remarks: remarks})
                                                                     .then(function(){
-                                                                        runsheet.update({ lastUpdated: moment().format() });
+                                                                        runsheet.update({ lastUpdated: moment().format(), orderCount: newOrderCount });
                                                                         _self.handleCloseModal();
                                                                     })}
                 numActions={2}
@@ -288,7 +373,7 @@ const Programme = observer(class Programme extends Component {
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
                 handleSubmit={() => FirebaseStore.deleteDoc(doc).then(function () {
-                    runsheet.update({ lastUpdated: moment().format() });
+                    runsheet.update({ lastUpdated: moment().format(), orderCount: runsheet.data.orderCount-- });
                     _self.handleClosePopup();
                 })}
                 numActions={2}
@@ -344,6 +429,48 @@ const Programme = observer(class Programme extends Component {
             // save state
             this.setState({prevHighlightSlot: timeSlot});
         }
+    }
+
+    onDragEnd (result) {
+        var _self = this;
+        // dropped outside the list
+        if(!result.destination) {
+           return; 
+        }
+        console.log("source", result.source.index);
+        console.log("destination", result.destination.index);
+
+        // get the other guy and swap the order
+        var query = db.collection("runsheets/" + runsheet.id + "/programme/").where("orderCount", "==", result.destination.index);
+        query.get()
+        .then(function(querySnapshot) {
+            querySnapshot.forEach((doc) => {
+                doc.ref.update({
+                    orderCount: result.source.index
+                });
+            });
+            // update order of original guy
+            db.collection("runsheets/" + runsheet.id + "/programme/").doc(result.draggableId).update({
+                orderCount: result.destination.index
+            })
+            programme.query = programme.ref.orderBy('orderCount', 'asc');
+        })
+        .catch(function(error) {
+            console.log("Error getting documents: ", error);
+        });
+        // const items = reorder(
+        //   this.state.items, 
+        //   result.source.index, 
+        //   result.destination.index
+        // );
+        
+        // this.setState({
+        //   items
+        // });
+    }
+    
+    reorder() {
+        programme.query = programme.ref.orderBy('orderCount', 'asc');
     }
 
     render() {
@@ -430,21 +557,62 @@ const Programme = observer(class Programme extends Component {
                     {showStartTime}
                 </div>
 
+                <DragDropContext onDragEnd={this.onDragEnd}>
+                    <Droppable droppableId="droppable" isDropDisabled={(this.state.editMode) ? false : true}>
+                    {(provided, snapshot) => (
+                        <div 
+                        ref={provided.innerRef} 
+                        style={getListStyle(snapshot.isDraggingOver)}
+                        >
+                        {programme.docs.map(item => (
+                            <Draggable
+                            key={item.id}
+                            draggableId={item.id}
+                            >
+                            {(provided, snapshot) => {
+                                // calculate time based on duration and order
+                                var itemTime;
+                                itemTime = previousTime.add(previousDuration, 'm');
+                                
+                                previousTime = itemTime;
+                                previousDuration = item.duration;
+                                
+                                return (
+                                    <div>
+                                        <div
+                                            ref={provided.innerRef}
+                                            style={getItemStyle(
+                                            provided.draggableStyle,
+                                            snapshot.isDragging
+                                            )}
+                                            {...provided.dragHandleProps}
+                                        >
+                                            <ProgrammeItem item={item} itemTime={itemTime} editMode={this.state.editMode}
+                                                confirmEditItem={this.confirmEditItem} confirmDeleteItem={this.confirmDeleteItem}
+                                            ></ProgrammeItem>
+                                        </div>
+                                    {provided.placeholder}
+                                    </div>
+                                )
+                            }}
+                            </Draggable>
+                        ))}
+                        {provided.placeholder}
+                        </div>
+                    )}
+                    </Droppable>
+                </DragDropContext>
+
                 <List>
 
-                    {
-                        programme.docs.map((doc, index) => {
+                    {programme.docs.map((doc, index) => {
                             var item = doc.data;
                             var key = doc.id;
 
                             // calculate time based on duration and order
                             var itemTime;
-                            if(item.orderCount === 1 || item.orderCount === 0){
-                                itemTime = startTime;
-                            }
-                            else {
-                                itemTime = previousTime.add(previousDuration, 'm');
-                            }
+                            itemTime = previousTime.add(previousDuration, 'm');
+                            
                             var itemTimeFormatted = itemTime.format("LT");
                             previousTime = itemTime;
                             previousDuration = item.duration;
