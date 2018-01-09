@@ -17,7 +17,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey100, grey200, grey500, grey700, indigo100, indigo500, indigo800, blue500, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
+import {grey100, grey200, grey500, grey700, indigo100, indigo500, indigo800, blue600, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
@@ -25,6 +25,8 @@ import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 import Snackbar from 'material-ui/Snackbar';
 import Textarea from 'react-textarea-autosize';
 import FontIcon from 'material-ui/FontIcon';
+import CircularProgress from 'material-ui/CircularProgress';
+import Dialog from 'material-ui/Dialog';
 
 // Subcomponents
 import Popup from './Popup.jsx';
@@ -51,107 +53,6 @@ const listItemStyle = {
     height: 'auto'
 }
 
-const TimePickerStyle = {
-    width: '72px',
-    marginTop: '16px',
-    float: 'left',
-    color: black
-}
-
-const TimePickerAddStyle = {
-    width: '72px',
-    marginTop: '-4px',
-    float: 'left',
-    paddingLeft: '32px'
-}
-
-const deleteButtonStyle = {
-    float: 'left',
-    height: '48px',
-    lineHeight: '48px',
-    paddingRight: '8px',
-    marginTop: '2px'
-}
-
-const TextFieldViewStyle = {
-    marginTop: '8px',
-    color: black,
-    height: 'auto',
-    lineHeight: '1.6',
-    width: '98%',
-    fontFamily: 'Roboto, sans-serif',
-    background: '#F0EEEC',
-    padding: '4px 8px',
-    borderLeft: '2px solid',
-    borderLeftColor: indigo500,
-    borderRight: 'none',
-    borderTop: 'none',
-    borderBottom: 'none',
-    fontWeight: '400',
-    fontSize: '16px',
-    resize: 'none'
-}
-
-const TextFieldStyle = {
-    backgroundColor: cyan50,
-    marginTop: '8px',
-    borderRadius: '0px',
-    border: '1px solid #ccc',
-    padding: '4px 8px',
-    color: indigo800,
-    width: '95%',
-    height: 'auto',
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '16px',
-    lineHeight: '26px'
-}
-
-const RemarksViewStyle = {
-    backgroundColor: 'transparent',
-    marginTop: '0px',
-    borderRadius: '0px',
-    border: 'none',
-    padding: '4px 8px',
-    color: '#333',
-    width: '95%',
-    height: 'auto',
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '14px',
-    lineHeight: '20px',
-    resize: 'none'
-}
-
-const RemarksEditStyle = {
-    backgroundColor: 'transparent',
-    marginTop: '8px',
-    borderRadius: '0px',
-    border: '1px solid #ccc',
-    padding: '4px 8px',
-    color: '#000',
-    width: '95%',
-    height: 'auto',
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '14px',
-    lineHeight: '20px'
-}
-
-const LeftColumnStyle = {
-    minWidth: '84px',
-    float: 'left',
-    padding: '0 0 0 16px'
-}
-
-const LeftColumnEditStyle = {
-    minWidth: '104px',
-    float: 'left',
-    padding: '0 0 0 16px'
-}
-
-const RightColumnStyle = {
-    width: '60%',
-    float: 'left'
-}
-
 const backgroundGrey = '#F0F0F0';
 
 // Draggable
@@ -161,7 +62,7 @@ const getItemStyle = (draggableStyle, isDragging) => ({
   userSelect: 'none',
   padding: '0 0',
   boxShadow: '0 1px 4px rgba(0,0,0,.05)',
-  margin: `8px 0 8px 0`,
+  margin: `8px 8px`,
   
   // change background colour if dragging
   background: isDragging ? indigo100 : 'white',
@@ -200,28 +101,32 @@ class ProgrammeItem extends Component {
         // }
 
         var minHeight = (this.props.item.data.duration == "") ? 44 : (44+parseInt(this.props.item.data.duration));
-        var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? indigo500 : blue500;
+        var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? indigo500 : blue600;
 
         // fade out old items
         var setBackground = 'transparent';
         if(this.props.isToday && moment().isAfter(this.props.itemTime,'minute')){
             if(!this.props.editMode){
-                setBackground = backgroundGrey;
+                setBackground = grey100;
                 setBorderColor = grey700;
             } 
         }
         
         return (
-            <div key={this.props.item.id} style={{overflow: 'auto', borderLeft: '2px solid', borderLeftColor: setBorderColor, backgroundColor: setBackground}}>
+            <div key={this.props.item.id} style={{overflow: 'auto', borderLeft: '3px solid', borderLeftColor: setBorderColor, backgroundColor: setBackground}}>
                 <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', color: setBorderColor}}>
-                    {this.props.itemTime ? this.props.itemTime.format("LT"): ''}<br/>
-                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} mins)</small></div>
+                    <strong>{this.props.itemTime ? this.props.itemTime.format("LT"): ''}</strong><br/>
+                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}
+                        onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
+                    ><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} mins)</small></div>
                 </div>
-                <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}>
-                    <div style={{color: setBorderColor, fontWeight: '500'}}>
-                        {this.props.item.data.text}                        
+                <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}
+                    onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
+                >
+                    <div style={{color: setBorderColor, fontWeight: '400', fontSize: '16px', lineHeight: '24px', whiteSpace: 'pre-line'}}>      
+                        {this.props.item.data.text}              
                     </div>
-                    <div style={{fontSize: '14px', color: grey700, padding: '4px 0'}}>
+                    <div style={{fontSize: '14px', color: grey700, padding: '4px 0', whiteSpace: 'pre-line'}}>
                         {this.props.item.data.remarks}
                     </div>
                 </div>
@@ -253,7 +158,8 @@ const Programme = observer(class Programme extends Component {
             items: [],
             userRole: null,
             prevHighlightSlot: null,
-            timingsArray: []
+            timingsArray: [],
+            loading: false
         };
 
         this.editItem = this.editItem.bind(this);
@@ -366,12 +272,15 @@ const Programme = observer(class Programme extends Component {
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={(orderCount, duration, text, remarks) => FirebaseStore.addDocToCollection(programme, {orderCount: orderCount, duration: duration, text: text, remarks: remarks})
-                                                                    .then(function(){
-                                                                        runsheet.update({ lastUpdated: moment().format()});
-                                                                        _self.reorder();
-                                                                        _self.handleCloseModal();
-                                                                    })}
+                handleSubmit={(orderCount, duration, text, remarks) => {
+                    _self.setState({loading: true});
+                    FirebaseStore.addDocToCollection(programme, {orderCount: orderCount, duration: duration, text: text, remarks: remarks})
+                    .then(function(){
+                        runsheet.update({ lastUpdated: moment().format()});
+                        _self.reorder();
+                        _self.handleCloseModal();
+                        _self.setState({loading: false});
+                    })}}
                 numActions={2}
                 title="Add New Item"
                 type="add"
@@ -681,7 +590,17 @@ const Programme = observer(class Programme extends Component {
                 {this.state.thePopup}
 
                 {this.state.theModal}
-        </div>
+
+                
+                <Dialog
+                    modal={true}
+                    style={{textAlign: 'center', zIndex: 99999}}
+                    open={this.state.loading}
+                    >
+                    <CircularProgress />
+                </Dialog>
+                
+            </div>
         );
 
     }

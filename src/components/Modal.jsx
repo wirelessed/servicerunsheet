@@ -43,7 +43,8 @@ export default class Modal extends React.Component {
     }
 
     updateText(e) {
-        this.setState({text: e.target.value})
+        this.setState({text: e.target.value});
+        console.log(e.target.value);
     }
 
     updateRemarks(e) {
@@ -101,15 +102,20 @@ export default class Modal extends React.Component {
 
         var children =
             <div>
-                <small>Just enter the duration in minutes and the time will be shown based on the service start time</small>              
+                <small style={{clear: 'both'}}>Just enter the duration in minutes and the time will be shown based on the service start time</small>              
                 <TextField type="number" name="Duration" id="Duration" floatingLabelText="Duration (mins)" value={this.state.duration} onChange={this.updateDuration.bind(this)}  />
                 <br />
-                <Textarea name="Text" id="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
-                <br />
-                <Textarea name="Remarks" id="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
-                <br />
-                <TextField type="number" name="Order" id="Order" floatingLabelText="Order (Optional)" value={this.state.orderCount} onChange={this.updateOrderCount.bind(this)}  />
-                <br /><br />
+                <div>
+                    <small style={{fontSize: '12px', color: 'rgba(0, 0, 0, 0.5)'}}>Item Description</small>
+                    <Textarea name="Text" id="Text" placeholder="" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
+                </div>
+                <div>
+                    <small style={{fontSize: '12px', color: 'rgba(0, 0, 0, 0.5)'}}>Remarks (Optional)</small>
+                    <Textarea name="Remarks" id="Remarks" placeholder="" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
+                </div>
+                <div>
+                    <TextField type="number" name="Order" id="Order" floatingLabelText="Order (Optional)" value={this.state.orderCount} onChange={this.updateOrderCount.bind(this)}  />
+                </div>
             </div>
 
         return (

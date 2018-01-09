@@ -2,11 +2,11 @@ import * as firebase from 'firebase';
 import "@firebase/firestore";
 
 var config = {
-    apiKey: "AIzaSyC5tRc37qob3t2dYartKzQO3Pe2supelfA",
-    authDomain: "runsheet22.firebaseapp.com",
-    databaseURL: "https://runsheet22.firebaseio.com",
-    projectId: "runsheet22",
-    storageBucket: "runsheet22.appspot.com",
+    apiKey: "AIzaSyAm3wY5fF1qkQBYeR4DYzFhYzc-TuSynYU",
+    authDomain: "runsheetpro.com",
+    databaseURL: "https://servicerunsheet.firebaseio.com",
+    storageBucket: "servicerunsheet.appspot.com",
+    projectId: "servicerunsheet",
     messagingSenderId: "442170353088"
 };
 

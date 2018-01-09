@@ -39,7 +39,7 @@ class Splash extends Component {
                     <RaisedButton label="ENTER" primary={true} />
                 </Link>
                 <h3 style={{marginTop: '60px'}}>What's New</h3>
-                <ul style={{textAlign: 'left', margin: '8px', fontSize: '14px', maxWidth: '500px'}}>
+                <ul style={{textAlign: 'left', margin: '8px auto', fontSize: '14px', maxWidth: '500px'}}>
                     <li>
                         Now all runsheets are private and can be shared with anyone. Permissions can be set so that only certain email addresses can edit!
                     </li>

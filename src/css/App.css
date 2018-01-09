@@ -8,33 +8,9 @@ a {
     text-decoration: none;
 }
 
-
-.ExpandedPlayer {
-    animation-name: slideIn;
-    animation-iteration-count: 1;
-    animation-timing-function: ease-in-out;
-    animation-duration: 0.3s;
-    animation-delay: 0;
+body * {
+    white-space: pre-line;
 }
-
-@keyframes slideIn {
-    0% {
-        transform: translateY(1000px);
-    }
-    100% {
-        transform: translateY(0);
-    }
-}
-
-.CollapsedPlayer {
-    position: absolute;
-    animation-name: slideOut;
-    animation-iteration-count: 1;
-    animation-timing-function: ease-in-out;
-    animation-duration: 0.15s;
-    animation-delay: 0;
-}
-
 
 @media screen and (min-width: 1024px){
     .BottomNavItem {
@@ -55,16 +31,6 @@ a {
 
     .Service {
         padding-left: 200px;
-    }
-}
-
-
-@keyframes slideOut {
-    0% {
-        bottom: 0;
-    }
-    100% {
-        bottom: 56px;
     }
 }
 

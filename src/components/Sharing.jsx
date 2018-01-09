@@ -24,7 +24,7 @@ class UserListItem extends Component {
         super(props);
 
         this.state = {
-            role: ""
+            role: this.props.role
         };
 
         this.handleRoleChange = this.handleRoleChange.bind(this);
@@ -35,17 +35,17 @@ class UserListItem extends Component {
         var _self = this;
         this.setState({role: e.target.value});
         FirebaseStore.addRunsheetToUser(runsheet.id, _self.props.userId, e.target.value);
+        users.query = users.ref.orderBy('role', 'asc');
     }
 
     deleteUser(e){
         var _self = this;
         FirebaseStore.removeRunsheetFromUser(runsheet.id, _self.props.userId);
+        users.query = users.ref.orderBy('role', 'asc');
     }
 
     componentDidMount() {
-        this.setState({
-            role: this.props.role
-        })
+
     }
 
     render(){
@@ -96,6 +96,7 @@ const Sharing = observer(class Sharing extends Component {
             FirebaseStore.addRunsheetToUser(runsheet.id, _self.state.userId, "viewer");
             this.setState({userId: ""});
             this.validator.hideMessages();
+            users.query = users.ref.orderBy('role', 'asc');
         } else {
             this.validator.showMessages();
             // rerender to show messages for the first time
@@ -163,7 +164,7 @@ const Sharing = observer(class Sharing extends Component {
         }
 
         return (
-            <div>
+            <div style={{marginBottom: '56px'}}>
                 <List>
                     <ListItem primaryText="Share on Whatsapp (as text message)" />
                     <Divider />
