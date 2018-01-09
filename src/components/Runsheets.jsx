@@ -17,8 +17,8 @@ import Popup from './Popup.jsx';
 
 // Firebase Store
 import { observer } from 'mobx-react';
-import { Document } from 'firestorter';
 import  * as FirebaseStore from "../firebase/FirebaseStore";
+import { Collection, Document } from 'firestorter';
 const runsheets = FirebaseStore.store.runsheets;
 const runsheet = FirebaseStore.store.runsheet;
 const currentUser = FirebaseStore.store.currentUser;

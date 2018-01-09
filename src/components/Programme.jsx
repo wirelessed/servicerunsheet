@@ -34,6 +34,7 @@ import ModalStartTime from './ModalStartTime.jsx';
 // Firebase Store
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
+import { Collection, Document } from 'firestorter';
 const programme = FirebaseStore.store.programme;
 const runsheet = FirebaseStore.store.runsheet;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
@@ -207,7 +208,7 @@ class ProgrammeItem extends Component {
         return (
             <div key={this.props.item.id} style={{overflow: 'auto'}}>
                 <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', backgroundColor: 'white'}}>
-                    {this.props.itemTime.format("LT")}
+                    {this.props.itemTime ? this.props.itemTime.format("LT"): ''}
                 </div>
                 <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: backgroundGrey}}>
                     <div style={{color: indigo800, fontWeight: '500'}}>
@@ -245,10 +246,16 @@ const Programme = observer(class Programme extends Component {
             newItemKey: null,
             items: [],
             userRole: null,
-            prevHighlightSlot: null
+            prevHighlightSlot: null,
+            timingsArray: []
         };
 
         this.editItem = this.editItem.bind(this);
+        this.confirmEditItem = this.confirmEditItem.bind(this);
+        this.confirmDeleteItem = this.confirmDeleteItem.bind(this);
+        this.confirmAddItem = this.confirmAddItem.bind(this);
+        this.reorder = this.reorder.bind(this);
+        this.onDragEnd = this.onDragEnd.bind(this);
     }
 
     componentDidMount(){
@@ -320,11 +327,15 @@ const Programme = observer(class Programme extends Component {
 
     // popup to edit item
     confirmEditItem = (doc) => {
+        var _self = this;
         const modal =
             <Modal
                 isPopupOpen={true}
                 handleClosePopup={this.handleCloseModal}
-                handleSubmit={(doc, orderCount, duration, text, remarks) => this.editItem(doc, orderCount, duration, text, remarks).then(this.handleCloseModal())}
+                handleSubmit={(doc, orderCount, duration, text, remarks) => this.editItem(doc, orderCount, duration, text, remarks).then(function(){
+                    _self.reorder();
+                    _self.handleCloseModal();
+                })}
                 numActions={2}
                 title="Edit Item"
                 doc={doc}
@@ -341,7 +352,7 @@ const Programme = observer(class Programme extends Component {
     // popup to add new item
     confirmAddItem = (orderCount) => {
         var _self = this;
-        var newOrderCount = orderCount + 1;
+        var newOrderCount = runsheet.data.orderCount;
 
         const modal =
             <Modal
@@ -349,7 +360,8 @@ const Programme = observer(class Programme extends Component {
                 handleClosePopup={this.handleCloseModal}
                 handleSubmit={(orderCount, duration, text, remarks) => FirebaseStore.addDocToCollection(programme, {orderCount: orderCount, duration: duration, text: text, remarks: remarks})
                                                                     .then(function(){
-                                                                        runsheet.update({ lastUpdated: moment().format(), orderCount: newOrderCount });
+                                                                        runsheet.update({ lastUpdated: moment().format()});
+                                                                        _self.reorder();
                                                                         _self.handleCloseModal();
                                                                     })}
                 numActions={2}
@@ -373,7 +385,8 @@ const Programme = observer(class Programme extends Component {
                 isPopupOpen={true}
                 handleClosePopup={this.handleClosePopup}
                 handleSubmit={() => FirebaseStore.deleteDoc(doc).then(function () {
-                    runsheet.update({ lastUpdated: moment().format(), orderCount: runsheet.data.orderCount-- });
+                    runsheet.update({ lastUpdated: moment().format() });
+                    _self.reorder();
                     _self.handleClosePopup();
                 })}
                 numActions={2}
@@ -442,8 +455,7 @@ const Programme = observer(class Programme extends Component {
 
         // get the other guy and swap the order
         var query = db.collection("runsheets/" + runsheet.id + "/programme/").where("orderCount", "==", result.destination.index);
-        query.get()
-        .then(function(querySnapshot) {
+        query.get().then(function(querySnapshot) {
             querySnapshot.forEach((doc) => {
                 doc.ref.update({
                     orderCount: result.source.index
@@ -453,24 +465,39 @@ const Programme = observer(class Programme extends Component {
             db.collection("runsheets/" + runsheet.id + "/programme/").doc(result.draggableId).update({
                 orderCount: result.destination.index
             })
-            programme.query = programme.ref.orderBy('orderCount', 'asc');
-        })
-        .catch(function(error) {
+            _self.reorder();
+        }).catch(function(error) {
             console.log("Error getting documents: ", error);
         });
-        // const items = reorder(
-        //   this.state.items, 
-        //   result.source.index, 
-        //   result.destination.index
-        // );
-        
-        // this.setState({
-        //   items
-        // });
     }
     
     reorder() {
         programme.query = programme.ref.orderBy('orderCount', 'asc');
+        this.calculateTimings();
+        // update runsheet's total ordercount
+    }
+    
+    calculateTimings(){
+        var _self = this;
+        var tempDocs = db.collection(programme.path).orderBy('orderCount', 'asc');
+        tempDocs.get().then(function(docs) {
+            var previousDuration = moment.duration(0, 'minutes');; // store previous item duration
+            var newTime = moment(runsheet.data.time, "HHmm"); // first time is service start time
+            var timingsArray = [];
+            var docsCount = 0;
+
+            docs.forEach((doc) => {
+                // calculate time based on duration and order
+                newTime.add(previousDuration);
+                var itemTime = newTime.clone();
+                timingsArray[doc.id] = itemTime;
+                previousDuration = moment.duration(parseInt(doc.data().duration), 'minutes');
+                docsCount++;
+            });
+            _self.setState({timingsArray: timingsArray});
+            runsheet.update({ orderCount: docsCount });            
+        });
+        
     }
 
     render() {
@@ -528,23 +555,7 @@ const Programme = observer(class Programme extends Component {
                 ></ListItem>;
         }
 
-        // var AddNewLine =
-        //     <div>
-        //     <Divider style={{ marginTop: '8px'}}/>
-        //     <form onSubmit={ this.handleSubmit } style={{ backgroundColor: grey100, padding: '16px 0px 56px 0px'}}>
-        //         <div style={LeftColumnStyle}>
-        //             <TimePicker name="Time" onChange={ this.onTimeChange } value={ new Date(moment(this.state.time,"HHmm").format()) } hintText="Time" fullWidth={true} inputStyle={{textTransform: 'uppercase'}} style={TimePickerAddStyle} dialogStyle={{zIndex: '3000'}} />
-        //         </div>
-        //         <div style={RightColumnStyle}>
-        //             <Textarea name="Description" onChange={ this.onTextChange } value={ this.state.text } placeholder="Description" style={TextFieldStyle} />
-        //             <Textarea name="Remarks" placeholder="Remarks (Optional)" onChange={this.onRemarksChange} value={ this.state.remarks } style={RemarksEditStyle} />
-        //         </div>
-        //         <RaisedButton label="Add" type="submit" primary={true} style={{ margin: '0 8px', float: 'right'}}/>
-        //     </form>
-        // </div>;
-
-        var previousDuration = 0; // store previous item duration
-        var previousTime = startTime;
+        programme.docs.map(item => (<div></div>));
 
         return (
             <div style={{marginBottom: '170px'}} id="prog">
@@ -570,13 +581,6 @@ const Programme = observer(class Programme extends Component {
                             draggableId={item.id}
                             >
                             {(provided, snapshot) => {
-                                // calculate time based on duration and order
-                                var itemTime;
-                                itemTime = previousTime.add(previousDuration, 'm');
-                                
-                                previousTime = itemTime;
-                                previousDuration = item.duration;
-                                
                                 return (
                                     <div>
                                         <div
@@ -587,7 +591,7 @@ const Programme = observer(class Programme extends Component {
                                             )}
                                             {...provided.dragHandleProps}
                                         >
-                                            <ProgrammeItem item={item} itemTime={itemTime} editMode={this.state.editMode}
+                                            <ProgrammeItem item={item} itemTime={this.state.timingsArray[item.id]} editMode={this.state.editMode}
                                                 confirmEditItem={this.confirmEditItem} confirmDeleteItem={this.confirmDeleteItem}
                                             ></ProgrammeItem>
                                         </div>
@@ -602,96 +606,6 @@ const Programme = observer(class Programme extends Component {
                     )}
                     </Droppable>
                 </DragDropContext>
-
-                <List>
-
-                    {programme.docs.map((doc, index) => {
-                            var item = doc.data;
-                            var key = doc.id;
-
-                            // calculate time based on duration and order
-                            var itemTime;
-                            itemTime = previousTime.add(previousDuration, 'm');
-                            
-                            var itemTimeFormatted = itemTime.format("LT");
-                            previousTime = itemTime;
-                            previousDuration = item.duration;
-
-                            // highlight new item
-                            var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
-                            if(this.state.newItemKey === key){
-                                ListItemBGStyle = { clear: 'both', background: yellow200, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
-                            }
-
-                            // fade out old items
-                            var opacity = {};
-                            if(isToday && moment().isAfter(itemTime,'minute')){
-                                opacity = { opacity: '0.5' };
-                            }
-
-                            // DELETE BUTTON
-                            var deleteButton = null;
-                            if(this.state.editMode) {
-                                deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
-                            }
-
-                            return (
-                                <div key={index}>
-                                    {(this.state.editMode) ?
-                                        <div style={ListItemBGStyle} className={itemTimeFormatted}>
-                                            <div style={LeftColumnEditStyle} >
-                                                {deleteButton}
-                                                <div style={TimePickerStyle} onTouchTap={() => this.confirmEditItem(doc)}>
-                                                    {itemTimeFormatted}
-                                                </div>
-                                                <div style={{ clear: 'both' }} onTouchTap={() => this.confirmEditItem(doc)} >
-                                                    <ModeEdit color={indigo500}/>
-                                                </div>
-                                            </div>
-                                            <div style={RightColumnStyle}>
-                                                <Textarea readOnly={true} onTouchTap={() => this.confirmEditItem(doc)} name="Description" placeholder="Description" value={ item.text } style={TextFieldViewStyle} />
-                                                {(item.remarks === undefined || item.remarks === "") ?
-                                                    ''
-                                                :
-                                                    <Textarea readOnly={true} onTouchTap={() => this.confirmEditItem(doc)} name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} />
-                                                }
-                                            </div>
-                                            <div style={{paddingLeft:'120px', clear: 'left'}}>
-                                                <small>({item.duration} mins)</small>
-                                            </div>
-                                        </div>
-                                        :
-                                        <div style={ListItemBGStyle} className={itemTimeFormatted}>
-                                            <div style={LeftColumnStyle}>
-                                                <div style={TimePickerStyle}>
-                                                    {itemTimeFormatted}
-                                                </div>
-                                            </div>
-                                            <div style={RightColumnStyle}>
-                                                <Textarea name="Description" value={ item.text } style={TextFieldViewStyle} readOnly={true} />
-                                                {(item.remarks === undefined || item.remarks === "") ?
-                                                    ''
-                                                : <Textarea name="Remarks" placeholder="Remarks (Optional)" value={ item.remarks } style={RemarksViewStyle} readOnly={true} />
-                                                }
-                                            </div>
-                                            <div style={{paddingLeft:'100px', clear: 'left'}}>
-                                                <small>({item.duration} mins)</small>
-                                            </div>
-                                        </div>
-                                    }
-                                    <div style={{clear: 'both', paddingLeft: '100px'}}>
-                                        
-                                    </div>
-                                </div>
-                            );
-                        })
-                    }
-
-                    {/* { (this.state.editMode) ?
-                        <div style={{clear: 'both', paddingTop: '32px'}}>{AddNewLine}</div>
-                        : ''
-                    } */}
-                </List>
 {/* 
                 <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} odata-action="share/whatsapp/share"  /> */}
 
@@ -729,7 +643,7 @@ const Programme = observer(class Programme extends Component {
                                 <div>
                                     <Snackbar
                                         open={true}
-                                        message="Editing: Tap on any item to edit"
+                                        message="Editing: Drag and drop to re-order!"
                                         action="DONE"
                                         onActionTouchTap={this.toggleEditMode}
                                         onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
@@ -755,6 +669,7 @@ const Programme = observer(class Programme extends Component {
                 {this.state.theModal}
         </div>
         );
+
     }
 });
 

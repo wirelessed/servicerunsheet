@@ -108,7 +108,7 @@ export default class Modal extends React.Component {
                 <br />
                 <Textarea name="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
                 <br />
-                <TextField type="number" name="Order" id="Order" floatingLabelText="Order" value={this.state.orderCount} onChange={this.updateOrderCount.bind(this)}  />
+                <TextField type="number" name="Order" id="Order" floatingLabelText="Order (Optional)" value={this.state.orderCount} onChange={this.updateOrderCount.bind(this)}  />
                 <br /><br />
             </div>
 
