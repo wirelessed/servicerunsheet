@@ -1,6 +1,12 @@
 import React, {Component} from 'react';
 import SimpleReactValidator from 'simple-react-validator';
 
+var ReactGA = require('react-ga');
+ReactGA.initialize('UA-101242277-1');
+
+import moment from 'moment';
+moment().format();
+
 // UI Components
 import {List, ListItem} from 'material-ui/List';
 import Subheader from 'material-ui/Subheader';
@@ -16,6 +22,7 @@ import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const users = FirebaseStore.store.users;
 const runsheet = FirebaseStore.store.runsheet;
+const programme = FirebaseStore.store.programme;
 const currentUser = FirebaseStore.store.currentUser;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
@@ -45,7 +52,7 @@ class UserListItem extends Component {
     }
 
     componentDidMount() {
-
+        programme.query = programme.ref.orderBy('orderCount', 'asc');
     }
 
     render(){
@@ -87,6 +94,9 @@ const Sharing = observer(class Sharing extends Component {
         this.updateUserId = this.updateUserId.bind(this);
         this.addUser = this.addUser.bind(this);
         this.handleKeyPress = this.handleKeyPress.bind(this);
+        this.sendWhatsapp = this.sendWhatsapp.bind(this);
+        this.copyText = this.copyText.bind(this);
+        this.generatePlainText = this.generatePlainText.bind(this);
     }
 
     addUser() {
@@ -114,47 +124,92 @@ const Sharing = observer(class Sharing extends Component {
         }
     }
 
-    // sendWhatsapp = () => {
-    //     var composeMessage = "";
-    //     var previousTime = moment();
+    generatePlainText = (docs) => {
+        var composeMessage = "";
+        composeMessage += "*" + runsheet.data.name + "*\n";
+        composeMessage += runsheet.data.date + "\n\n";
 
-    //     programme.docs.map((doc, index) => {
-    //         var item = doc.data;
+        docs.map((doc, index) => {
+            var item = doc.data;
 
-    //         if (item.time !== null){
-    //             var theTime = moment(item.time,"HHmm");
+            if (item.duration !== null){
+                var theTime = moment(FirebaseStore.store.timingsArray[doc.id],"HHmm");
 
-    //             // get duration
-    //             var printDuration;
-    //             if (index > 0){
-    //                 printDuration = "(" + theTime.diff(previousTime, 'minutes') + " min)";
-    //                 composeMessage += printDuration + "\n\n";
-    //             }
-    //             previousTime = theTime;
+                // get duration
+                var printDuration = "(" + item.duration + " min)";
+                // print time
+                composeMessage +=  "*" + theTime.format("h:mm a") + ":* ";
+            } else {
+                composeMessage += "      ";
+            }
 
-    //             // print time
-    //             composeMessage +=  theTime.format("h:mm a") + ": ";
-    //         } else {
-    //             composeMessage += "      ";
-    //         }
+            if (item.text !== null){
+                composeMessage += item.text + "\n";
+            }
+            if (item.remarks !== null && item.remarks !== ""){
+                composeMessage += item.remarks + "\n";
+            }
+            composeMessage += printDuration + "\n\n";
+        });
+        return composeMessage;
+    }
 
+    sendWhatsapp = (docs) => {
+        var composeMessage = this.generatePlainText(docs);
+        composeMessage=encodeURIComponent(composeMessage);
+        // console.log(composeMessage);
 
-    //         if (item.text !== null)
-    //             composeMessage += item.text + "\n";
+        ReactGA.event({
+            category: 'Share',
+            action: 'Share Whatsapp',
+            label: 'Programme'
+        });
 
-    //         return composeMessage;
-    //     });
-    //     composeMessage=encodeURIComponent(composeMessage);
-    //     // console.log(composeMessage);
+        window.location = "whatsapp://send?text=" + composeMessage;
+    }
 
-    //     ReactGA.event({
-    //         category: 'Share',
-    //         action: 'Share Whatsapp',
-    //         label: 'Programme'
-    //     });
+    copyText = (docs) => {
+        var composeMessage = this.generatePlainText(docs);
+        var textArea = document.createElement("textarea");
 
-    //     window.location = "whatsapp://send?text=" + composeMessage;
-    // }
+        // Place in top-left corner of screen regardless of scroll position.
+        textArea.style.position = 'fixed';
+        textArea.style.top = 0;
+        textArea.style.left = 0;
+
+        // Ensure it has a small width and height. Setting to 1px / 1em
+        // doesn't work as this gives a negative w/h on some browsers.
+        textArea.style.width = '2em';
+        textArea.style.height = '2em';
+
+        // We don't need padding, reducing the size if it does flash render.
+        textArea.style.padding = 0;
+
+        // Clean up any borders.
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.boxShadow = 'none';
+
+        // Avoid flash of white box if rendered for any reason.
+        textArea.style.background = 'transparent';
+
+        textArea.value = composeMessage;
+
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+            var successful = document.execCommand('copy');
+            var msg = successful ? 'successful' : 'unsuccessful';
+            console.log('Copying text command was ' + msg);
+            alert("Text copied to clipboard!");
+        } catch (err) {
+            console.log('Oops, unable to copy');
+        }
+        
+        document.body.removeChild(textArea);
+        
+    }
 
     render() {
         // check if user is admin
@@ -166,7 +221,9 @@ const Sharing = observer(class Sharing extends Component {
         return (
             <div style={{marginBottom: '56px'}}>
                 <List>
-                    <ListItem primaryText="Share on Whatsapp (as text message)" />
+                    <ListItem leftIcon={<FontIcon className="material-icons">content_copy</FontIcon>} primaryText="Copy to Clipboard (as plain text)" onTouchTap={() => this.copyText(programme.docs)} />
+                    <Divider />
+                    <ListItem leftIcon={<FontIcon className="material-icons">message</FontIcon>} primaryText="Share on Whatsapp (as text message)" onTouchTap={() => this.sendWhatsapp(programme.docs)} />
                     <Divider />
                     {(isAdmin) ?
                         <div>

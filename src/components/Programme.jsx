@@ -80,26 +80,6 @@ const getListStyle = (isDraggingOver) => ({
 class ProgrammeItem extends Component {
     render() {
 
-        // calculate time based on duration and order
-        // var itemTime;
-        // itemTime = this.props.previousTime.add(this.props.previousDuration, 'm');
-        
-        // var itemTimeFormatted = itemTime.format("LT");
-        // previousTime = itemTime;
-        // previousDuration = item.duration;
-
-        // highlight new item
-        // var ListItemBGStyle = { clear: 'both', background: 'white', overflow: 'auto', borderTop: '1px solid #e8e8e8' };
-        // if(this.state.newItemKey === key){
-        //     ListItemBGStyle = { clear: 'both', background: yellow200, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
-        // }
-
-        // DELETE BUTTON
-        // var deleteButton = null;
-        // if(this.state.editMode) {
-        //     deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
-        // }
-
         var minHeight = (this.props.item.data.duration == "") ? 44 : (44+parseInt(this.props.item.data.duration));
         var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? indigo500 : blue600;
 
@@ -118,15 +98,15 @@ class ProgrammeItem extends Component {
                     <strong>{this.props.itemTime ? this.props.itemTime.format("LT"): ''}</strong><br/>
                     <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}
                         onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
-                    ><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} mins)</small></div>
+                    ><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} min)</small></div>
                 </div>
                 <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}
                     onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
                 >
-                    <div style={{color: setBorderColor, fontWeight: '400', fontSize: '16px', lineHeight: '24px', whiteSpace: 'pre-line'}}>      
+                    <div style={{color: '#1a1a1a', fontWeight: '400', fontSize: '16px', lineHeight: '24px', whiteSpace: 'pre-line'}}>      
                         {this.props.item.data.text}              
                     </div>
-                    <div style={{fontSize: '14px', color: grey700, padding: '4px 0', whiteSpace: 'pre-line'}}>
+                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0', whiteSpace: 'pre-line'}}>
                         {this.props.item.data.remarks}
                     </div>
                 </div>
@@ -177,24 +157,6 @@ const Programme = observer(class Programme extends Component {
         // update time every minute
         setInterval(this.highlightCurrentTime, 30000);
     }
-
-    componentDidUpdate = () => {
-        // re-order whenever there's new items
-    }
-
-    // onTextChange = (e) => {
-    //     this.setState({text: e.target.value});
-    // }
-
-    // onRemarksChange = (e) => {
-    //     this.setState({remarks: e.target.value});
-    // }
-
-    // onTimeChange = (e, time) => {
-    //     var newTime = time;
-    //     this.setState({time: newTime});
-    //     // console.log(newTime);
-    // }
 
     changeServiceDate = (e, time) => {
         var newTime = moment(time).format("DD-MM-YYYY");
@@ -400,18 +362,19 @@ const Programme = observer(class Programme extends Component {
         tempDocs.get().then(function(docs) {
             var previousDuration = moment.duration(0, 'minutes');; // store previous item duration
             var newTime = moment(runsheet.data.time, "HHmm"); // first time is service start time
-            var timingsArray = [];
+            var timingsArrayTemp = [];
             var docsCount = 0;
 
             docs.forEach((doc) => {
                 // calculate time based on duration and order
                 newTime.add(previousDuration);
                 var itemTime = newTime.clone();
-                timingsArray[doc.id] = itemTime;
+                timingsArrayTemp[doc.id] = itemTime;
                 previousDuration = moment.duration(parseInt(doc.data().duration), 'minutes');
                 docsCount++;
             });
-            _self.setState({timingsArray: timingsArray});
+            _self.setState({timingsArray: timingsArrayTemp});
+            FirebaseStore.store.timingsArray = timingsArrayTemp;
             runsheet.update({ orderCount: docsCount });            
         });
         
@@ -481,16 +444,15 @@ const Programme = observer(class Programme extends Component {
                 <div style={{height: '56px'}}>
                     {showDate}
                 </div>
-
-                <div style={{height: this.state.editMode ? '100px' : '56px'}}>
+                {(this.state.editMode) ?
+                <div style={{height: '100px'}}>
                     {showStartTime} 
-                    {(this.state.editMode) ? 
                         <div style={{padding: '0 16px'}}>
                             <small>Change the start time and all the timings below will be changed automatically.</small>
                         </div>
-                    :''}
+                    
                 </div>
-
+                :''}
                 <DragDropContext onDragEnd={this.onDragEnd}>
                     <Droppable droppableId="droppable" isDropDisabled={(this.state.editMode) ? false : true}>
                     {(provided, snapshot) => (

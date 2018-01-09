@@ -82,4 +82,5 @@ export const store = {
     currentUser: new Document(),
     currentUserInRunsheet: new Document(),
     runsheetsByUser: new Collection(),     // collection of runsheets
+    timingsArray: []
 };
