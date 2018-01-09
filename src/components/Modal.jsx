@@ -104,9 +104,9 @@ export default class Modal extends React.Component {
                 <small>Just enter the duration in minutes and the time will be shown based on the service start time</small>              
                 <TextField type="number" name="Duration" id="Duration" floatingLabelText="Duration (mins)" value={this.state.duration} onChange={this.updateDuration.bind(this)}  />
                 <br />
-                <Textarea name="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
+                <Textarea name="Text" id="Text" placeholder="Text" value={this.state.text} onChange={this.updateText.bind(this)} style={TextFieldEditStyle} />
                 <br />
-                <Textarea name="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
+                <Textarea name="Remarks" id="Remarks" placeholder="Remarks (Optional)" value={this.state.remarks} onChange={this.updateRemarks.bind(this)} style={TextFieldEditStyle} />
                 <br />
                 <TextField type="number" name="Order" id="Order" floatingLabelText="Order (Optional)" value={this.state.orderCount} onChange={this.updateOrderCount.bind(this)}  />
                 <br /><br />

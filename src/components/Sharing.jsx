@@ -171,9 +171,11 @@ const Sharing = observer(class Sharing extends Component {
                         <div>
                             <Subheader>ADD USER</Subheader>
                             <div style={{padding: '0 16px 16px 16px'}}>
-                                <TextField hintText="Email Address" value={this.state.userId} onChange={this.updateUserId} onKeyPress={this.handleKeyPress} />
+                                <TextField style={{width: '200px'}} hintText="Email Address" value={this.state.userId} onChange={this.updateUserId} onKeyPress={this.handleKeyPress} />
                                 <small style={{color: 'red'}}>{this.validator.message('email', this.state.userId, 'required|email')}</small>
                                 <RaisedButton label="Add" primary={true} onTouchTap={this.addUser} />
+                                <br/>
+                                <small>After adding a user, they can login to runsheetpro.com and see the runsheet you added.</small>
                             </div>
                             <Divider />
                             <Subheader>SHARED WITH</Subheader>

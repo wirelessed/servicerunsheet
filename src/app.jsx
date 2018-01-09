@@ -170,7 +170,7 @@ class App extends React.Component {
         if (index === 0){
             this.setState({
                 // page: <Select goToService={(key) => this.goToService(key)} />,
-                title: "RunsheetPro (Beta)",
+                title: "RunsheetPro (v2)",
                 currentServiceKey: null
             });
         }
@@ -211,7 +211,7 @@ class App extends React.Component {
             <Router>
                 <TrackPageView>
                     <div>
-                        <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (Beta)" showMenuIconButton={false} style={AppBarStyle} />} />
+                        <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (v2)" showMenuIconButton={false} style={AppBarStyle} />} />
                         <Route exact path="/admin/login" render={() => <AppBar title="Login As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                         <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                         <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>

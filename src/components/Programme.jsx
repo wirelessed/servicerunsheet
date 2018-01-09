@@ -17,7 +17,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
 import Divider from 'material-ui/Divider';
-import {grey100, grey200, grey500, indigo500, indigo800, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
+import {grey100, grey200, grey500, grey700, indigo100, indigo500, indigo800, blue500, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
@@ -159,19 +159,19 @@ const backgroundGrey = '#F0F0F0';
 const getItemStyle = (draggableStyle, isDragging) => ({
   // some basic styles to make the items look a bit nicer
   userSelect: 'none',
-  padding: '8px 0',
+  padding: '0 0',
   boxShadow: '0 1px 4px rgba(0,0,0,.05)',
   margin: `8px 0 8px 0`,
   
   // change background colour if dragging
-  background: isDragging ? 'lightgreen' : 'white',
+  background: isDragging ? indigo100 : 'white',
   
   // styles we need to apply on draggables
   ...draggableStyle
 });
 
 const getListStyle = (isDraggingOver) => ({
-  background: isDraggingOver ? 'lightblue' : backgroundGrey,
+  background: isDraggingOver ? cyan50 : backgroundGrey,
   padding: '2px 0',
   width: '100%'
 });
@@ -193,34 +193,40 @@ class ProgrammeItem extends Component {
         //     ListItemBGStyle = { clear: 'both', background: yellow200, overflow: 'auto', borderTop: '1px solid #e8e8e8' };
         // }
 
-        // // fade out old items
-        // var opacity = {};
-        // if(isToday && moment().isAfter(itemTime,'minute')){
-        //     opacity = { opacity: '0.5' };
-        // }
-
         // DELETE BUTTON
         // var deleteButton = null;
         // if(this.state.editMode) {
         //     deleteButton = <div onTouchTap={() => this.confirmDeleteItem(doc)} style={deleteButtonStyle}><NavigationClose color={indigo500} /></div>
         // }
 
+        var minHeight = (this.props.item.data.duration == "") ? 44 : (44+parseInt(this.props.item.data.duration));
+        var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? indigo500 : blue500;
+
+        // fade out old items
+        var setBackground = 'transparent';
+        if(this.props.isToday && moment().isAfter(this.props.itemTime,'minute')){
+            if(!this.props.editMode){
+                setBackground = backgroundGrey;
+                setBorderColor = grey700;
+            } 
+        }
+        
         return (
-            <div key={this.props.item.id} style={{overflow: 'auto'}}>
-                <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', backgroundColor: 'white'}}>
-                    {this.props.itemTime ? this.props.itemTime.format("LT"): ''}
-                </div>
-                <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: backgroundGrey}}>
-                    <div style={{color: indigo800, fontWeight: '500'}}>
-                        {this.props.item.data.text}                        
-                    </div>
-                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}>
-                        {this.props.item.data.remarks}
-                    </div>
+            <div key={this.props.item.id} style={{overflow: 'auto', borderLeft: '2px solid', borderLeftColor: setBorderColor, backgroundColor: setBackground}}>
+                <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', color: setBorderColor}}>
+                    {this.props.itemTime ? this.props.itemTime.format("LT"): ''}<br/>
                     <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} mins)</small></div>
                 </div>
+                <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}>
+                    <div style={{color: setBorderColor, fontWeight: '500'}}>
+                        {this.props.item.data.text}                        
+                    </div>
+                    <div style={{fontSize: '14px', color: grey700, padding: '4px 0'}}>
+                        {this.props.item.data.remarks}
+                    </div>
+                </div>
                 {(this.props.editMode) ? 
-                    <div style={{width: '20%', float: 'left'}}>
+                    <div style={{width: '15%', float: 'right', padding: '8px', textAlign: 'center'}}>
                         <FontIcon className="material-icons" style={{color: indigo500, paddingRight: '8px'}} onTouchTap={() => this.props.confirmEditItem(this.props.item)}>mode_edit</FontIcon>
                         <FontIcon className="material-icons" style={{color: grey500}} onTouchTap={() => this.props.confirmDeleteItem(this.props.item)}>close</FontIcon>
                     </div>
@@ -256,6 +262,7 @@ const Programme = observer(class Programme extends Component {
         this.confirmAddItem = this.confirmAddItem.bind(this);
         this.reorder = this.reorder.bind(this);
         this.onDragEnd = this.onDragEnd.bind(this);
+        this.changeStartTime = this.changeStartTime.bind(this);
     }
 
     componentDidMount(){
@@ -298,6 +305,7 @@ const Programme = observer(class Programme extends Component {
             time: newTime
         });
         runsheet.update({ lastUpdated: moment().format() });
+        this.reorder();
     }
 
     handleClosePopup = () => {
@@ -507,8 +515,8 @@ const Programme = observer(class Programme extends Component {
             isAdmin = true;
         }
         var previousTime = moment();
-        var serviceDate = moment(runsheet.data.date, "DD-MM-YYYY");
-        var startTime = moment(runsheet.data.time, "HHmm");
+        var serviceDate = runsheet.data.date ? moment(runsheet.data.date, "DD-MM-YYYY") : moment();
+        var startTime = runsheet.data.time ? moment(runsheet.data.time, "HHmm"): moment();
         // check if service date is today
         var isToday = moment().isSame(serviceDate,'day');
 
@@ -524,7 +532,7 @@ const Programme = observer(class Programme extends Component {
         if (this.state.editMode){
             showDate = <ListItem
                 leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date:</div>}
-                primaryText={<DatePicker name="Date" onChange={this.changeServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
+                primaryText={<DatePicker name="Date" id="Date" onChange={this.changeServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
                 href="#"
                 innerDivStyle={listItemStyle}
                 disableTouchRipple
@@ -542,8 +550,9 @@ const Programme = observer(class Programme extends Component {
 
         if (this.state.editMode){
             showStartTime = <ListItem
-                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Start Time</div>}
+                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Start Time:</div>}
                 primaryText={<TimePicker
+                    id="startTime"
                     format="ampm"
                     value={startTime.toDate()}
                     onChange={this.changeStartTime}
@@ -564,8 +573,13 @@ const Programme = observer(class Programme extends Component {
                     {showDate}
                 </div>
 
-                <div style={{height: '56px'}}>
-                    {showStartTime}
+                <div style={{height: this.state.editMode ? '100px' : '56px'}}>
+                    {showStartTime} 
+                    {(this.state.editMode) ? 
+                        <div style={{padding: '0 16px'}}>
+                            <small>Change the start time and all the timings below will be changed automatically.</small>
+                        </div>
+                    :''}
                 </div>
 
                 <DragDropContext onDragEnd={this.onDragEnd}>
@@ -591,7 +605,7 @@ const Programme = observer(class Programme extends Component {
                                             )}
                                             {...provided.dragHandleProps}
                                         >
-                                            <ProgrammeItem item={item} itemTime={this.state.timingsArray[item.id]} editMode={this.state.editMode}
+                                            <ProgrammeItem item={item} isToday={isToday} itemTime={this.state.timingsArray[item.id]} editMode={this.state.editMode}
                                                 confirmEditItem={this.confirmEditItem} confirmDeleteItem={this.confirmDeleteItem}
                                             ></ProgrammeItem>
                                         </div>

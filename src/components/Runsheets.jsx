@@ -305,9 +305,16 @@ const Runsheets = observer(class Runsheets extends Component {
                          />
                        </div>
                     :   
-                        this.state.displayRunsheets.map((doc) => {
-                            return (doc);
-                        })}
+                        
+                        (this.state.displayRunsheets.length == 0) ?
+                            <div style={{padding: '16px', color: 'grey'}}>
+                            You do not have any runsheets yet. Please create one or ask someone to share theirs with you!
+                            </div>
+                        :
+                            this.state.displayRunsheets.map((doc) => {
+                                return (doc);
+                            })
+                    }
                 </List>
 
                 {this.state.thePopup}
