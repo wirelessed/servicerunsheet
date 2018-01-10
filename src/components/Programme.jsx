@@ -81,7 +81,7 @@ class ProgrammeItem extends Component {
     render() {
 
         var minHeight = (this.props.item.data.duration == "") ? 44 : (44+parseInt(this.props.item.data.duration));
-        var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? indigo500 : blue600;
+        var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? blue600 : blue600;
 
         // fade out old items
         var setBackground = 'transparent';
@@ -93,12 +93,10 @@ class ProgrammeItem extends Component {
         }
         
         return (
-            <div key={this.props.item.id} style={{overflow: 'auto', borderLeft: '3px solid', borderLeftColor: setBorderColor, backgroundColor: setBackground}}>
+            <div key={this.props.item.id} style={{position: 'relative', overflow: 'auto', borderLeft: '3px solid', borderLeftColor: setBorderColor, backgroundColor: setBackground}}>
                 <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', color: setBorderColor}}>
                     <strong>{this.props.itemTime ? this.props.itemTime.format("LT"): ''}</strong><br/>
-                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}
-                        onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
-                    ><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} min)</small></div>
+                    <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} min)</small></div>
                 </div>
                 <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}
                     onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
@@ -117,6 +115,11 @@ class ProgrammeItem extends Component {
                     </div>
                 :
                 ''}
+                {(this.props.editMode) ?
+                    <div style={{position: 'absolute', bottom: 10, right: 10, fontSize: '10px', color: '#ccc'}}>
+                       {this.props.item.data.orderCount} 
+                    </div>
+                :''}
             </div>
         )
     }
@@ -147,6 +150,7 @@ const Programme = observer(class Programme extends Component {
         this.confirmDeleteItem = this.confirmDeleteItem.bind(this);
         this.confirmAddItem = this.confirmAddItem.bind(this);
         this.reorder = this.reorder.bind(this);
+        this.onDragStart = this.onDragStart.bind(this);
         this.onDragEnd = this.onDragEnd.bind(this);
         this.changeStartTime = this.changeStartTime.bind(this);
     }
@@ -323,7 +327,13 @@ const Programme = observer(class Programme extends Component {
         }
     }
 
+    onDragStart () {
+        document.getElementsByTagName("body")[0].style = 'user-select: none; cursor: grab';
+    }
+
     onDragEnd (result) {
+        document.getElementsByTagName("body")[0].style = 'user-select: initial; cursor: initial';
+        
         var _self = this;
         // dropped outside the list
         if(!result.destination) {
@@ -453,7 +463,7 @@ const Programme = observer(class Programme extends Component {
                     
                 </div>
                 :''}
-                <DragDropContext onDragEnd={this.onDragEnd}>
+                <DragDropContext onDragStart={this.onDragStart} onDragEnd={this.onDragEnd}>
                     <Droppable droppableId="droppable" isDropDisabled={(this.state.editMode) ? false : true}>
                     {(provided, snapshot) => (
                         <div 
@@ -528,7 +538,7 @@ const Programme = observer(class Programme extends Component {
                                 <div>
                                     <Snackbar
                                         open={true}
-                                        message="Editing: Drag and drop to re-order!"
+                                        message="Editing: Drag and drop to re-order"
                                         action="DONE"
                                         onActionTouchTap={this.toggleEditMode}
                                         onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
@@ -539,7 +549,7 @@ const Programme = observer(class Programme extends Component {
                                 <div>
                                     <Snackbar
                                         open={true}
-                                        message="Editing: Tap on any item to edit"
+                                        message="Editing: Drag and drop to re-order"
                                         action="DONE"
                                         onActionTouchTap={this.toggleEditMode}
                                         onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
