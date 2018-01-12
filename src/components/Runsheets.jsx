@@ -94,7 +94,7 @@ const Runsheets = observer(class Runsheets extends Component {
                 handleClosePopup={this.handleClosePopup}
                 handleSubmit={() => this.createRunsheet({
                     name: this.state.newName,
-                    date: moment().format("DD-MM-YYYY"),
+                    date: moment().format(),
                     time: moment("1000", "HHmm").format("HHmm"),
                     orderCount: 0,
                     lastUpdated: moment().format()
