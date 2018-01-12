@@ -212,8 +212,6 @@ class App extends React.Component {
                 <TrackPageView>
                     <div>
                         <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (v2)" showMenuIconButton={false} style={AppBarStyle} />} />
-                        <Route exact path="/admin/login" render={() => <AppBar title="Login As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
-                        <Route exact path="/admin" render={() => <AppBar title="Register As Admin" showMenuIconButton={false} style={AppBarStyle} />}/>
                         <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
                         <Route path="/services/:id/:name" render={({ match }) => {
                             return (

@@ -14,6 +14,7 @@ import FloatingActionButton from 'material-ui/FloatingActionButton';
 import RefreshIndicator from 'material-ui/RefreshIndicator';
 // Subcomponents
 import Popup from './Popup.jsx';
+import {Tabs, Tab} from 'material-ui/Tabs';
 
 // Firebase Store
 import { observer } from 'mobx-react';
@@ -47,7 +48,8 @@ const Runsheets = observer(class Runsheets extends Component {
             loading: true,
             userRole: null,
             userId: null,
-            displayRunsheets: []
+            displayRunsheets: [],
+            displayArchivedRunsheets: []
         };
 
     }
@@ -238,6 +240,21 @@ const Runsheets = observer(class Runsheets extends Component {
         await runsheet.update({
             name: newName
         });
+        this.displayRunsheetsByUser();
+    }
+
+    // toggle archiving
+    archiveRunsheet = async (runsheet) => {
+        if(runsheet.data.category === 'archive'){
+            await runsheet.update({
+                category: ''
+            });
+        } else {
+            await runsheet.update({
+                category: 'archive'
+            });
+        }
+        this.displayRunsheetsByUser();
     }
 
     componentDidMount() {
@@ -250,11 +267,12 @@ const Runsheets = observer(class Runsheets extends Component {
 
     // get 2 databases: runsheets by user and all runsheets
     // filter all runsheets with runsheetsByUser's Ids
-    displayRunsheetsByUser() {
+    displayRunsheetsByUser = async () => {
         var _self = this;
         var runsheetsByUser2 = db.collection("users/" + FirebaseStore.getUserId() + "/runsheets");
+        runsheetsByUser2.orderBy("date",'asc');
 
-        _self.setState({displayRunsheets: [], loading: true});
+        _self.setState({displayRunsheets: [], displayArchivedRunsheets: [], loading: true});
 
         runsheetsByUser2.get().then(function(querySnapshot) {
             
@@ -269,13 +287,21 @@ const Runsheets = observer(class Runsheets extends Component {
                                 renameRunsheet={_self.confirmRenameRunsheet}
                                 deleteRunsheet={_self.confirmDeleteRunsheet}
                                 duplicateRunsheet={_self.confirmDuplicateRunsheet}
+                                archiveRunsheet={_self.archiveRunsheet}
                                 key={doc.id}
                                 doc={newDoc}
                                 data={doc.data()}
                             />;
+
+                        // separate archive or not
                         var displayRunsheets = _self.state.displayRunsheets.slice();
-                        displayRunsheets.push(item);
-                        _self.setState({displayRunsheets: displayRunsheets});
+                        var displayArchivedRunsheets = _self.state.displayArchivedRunsheets.slice();
+                        if(doc.data().category == "archive"){
+                            displayArchivedRunsheets.push(item);                            
+                        } else {
+                            displayRunsheets.push(item);                            
+                        }
+                        _self.setState({displayRunsheets: displayRunsheets, displayArchivedRunsheets: displayArchivedRunsheets});
                     } else {
                         // doc has been deleted previously
                     }
@@ -292,30 +318,58 @@ const Runsheets = observer(class Runsheets extends Component {
         
         return (
             <div style={{marginBottom: '170px'}}>
-
-                <List>
-                    {(this.state.loading === true) ?
-                        <div style={{textAlign: 'center'}}>
-                         <RefreshIndicator
-                         size={40}
-                         left={10}
-                         top={0}
-                         status="loading"
-                         style={{position: 'relative', display: 'inline-block'}}
-                         />
-                       </div>
-                    :   
-                        
-                        (this.state.displayRunsheets.length == 0) ?
-                            <div style={{padding: '16px', color: 'grey'}}>
-                            You do not have any runsheets yet. Please create one or ask someone to share theirs with you!
+                <Tabs>
+                    <Tab label="My Runsheets" >
+                        <List>
+                            {(this.state.loading === true) ?
+                                <div style={{textAlign: 'center'}}>
+                                <RefreshIndicator
+                                size={40}
+                                left={10}
+                                top={0}
+                                status="loading"
+                                style={{position: 'relative', display: 'inline-block'}}
+                                />
                             </div>
-                        :
-                            this.state.displayRunsheets.map((doc) => {
-                                return (doc);
-                            })
-                    }
-                </List>
+                            :   
+                                
+                                (this.state.displayRunsheets.length == 0) ?
+                                    <div style={{padding: '16px', color: 'grey'}}>
+                                    You do not have any runsheets yet. Please create one or ask someone to share theirs with you!
+                                    </div>
+                                :
+                                    this.state.displayRunsheets.map((doc) => {
+                                        return (doc);
+                                    })
+                            }
+                        </List>
+                    </Tab>
+                    <Tab label="Archive" >
+                        <List>
+                            {(this.state.loading === true) ?
+                                <div style={{textAlign: 'center'}}>
+                                <RefreshIndicator
+                                size={40}
+                                left={10}
+                                top={0}
+                                status="loading"
+                                style={{position: 'relative', display: 'inline-block'}}
+                                />
+                            </div>
+                            :   
+                                
+                                (this.state.displayArchivedRunsheets.length == 0) ?
+                                    <div style={{padding: '16px', color: 'grey'}}>
+                                    There are no archived runsheets.
+                                    </div>
+                                :
+                                    this.state.displayArchivedRunsheets.map((doc) => {
+                                        return (doc);
+                                    })
+                            }
+                        </List>
+                    </Tab>
+                </Tabs>
 
                 {this.state.thePopup}
             
@@ -344,7 +398,7 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
     render(){
         const doc = this.props.doc;
         const { name, date, lastUpdated } = this.props.data;
-        var serviceDate = moment(date, "DD-MM-YYYY");
+        var serviceDate = moment(date);
         var sideMenu = null;
 
         var isAdmin = false;
@@ -358,6 +412,7 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
                 <MenuItem primaryText="Rename" onTouchTap={() => this.props.renameRunsheet(doc)} />
                 <MenuItem primaryText="Delete" onTouchTap={() => this.props.deleteRunsheet(doc)} />
                 <MenuItem primaryText="Duplicate" onTouchTap={() => this.props.duplicateRunsheet(doc)} />
+                <MenuItem primaryText="Archive/Unarchive" onTouchTap={() => this.props.archiveRunsheet(doc)} />
             </IconMenu>
         }
 

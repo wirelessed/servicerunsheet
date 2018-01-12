@@ -94,7 +94,7 @@ class ProgrammeItem extends Component {
         
         return (
             <div key={this.props.item.id} style={{position: 'relative', overflow: 'auto', borderLeft: '3px solid', borderLeftColor: setBorderColor, backgroundColor: setBackground}}>
-                <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', color: setBorderColor}}>
+                <div style={{width: '20%', float: 'left', padding:'8px', textAlign: 'center', color: setBorderColor, maxWidth: '150px'}}>
                     <strong>{this.props.itemTime ? this.props.itemTime.format("LT"): ''}</strong><br/>
                     <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} min)</small></div>
                 </div>
@@ -163,7 +163,7 @@ const Programme = observer(class Programme extends Component {
     }
 
     changeServiceDate = (e, time) => {
-        var newTime = moment(time).format("DD-MM-YYYY");
+        var newTime = moment(time).format();
 
         var newServiceDate = runsheet.update({
             date: newTime
@@ -397,14 +397,14 @@ const Programme = observer(class Programme extends Component {
             isAdmin = true;
         }
         var previousTime = moment();
-        var serviceDate = runsheet.data.date ? moment(runsheet.data.date, "DD-MM-YYYY") : moment();
+        var serviceDate = runsheet.data.date ? moment(runsheet.data.date) : moment();
         var startTime = runsheet.data.time ? moment(runsheet.data.time, "HHmm"): moment();
         // check if service date is today
         var isToday = moment().isSame(serviceDate,'day');
 
         // show date depending on editMode
         let showDate = <ListItem
-            leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date</div>}
+            leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Event Date:</div>}
             primaryText={<div style={{position: 'absolute', top: '20px', marginBottom: '36px', }}>{serviceDate.format("dddd, D MMMM YYYY")}</div>}
             href="#"
             innerDivStyle={listItemViewStyle}
@@ -413,7 +413,7 @@ const Programme = observer(class Programme extends Component {
 
         if (this.state.editMode){
             showDate = <ListItem
-                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Date:</div>}
+                leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Event Date:</div>}
                 primaryText={<DatePicker name="Date" id="Date" onChange={this.changeServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
                 href="#"
                 innerDivStyle={listItemStyle}
@@ -450,7 +450,9 @@ const Programme = observer(class Programme extends Component {
 
         return (
             <div style={{marginBottom: '170px'}} id="prog">
-
+                <div style={{padding: '16px 0 16px 16px'}}>
+                    Last Updated: {moment(runsheet.data.lastUpdated).fromNow()}
+                </div>
                 <div style={{height: '56px'}}>
                     {showDate}
                 </div>

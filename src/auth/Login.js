@@ -88,7 +88,7 @@ const Login = observer(class Login extends Component {
     render() {
 
         // get where to redirect users to
-        const {from} = this.props.location.state || '/';
+        const {from} = this.props.location.state || '/Runsheets';
 
         return (
             <div style={{marginTop: '100px', textAlign: 'center'}}>

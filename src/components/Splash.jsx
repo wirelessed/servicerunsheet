@@ -3,6 +3,7 @@ import RaisedButton from 'material-ui/RaisedButton';
 import {
   Link
 } from 'react-router-dom';
+import '../css/bootstrap.min.scss';
 
 class Splash extends Component {
 
@@ -32,25 +33,55 @@ class Splash extends Component {
         // const { router } = this.context;
 
         return (
-            <div style={{marginBottom: '170px', textAlign: 'center', marginTop: '100px'}}>
-                <h1>RunsheetPro (v2)</h1>
-                <p style={{marginBottom: '32px' }}>Create runsheets like a pro.</p>
-                <Link to="/Runsheets">
-                    <RaisedButton label="ENTER" primary={true} />
-                </Link>
-                <h3 style={{marginTop: '60px'}}>What's New</h3>
-                <ul style={{textAlign: 'left', margin: '8px auto', fontSize: '14px', maxWidth: '500px'}}>
-                    <li>
-                        Now all runsheets are private and can be shared with anyone. Permissions can be set so that only certain email addresses can edit!
-                    </li>
-                    <li>
-                        Every programme item is now set by duration, the timings will be calculated automatically based on the start time set.
-                    </li>
-                    <li>
-                        You can also see when was the last updated time of the runsheet.
-                    </li>
-                </ul>
+            <div style={{marginTop: '-56px'}} id="splash">
+                <nav className="navbar navbar-light bg-light static-top">
+                    <div className="container">
+                        <a className="navbar-brand" href="#">RunsheetPro</a>
+                        <Link to="/Runsheets" className="btn btn-primary" >Login</Link>
+                    </div>
+                </nav>
+                <header className="masthead text-white text-center">
+                    <div className="overlay"></div>
+                    <div className="container">
+                        <div className="row">
+                            <div className="col-xl-9 mx-auto">
+                                <h1 className="mb-5">Create Runsheets <br/>like a pro.</h1>
+                            </div>
+                            <div className="col-md-10 col-lg-8 col-xl-7 mx-auto">
+                                <Link to="/Runsheets" className="btn btn-primary" >Login</Link>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                
+                <section className="features-icons bg-light text-center">
+                <div className="container">
+                    <div className="row">
+                        <div className="col-lg-4">
+                            <div className="features-icons-item mx-auto mb-5 mb-lg-0 mb-lg-3">
+                            <h4>Easy Drag & Drop</h4>
+                            <p className="lead mb-0">Create an item by duration, and then you can drag-and-drop to re-order, and the timings will update automatically!</p>
+                            </div>
+                        </div>
+
+                        <div className="col-lg-4">
+                            <div className="features-icons-item mx-auto mb-5 mb-lg-0 mb-lg-3">
+                            <h4>Private & Shareable</h4>
+                            <p className="lead mb-0">All runsheets are now private to you. You can be share with any email and set permissions.</p>
+                            </div>
+                        </div>
+
+                        <div className="col-lg-3">
+                            <div className="features-icons-item mx-auto mb-0 mb-lg-3">
+                            <h4>Always Up-to-date</h4>
+                            <p className="lead mb-0">Any change is automatically saved and shown to other users. Now you can also see the last updated time!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </section>
             </div>
+            
         );
     }
 }
