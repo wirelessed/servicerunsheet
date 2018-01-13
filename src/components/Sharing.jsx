@@ -106,6 +106,7 @@ const Sharing = observer(class Sharing extends Component {
         this.sendWhatsapp = this.sendWhatsapp.bind(this);
         this.sendToClipboard = this.sendToClipboard.bind(this);
         this.copyProgramme = this.copyProgramme.bind(this);
+        this.copyReport = this.copyReport.bind(this);
         this.copyLink = this.copyLink.bind(this);
         this.generatePlainText = this.generatePlainText.bind(this);
         this.handleClose = this.handleClose.bind(this);
@@ -189,6 +190,57 @@ const Sharing = observer(class Sharing extends Component {
         return composeMessage;
     }
 
+    generatePlainTextReport = (runsheetName, runsheetDate, docs) => {
+        var composeMessage = "";
+        composeMessage += "Service Timings Report\n";
+        composeMessage += "*" + runsheetName + "*\n";
+        composeMessage += moment(runsheetDate).format("DD-MM-YYYY") + "\n\n";
+
+        // check if timings are calculated first
+        if(FirebaseStore.store.timingsArray.length == 0){
+            var _self = this;
+            var tempDocs = db.collection(programme.path).orderBy('orderCount', 'asc');
+            tempDocs.get().then(function(docs) {
+                var previousDuration = moment.duration(0, 'minutes');; // store previous item duration
+                var newTime = moment(runsheet.data.time, "HHmm"); // first time is service start time
+                var timingsArrayTemp = [];
+                var docsCount = 0;
+    
+                docs.forEach((doc) => {
+                    // calculate time based on duration and order
+                    newTime.add(previousDuration);
+                    var itemTime = newTime.clone();
+                    timingsArrayTemp[doc.id] = itemTime;
+                    previousDuration = moment.duration(parseInt(doc.data().duration), 'minutes');
+                    docsCount++;
+                });
+                _self.setState({timingsArray: timingsArrayTemp});
+                FirebaseStore.store.timingsArray = timingsArrayTemp;
+            });
+        }
+
+        docs.map((doc, index) => {
+            var item = doc.data;
+
+            if (item.duration !== null){
+                var theTime = moment(FirebaseStore.store.timingsArray[doc.id],"HHmm");
+
+                // get duration
+                var printDuration = "(" + item.duration + " min)";
+                // print time
+                composeMessage +=  "*" + theTime.format("h:mm a") + "* ";
+                if (item.text !== null){
+                    composeMessage += item.text + "\n";
+                }
+            composeMessage += printDuration + "\n";
+                
+            } else {
+                composeMessage += "      ";
+            }
+        });
+        return composeMessage;
+    }
+
     copyLink = (runsheetName) => {
         var link = encodeURI("http://runsheetpro.com/services/" + this.props.serviceKey + "/" + runsheetName + "/Programme");
         this.sendToClipboard(link);
@@ -196,6 +248,11 @@ const Sharing = observer(class Sharing extends Component {
 
     copyProgramme = (runsheetName, runsheetDate, docs) => {
         var message = this.generatePlainText(runsheetName, runsheetDate, docs); 
+        this.sendToClipboard(message);
+    }
+
+    copyReport = (runsheetName, runsheetDate, docs) => {
+        var message = this.generatePlainTextReport(runsheetName, runsheetDate, docs); 
         this.sendToClipboard(message);
     }
 
@@ -305,6 +362,8 @@ const Sharing = observer(class Sharing extends Component {
                     <Divider />
                     {(isAdmin) ?
                         <div>
+                            <ListItem leftIcon={<FontIcon className="material-icons" color={indigo500}>content_copy</FontIcon>} primaryText="Service Timings Report" onTouchTap={() => this.copyReport(runsheet.data.name, runsheet.data.date, programme.docs)} />
+                            <Divider />
                             <Subheader>ADD USER</Subheader>
                             <div style={{padding: '0 16px 16px 16px'}}>
                                 <TextField style={{width: '200px', marginRight: '16px'}} hintText="Email Address" value={this.state.userId} onChange={this.updateUserId} onKeyPress={this.handleKeyPress} />

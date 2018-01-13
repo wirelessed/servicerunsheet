@@ -3,6 +3,7 @@ import MediaQuery from 'react-responsive';
 import * as firebase from 'firebase';
 import $ from 'jquery';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import Clock from 'react-live-clock';
 
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
@@ -27,6 +28,7 @@ import Textarea from 'react-textarea-autosize';
 import FontIcon from 'material-ui/FontIcon';
 import CircularProgress from 'material-ui/CircularProgress';
 import Dialog from 'material-ui/Dialog';
+import {Tabs, Tab} from 'material-ui/Tabs';
 
 // Subcomponents
 import Popup from './Popup.jsx';
@@ -86,11 +88,19 @@ class ProgrammeItem extends Component {
 
         var minHeight = (this.props.item.data.duration == "") ? 44 : (44+parseInt(this.props.item.data.duration));
         var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? blue600 : blue600;
+        var editMode = false;
+        var opsMode = false;
+        if(this.props.currentTab === "Edit"){
+            editMode = true;
+        } 
+        if(this.props.currentTab === "Ops Mode"){
+            opsMode = true;
+        } 
 
         // fade out old items
         var setBackground = 'transparent';
         if(this.props.isToday && moment().isAfter(this.props.itemTime,'minute')){
-            if(!this.props.editMode){
+            if(!editMode){
                 setBackground = grey100;
                 setBorderColor = grey700;
             } 
@@ -102,8 +112,8 @@ class ProgrammeItem extends Component {
                     <strong>{this.props.itemTime ? this.props.itemTime.format("LT"): ''}</strong><br/>
                     <div style={{fontSize: '14px', color: grey500, padding: '4px 0'}}><small>({(this.props.item.data.duration == "") ? 0 : this.props.item.data.duration} min)</small></div>
                 </div>
-                <div style={{width: (this.props.editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}
-                    onTouchTap={() => this.props.editMode ? this.props.confirmEditItem(this.props.item) : ''}
+                <div style={{width: (editMode) ? '50%' : '70%', float: 'left', minHeight: minHeight, padding:'8px 0 8px 8px', borderLeft: '2px solid', borderLeftColor: grey100}}
+                    onTouchTap={() => editMode ? this.props.confirmEditItem(this.props.item) : ''}
                 >
                     <div style={{color: '#1a1a1a', fontWeight: '400', fontSize: '16px', lineHeight: '24px', whiteSpace: 'pre-line'}}>      
                         {this.props.item.data.text}              
@@ -112,17 +122,23 @@ class ProgrammeItem extends Component {
                         {this.props.item.data.remarks}
                     </div>
                 </div>
-                {(this.props.editMode) ? 
+                {(editMode) ? 
                     <div style={{width: '15%', float: 'right', padding: '8px', textAlign: 'center'}}>
                         <FontIcon className="material-icons" style={{color: indigo500, paddingRight: '8px'}} onTouchTap={() => this.props.confirmEditItem(this.props.item)}>mode_edit</FontIcon>
                         <FontIcon className="material-icons" style={{color: grey500}} onTouchTap={() => this.props.confirmDeleteItem(this.props.item)}>close</FontIcon>
                     </div>
                 :
                 ''}
-                {(this.props.editMode) ?
+                {(editMode) ?
                     <div style={{position: 'absolute', bottom: 10, right: 10, fontSize: '10px', color: '#ccc'}}>
                        {this.props.item.data.orderCount} 
                     </div>
+                :''}
+                {(opsMode) ? 
+                    <div style={{width: '100%', float: 'left', padding: '8px', textAlign: 'center', clear: 'both', background: 'rgb(240, 240, 240)'}}>
+                        {/* <FlatButton label="Enter Time" primary={true} onTouchTap={() => this.props.enterTime(this.props.item)} /> */}
+                        <RaisedButton label="Log End Time Now" primary={true} onTouchTap={() => this.props.logTimeNow(this.props.item)} />
+                    </div>  
                 :''}
             </div>
         )
@@ -146,7 +162,10 @@ const Programme = observer(class Programme extends Component {
             userRole: null,
             prevHighlightSlot: null,
             timingsArray: [],
-            loading: false
+            endTimingsArray: [],
+            loading: false,
+            currentTab: "View",
+            showEnterTime: false
         };
 
         this.editItem = this.editItem.bind(this);
@@ -157,6 +176,11 @@ const Programme = observer(class Programme extends Component {
         this.onDragStart = this.onDragStart.bind(this);
         this.onDragEnd = this.onDragEnd.bind(this);
         this.changeStartTime = this.changeStartTime.bind(this);
+        this.changeTab = this.changeTab.bind(this);
+        this.logTimeNow = this.logTimeNow.bind(this);
+        this.confirmLogTimeNow = this.confirmLogTimeNow.bind(this);
+        //this.enterTime = this.enterTime.bind(this);
+        //this.confirmEnterTime = this.confirmEnterTime.bind(this);
     }
 
     componentWillMount(){
@@ -208,7 +232,6 @@ const Programme = observer(class Programme extends Component {
         if(duration === undefined) duration = "0";
         if(text === undefined) text = "";
         if(remarks === undefined) remarks = "";
-        // console.log("hello", time, text, remarks);
         await doc.update({
             orderCount: orderCount,
             duration: duration,
@@ -295,14 +318,14 @@ const Programme = observer(class Programme extends Component {
     }
 
     toggleEditMode = () => {
-        if (this.state.editMode) {
+        if (this.state.currentTab === "Edit") {
             ReactGA.event({
                 category: 'Edit',
                 action: 'Edit Off',
                 label: 'Programme'
             });
             this.setState({
-                editMode: false
+                currentTab: "View"
             });
         } else {
             ReactGA.event({
@@ -311,7 +334,7 @@ const Programme = observer(class Programme extends Component {
                 label: 'Programme'
             });
             this.setState({
-                editMode: true
+                currentTab: "Edit"
             });
         }
     }
@@ -404,6 +427,56 @@ const Programme = observer(class Programme extends Component {
         
     }
 
+    // Log duration based on time now
+    confirmLogTimeNow(doc){
+        var _self = this;
+        var popup = <Popup
+                isPopupOpen={true}
+                handleClosePopup={this.handleClosePopup}
+                handleSubmit={() => _self.logTimeNow(doc)}
+                numActions={2}
+                title="Confirm this item has just ended?">
+                <small>{doc.data.text}
+                </small>
+            </Popup>;
+        this.setState({thePopup: popup});
+    }
+    logTimeNow(doc, time){
+        var now = moment(time) || moment();
+        var timingsArrayTemp = this.state.timingsArray;
+        var originalTime = moment(timingsArrayTemp[doc.id]);
+        // diff is new duration of this block
+        var newDuration = now.diff(originalTime, 'm');
+        console.log(newDuration);
+        // if difference is positive, now time is later than original time
+        doc.update({duration: newDuration});
+        this.setState({thePopup: null});
+        this.calculateTimings();
+    }
+
+    // // Log duration based on custom time
+    // confirmEnterTime(doc){
+    //     var _self = this;
+    //     var popup = <TimePicker
+    //         id="enterTime"
+    //         format="ampm"
+    //         autoOk={true}
+    //         value={moment().toDate()}
+    //         onChange={(e, date) => _self.enterTime(e, date, doc)}
+    //         style={{zIndex: 500}}
+    //     />;
+    //     this.setState({thePopup: popup});        
+    // }
+
+    // enterTime(e, date, doc){
+    //     this.setState({thePopup: null});
+    //     this.logTimeNow(doc, date);
+    // }
+
+    changeTab(value){
+        this.setState({currentTab: value});
+    }
+
     render() {
         // check if user is admin
         var isAdmin = false;
@@ -425,7 +498,7 @@ const Programme = observer(class Programme extends Component {
             disableTouchRipple
             ></ListItem>;
 
-        if (this.state.editMode){
+        if (this.state.currentTab === "Edit"){
             showDate = <ListItem
                 leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Event Date:</div>}
                 primaryText={<DatePicker name="Date" id="Date" onChange={this.changeServiceDate} firstDayOfWeek={0} value={serviceDate.toDate()} style={{zIndex: 500}} /> }
@@ -444,7 +517,7 @@ const Programme = observer(class Programme extends Component {
             disableTouchRipple
             ></ListItem>;
 
-        if (this.state.editMode){
+        if (this.state.currentTab === "Edit"){
             showStartTime = <ListItem
                 leftAvatar={<div style={{position: 'absolute', top: '20px'}}>Start Time:</div>}
                 primaryText={<TimePicker
@@ -464,13 +537,26 @@ const Programme = observer(class Programme extends Component {
 
         return (
             <div style={{marginBottom: '170px'}} id="prog">
+                {(isAdmin) ? 
+                    <Tabs value={this.state.currentTab} onChange={this.changeTab}>
+                        <Tab label="View" value="View">
+                        </Tab>
+                        
+                        <Tab label="Edit" value="Edit">
+                        </Tab>
+                        
+                        <Tab label="Ops Mode" value="Ops Mode">
+                        </Tab>
+                    
+                    </Tabs>
+                :''}
                 <div style={{padding: '16px 0 16px 16px'}}>
                     Last Updated: {moment(runsheet.data.lastUpdated).fromNow()}
                 </div>
                 <div style={{height: '56px'}}>
                     {showDate}
                 </div>
-                {(this.state.editMode) ?
+                {(this.state.currentTab === "Edit") ?
                 <div style={{height: '100px'}}>
                     {showStartTime} 
                         <div style={{padding: '0 16px'}}>
@@ -479,8 +565,9 @@ const Programme = observer(class Programme extends Component {
                     
                 </div>
                 :''}
-                <DragDropContext onDragStart={this.onDragStart} onDragEnd={this.onDragEnd}>
-                    <Droppable droppableId="droppable" isDropDisabled={(this.state.editMode) ? false : true}>
+
+                <DragDropContext onDragStart={this.onDragStart} onDragEnd={this.onDragEnd} isDragDisabled={(this.state.currentTab === "Edit") ? false : true}>
+                    <Droppable droppableId="droppable" isDropDisabled={(this.state.currentTab === "Edit") ? false : true}>
                     {(provided, snapshot) => (
                         <div 
                         ref={provided.innerRef} 
@@ -502,8 +589,9 @@ const Programme = observer(class Programme extends Component {
                                             )}
                                             {...provided.dragHandleProps}
                                         >
-                                            <ProgrammeItem item={item} isToday={isToday} itemTime={this.state.timingsArray[item.id]} editMode={this.state.editMode}
+                                            <ProgrammeItem item={item} isToday={isToday} itemTime={this.state.timingsArray[item.id]} currentTab={this.state.currentTab}
                                                 confirmEditItem={this.confirmEditItem} confirmDeleteItem={this.confirmDeleteItem}
+                                                logTimeNow={this.confirmLogTimeNow} enterTime={this.confirmEnterTime}
                                             ></ProgrammeItem>
                                         </div>
                                     {provided.placeholder}
@@ -520,60 +608,59 @@ const Programme = observer(class Programme extends Component {
 {/* 
                 <FlatButton icon={<ShareIcon color={white} />} style={{position: 'fixed', top: '8px', right: '0', zIndex: '9999', minWidth: '48px'}} labelStyle={{color: '#fff'}} odata-action="share/whatsapp/share"  /> */}
 
-                { (!this.state.editMode) ?
-                    (isAdmin) ?
-                        <div>
-                            <MediaQuery maxWidth={1023}>
-                                <div>
-                                    <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
-                                        <ModeEdit />
-                                    </FloatingActionButton>
-                                </div>
-                            </MediaQuery>
-                            <MediaQuery minWidth={1024}>
-                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
+                { (this.state.currentTab === "View" && isAdmin) ?
+                    <div>
+                        <MediaQuery maxWidth={1023}>
+                            <div>
+                                <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '88px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
                                     <ModeEdit />
                                 </FloatingActionButton>
-                            </MediaQuery>
-                        </div>
-                    : ''
-                        :
-                        <div>
-                            <MediaQuery maxWidth={1023}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={() => this.confirmAddItem(runsheet.data.orderCount)}>
-                                    <AddFloatingIcon />
-                                </FloatingActionButton>
-                            </MediaQuery>
-                            <MediaQuery minWidth={1024}>
-                                <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.confirmAddItem}>
-                                    <AddFloatingIcon />
-                                </FloatingActionButton>
-                            </MediaQuery>
+                            </div>
+                        </MediaQuery>
+                        <MediaQuery minWidth={1024}>
+                            <FloatingActionButton mini={false} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.toggleEditMode}>
+                                <ModeEdit />
+                            </FloatingActionButton>
+                        </MediaQuery>
+                    </div>
+                : ''}
+                {(this.state.currentTab === "Edit" && isAdmin) ?
+                    <div>
+                        <MediaQuery maxWidth={1023}>
+                            <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '118px', right: '32px', zIndex: '1499'}} onTouchTap={() => this.confirmAddItem(runsheet.data.orderCount)}>
+                                <AddFloatingIcon />
+                            </FloatingActionButton>
+                        </MediaQuery>
+                        <MediaQuery minWidth={1024}>
+                            <FloatingActionButton mini={false} secondary={true} style={{position: 'fixed', bottom: '32px', right: '32px', zIndex: '1499'}} onTouchTap={this.confirmAddItem}>
+                                <AddFloatingIcon />
+                            </FloatingActionButton>
+                        </MediaQuery>
 
-                            <MediaQuery maxWidth={1023}>
-                                <div>
-                                    <Snackbar
-                                        open={true}
-                                        message="Editing: Drag and drop to re-order"
-                                        action="DONE"
-                                        onActionTouchTap={this.toggleEditMode}
-                                        onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
-                                        style={{bottom: '57px'}} />
-                                </div>
-                            </MediaQuery>
-                            <MediaQuery minWidth={1024}>
-                                <div>
-                                    <Snackbar
-                                        open={true}
-                                        message="Editing: Drag and drop to re-order"
-                                        action="DONE"
-                                        onActionTouchTap={this.toggleEditMode}
-                                        onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
-                                        style={{bottom: '0px'}} />
-                                </div>
-                            </MediaQuery>
-                        </div>
-                    }
+                        <MediaQuery maxWidth={1023}>
+                            <div>
+                                <Snackbar
+                                    open={true}
+                                    message="Editing: Drag and drop to re-order"
+                                    action="DONE"
+                                    onActionTouchTap={this.toggleEditMode}
+                                    onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
+                                    style={{bottom: '57px'}} />
+                            </div>
+                        </MediaQuery>
+                        <MediaQuery minWidth={1024}>
+                            <div>
+                                <Snackbar
+                                    open={true}
+                                    message="Editing: Drag and drop to re-order"
+                                    action="DONE"
+                                    onActionTouchTap={this.toggleEditMode}
+                                    onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
+                                    style={{bottom: '0px'}} />
+                            </div>
+                        </MediaQuery>
+                    </div>
+                :''}
 
                 {this.state.thePopup}
 
@@ -587,6 +674,16 @@ const Programme = observer(class Programme extends Component {
                     >
                     <CircularProgress />
                 </Dialog>
+
+                {(this.state.currentTab === "Ops Mode") ?
+                    <div style={{position: 'fixed', bottom: '56px', width: '100%', height: '40px', padding: '16px', background: '#000', color: '#fff', textAlign: 'center', fontWeight: '600', fontSize: '2rem', zIndex: '555'}}
+                    >
+                        <Clock
+                            format={'h:mm:ssa'}
+                            ticking={true} />
+                    </div>
+                    
+                :''}
                 
             </div>
         );
