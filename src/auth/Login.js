@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Link, Redirect } from 'react-router';
+import { Redirect } from 'react-router';
 import * as firebase from 'firebase';
 import firebaseApp from '../firebase/Firebase';
 import CircularProgress from 'material-ui/CircularProgress';
@@ -8,7 +8,6 @@ import CircularProgress from 'material-ui/CircularProgress';
 // Firebase Store
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
-const allUsers = FirebaseStore.store.allUsers;
 const currentUser = FirebaseStore.store.currentUser;
 var db = firebaseApp.firestore();
 
@@ -23,7 +22,7 @@ const Login = observer(class Login extends Component {
         db.doc('/users/' + user.email).get()
             .then(docSnapshot => {
                 if (docSnapshot.exists) {
-                    console.log("user exists");
+                    //console.log("user exists");
                     this.addNewUser(user);
                     return;
                 } else {
@@ -143,7 +142,7 @@ const Login = observer(class Login extends Component {
                     }} data-provider-id="google.com" data-upgraded=",MaterialButton"
                         onTouchTap={this.handleGoogle}
                     >
-                        <img style={{    border: 'none',
+                        <img alt="Sign In" style={{    border: 'none',
                             display: 'inline-block',
                             height: '18px',
                             verticalAlign: 'middle',

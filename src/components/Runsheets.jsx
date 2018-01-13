@@ -19,7 +19,7 @@ import {Tabs, Tab} from 'material-ui/Tabs';
 // Firebase Store
 import { observer } from 'mobx-react';
 import  * as FirebaseStore from "../firebase/FirebaseStore";
-import { Collection, Document } from 'firestorter';
+import { Document } from 'firestorter';
 const runsheets = FirebaseStore.store.runsheets;
 const runsheet = FirebaseStore.store.runsheet;
 const currentUser = FirebaseStore.store.currentUser;
@@ -74,7 +74,7 @@ const Runsheets = observer(class Runsheets extends Component {
     // add to runsheets collection
     // and add to users collection
     createRunsheet = async (data) => {
-        var userId = this.state.userId;
+        // var userId = this.state.userId;
         var _self = this;
 
         runsheets.add(data).then(function(doc){
@@ -147,13 +147,12 @@ const Runsheets = observer(class Runsheets extends Component {
                 time: runsheet.data.time,
                 orderCount: runsheet.data.orderCount,
                 lastUpdated: moment().format()
-            }).then(function(newDoc){
+            }).then(function(newDocument){
                 // set new paths
-                programme.path = "runsheets/" + newDoc.id + "/programme";
-                people.path = "runsheets/" + newDoc.id + "/people";
-                users.path = "runsheets/" + newDoc.id + "/users";
-                songs.path = "runsheets/" + newDoc.id + "/songs";
-                var newDoc = newDoc;
+                programme.path = "runsheets/" + newDocument.id + "/programme";
+                people.path = "runsheets/" + newDocument.id + "/people";
+                users.path = "runsheets/" + newDocument.id + "/users";
+                songs.path = "runsheets/" + newDocument.id + "/songs";
 
                 db.collection("runsheets/" + runsheet.id + "/programme").get().then(function(querySnapshot) {
                     querySnapshot.forEach(function(doc2) {
@@ -169,8 +168,8 @@ const Runsheets = observer(class Runsheets extends Component {
 
                 db.collection("runsheets/" + runsheet.id + "/users").get().then(function(querySnapshot) {
                     querySnapshot.forEach(function(doc2) {
-                        console.log("doc2.data().userId",doc2.data().id);
-                        FirebaseStore.addRunsheetToUser(newDoc.id, doc2.data().id, doc2.data().role);                        
+                        // console.log("doc2.data().userId",doc2.data().id);
+                        FirebaseStore.addRunsheetToUser(newDocument.id, doc2.data().id, doc2.data().role);                        
                     });
                 });
 
@@ -181,7 +180,7 @@ const Runsheets = observer(class Runsheets extends Component {
                 });
 
                 // make sure add to runsheetsByUser too
-                FirebaseStore.addRunsheetToUser(newDoc.id, _self.state.userId, "editor");   
+                FirebaseStore.addRunsheetToUser(newDocument.id, _self.state.userId, "editor");   
                 _self.displayRunsheetsByUser();
             });
         }
@@ -208,7 +207,7 @@ const Runsheets = observer(class Runsheets extends Component {
     // delete runsheet and also from users' runsheet
     deleteRunsheet = async (runsheet) => {
         await FirebaseStore.deleteDoc(runsheet);
-        var thisRunsheet = new Document();
+        // var thisRunsheet = new Document();
         await db.collection("users/" + this.state.userId + "/runsheets").doc(runsheet.id).delete();
         this.displayRunsheetsByUser();
     }
@@ -296,7 +295,7 @@ const Runsheets = observer(class Runsheets extends Component {
                         // separate archive or not
                         var displayRunsheets = _self.state.displayRunsheets.slice();
                         var displayArchivedRunsheets = _self.state.displayArchivedRunsheets.slice();
-                        if(doc.data().category == "archive"){
+                        if(doc.data().category === "archive"){
                             displayArchivedRunsheets.push(item);                            
                         } else {
                             displayRunsheets.push(item);                            
@@ -333,7 +332,7 @@ const Runsheets = observer(class Runsheets extends Component {
                             </div>
                             :   
                                 
-                                (this.state.displayRunsheets.length == 0) ?
+                                (this.state.displayRunsheets.length === 0) ?
                                     <div style={{padding: '16px', color: 'grey'}}>
                                     You do not have any runsheets yet. Please create one or ask someone to share theirs with you!
                                     </div>
@@ -358,7 +357,7 @@ const Runsheets = observer(class Runsheets extends Component {
                             </div>
                             :   
                                 
-                                (this.state.displayArchivedRunsheets.length == 0) ?
+                                (this.state.displayArchivedRunsheets.length === 0) ?
                                     <div style={{padding: '16px', color: 'grey'}}>
                                     There are no archived runsheets.
                                     </div>

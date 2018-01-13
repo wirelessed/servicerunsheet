@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
 import MediaQuery from 'react-responsive';
-import * as firebase from 'firebase';
 import $ from 'jquery';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import Clock from 'react-live-clock';
@@ -16,15 +15,11 @@ import {List, ListItem} from 'material-ui/List';
 import TimePicker from 'material-ui/TimePicker';
 import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
-import FlatButton from 'material-ui/FlatButton';
-import Divider from 'material-ui/Divider';
-import {grey100, grey200, grey500, grey700, indigo100, indigo500, indigo800, blue600, cyan50, yellow200, white, black} from 'material-ui/styles/colors';
-import NavigationClose from 'material-ui/svg-icons/navigation/close';
+import {grey100, grey500, grey700, indigo100, indigo500, blue600, cyan50, white, black} from 'material-ui/styles/colors';
 import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import AddFloatingIcon from 'material-ui/svg-icons/content/add';
 import Snackbar from 'material-ui/Snackbar';
-import Textarea from 'react-textarea-autosize';
 import FontIcon from 'material-ui/FontIcon';
 import CircularProgress from 'material-ui/CircularProgress';
 import Dialog from 'material-ui/Dialog';
@@ -33,14 +28,13 @@ import {Tabs, Tab} from 'material-ui/Tabs';
 // Subcomponents
 import Popup from './Popup.jsx';
 import Modal from './Modal.jsx';
-import ModalStartTime from './ModalStartTime.jsx';
 
 // Firebase Store
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
-import { Collection, Document } from 'firestorter';
+// import { Collection, Document } from 'firestorter';
 const runsheet = FirebaseStore.store.runsheet;
-const currentUser = FirebaseStore.store.currentUser;
+// const currentUser = FirebaseStore.store.currentUser;
 const programme = FirebaseStore.store.programme;
 const people = FirebaseStore.store.people;
 const songs = FirebaseStore.store.songs;
@@ -86,7 +80,7 @@ const getListStyle = (isDraggingOver) => ({
 class ProgrammeItem extends Component {
     render() {
 
-        var minHeight = (this.props.item.data.duration == "") ? 44 : (44+parseInt(this.props.item.data.duration));
+        var minHeight = (this.props.item.data.duration === "") ? 44 : (44+parseInt(this.props.item.data.duration));
         var setBorderColor = (parseInt(this.props.item.data.orderCount) % 2 === 0) ? blue600 : blue600;
         var editMode = false;
         var opsMode = false;
@@ -203,7 +197,7 @@ const Programme = observer(class Programme extends Component {
     changeServiceDate = (e, time) => {
         var newTime = moment(time).format();
 
-        var newServiceDate = runsheet.update({
+        runsheet.update({
             date: newTime
         })
         runsheet.update({ lastUpdated: moment().format() });

@@ -14,8 +14,6 @@ import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import Divider from 'material-ui/Divider';
 import FontIcon from 'material-ui/FontIcon';
-import SelectField from 'material-ui/SelectField';
-import MenuItem from 'material-ui/MenuItem';
 import Dialog from 'material-ui/Dialog';
 import FlatButton from 'material-ui/FlatButton';
 import {blue400, indigo500} from 'material-ui/styles/colors';
@@ -23,7 +21,6 @@ import {blue400, indigo500} from 'material-ui/styles/colors';
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const runsheet = FirebaseStore.store.runsheet;
-const currentUser = FirebaseStore.store.currentUser;
 const programme = FirebaseStore.store.programme;
 const people = FirebaseStore.store.people;
 const songs = FirebaseStore.store.songs;
@@ -143,7 +140,7 @@ const Sharing = observer(class Sharing extends Component {
         composeMessage += moment(runsheetDate).format("DD-MM-YYYY") + "\n\n";
 
         // check if timings are calculated first
-        if(FirebaseStore.store.timingsArray.length == 0){
+        if(FirebaseStore.store.timingsArray.length === 0){
             var _self = this;
             var tempDocs = db.collection(programme.path).orderBy('orderCount', 'asc');
             tempDocs.get().then(function(docs) {
@@ -197,7 +194,7 @@ const Sharing = observer(class Sharing extends Component {
         composeMessage += moment(runsheetDate).format("DD-MM-YYYY") + "\n\n";
 
         // check if timings are calculated first
-        if(FirebaseStore.store.timingsArray.length == 0){
+        if(FirebaseStore.store.timingsArray.length === 0){
             var _self = this;
             var tempDocs = db.collection(programme.path).orderBy('orderCount', 'asc');
             tempDocs.get().then(function(docs) {
@@ -331,7 +328,7 @@ const Sharing = observer(class Sharing extends Component {
     render() {
         // check if user is admin
         var isAdmin = false; // @TODO Change back later
-        if(currentUserInRunsheet.data.role == "editor") {
+        if(currentUserInRunsheet.data.role === "editor") {
             isAdmin = true;
         }
 

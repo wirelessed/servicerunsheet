@@ -1,8 +1,5 @@
-import React, {Component, PropTypes} from 'react';
-import update from 'react-addons-update';
-import MobileDetect from 'mobile-detect';
+import React, {Component} from 'react';
 import MediaQuery from 'react-responsive';
-import * as firebase from "firebase";
 
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
@@ -11,16 +8,11 @@ import moment from 'moment';
 moment().format();
 
 // UI Components
-import { List, ListItem } from 'material-ui/List';
-import TimePicker from 'material-ui/TimePicker';
 import TextField from 'material-ui/TextField';
-import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import FlatButton from 'material-ui/FlatButton';
-import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, cyan50} from 'material-ui/styles/colors';
+import {indigo500} from 'material-ui/styles/colors';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
-import DatePicker from 'material-ui/DatePicker';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
 import {Card, CardActions, CardHeader, CardText} from 'material-ui/Card';
@@ -35,23 +27,12 @@ import Modal from './SongModal.jsx';
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const runsheet = FirebaseStore.store.runsheet;
-const currentUser = FirebaseStore.store.currentUser;
+// const currentUser = FirebaseStore.store.currentUser;
 const programme = FirebaseStore.store.programme;
 const people = FirebaseStore.store.people;
 const songs = FirebaseStore.store.songs;
 const users = FirebaseStore.store.users;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
-
-const listItemStyle = {
-    padding: '4px 16px 4px 40px',
-    height: 'auto'
-}
-
-const TimePickerStyle = {
-    width: '72px',
-    marginTop: '-4px',
-    float: 'left'
-}
 
 const deleteButtonStyle = {
     float: 'left',
@@ -59,10 +40,6 @@ const deleteButtonStyle = {
     lineHeight: '48px',
     paddingRight: '8px',
     marginTop: '0px'
-}
-
-const TextFieldStyle = {
-    marginTop: '8px'
 }
 
 const TextFieldViewStyle = {
@@ -78,29 +55,6 @@ const TextFieldViewStyle = {
     minHeight: '48px'
 }
 
-const TextFieldEditStyle = {
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '16px',
-    lineHeight: '26px',
-    marginTop: '12px',
-    padding: '0 8px',
-    border: '1px solid #ccc',
-    color: '#000',
-    width: '70%'
-}
-
-const TextFieldAddStyle = {
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '16px',
-    lineHeight: '26px',
-    marginLeft: '16px',
-    marginTop: '12px',
-    padding: '0 8px',
-    border: '1px solid #ccc',
-    color: '#000',
-    width: '70%'
-}
-
 const DescriptionViewStyle = {
     padding: '0px',
     color: '#000',
@@ -111,18 +65,6 @@ const DescriptionViewStyle = {
     border: 'none',
     marginTop: '12px',
     resize: 'none'
-}
-
-const DescriptionEditStyle = {
-    padding: '0px',
-    color: '#000',
-    width: '98%',
-    border: '1px solid #ccc',
-    marginTop: '12px',
-    padding: '0 4px',
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '16px',
-    lineHeight: '26px'
 }
 
 const Songs = observer(class Songs extends Component {
@@ -154,10 +96,10 @@ const Songs = observer(class Songs extends Component {
 
     // edit item after popup closes
     editItem = async (doc, order, title, lyrics, copyright) => {
-        if(order == undefined) order = "1";
-        if(title == undefined) title = "";
-        if(lyrics == undefined) lyrics = "";
-        if(copyright == undefined) copyright = "";
+        if(order === undefined) order = "1";
+        if(title === undefined) title = "";
+        if(lyrics === undefined) lyrics = "";
+        if(copyright === undefined) copyright = "";
 
         await doc.update({
             order: order,
@@ -176,7 +118,7 @@ const Songs = observer(class Songs extends Component {
                 handleClosePopup={this.handleCloseModal}
                 handleSubmit={(doc, order, title, lyrics, copyright) => this.editItem(doc, order, title, lyrics, copyright).then(this.handleCloseModal())}
                 numActions={2}
-                title="Edit Item"
+                modalTitle="Edit Item"
                 doc={doc}
                 order={doc.data.order}
                 title={doc.data.title}
@@ -206,7 +148,7 @@ const Songs = observer(class Songs extends Component {
                         _self.handleCloseModal();
                     })}
                 numActions={2}
-                title="Add New Item"
+                modalTitle="Add New Item"
                 type="add"
                 order=""
                 title=""
@@ -283,7 +225,7 @@ const Songs = observer(class Songs extends Component {
     render() {
         // check if user is admin
         var isAdmin = false; // @TODO Change back later
-        if(currentUserInRunsheet.data.role == "editor") {
+        if(currentUserInRunsheet.data.role === "editor") {
             isAdmin = true;
         }
 
@@ -310,7 +252,7 @@ const Songs = observer(class Songs extends Component {
 
 
                         return (
-                            <Card key={index}>
+                            <Card key={key}>
                                 { (this.state.editMode) ?
                                     <CardHeader
                                         title={<div>{textfield}</div>}
@@ -386,7 +328,7 @@ const Songs = observer(class Songs extends Component {
                                 message="Editing: Tap on any item to edit"
                                 action="DONE"
                                 onActionTouchTap={this.toggleEditMode}
-                                onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
                                 style={{bottom: '57px'}} />
                             </MediaQuery>
                         <MediaQuery minWidth={1024}>
@@ -395,7 +337,7 @@ const Songs = observer(class Songs extends Component {
                                 message="Editing: Tap on any item to edit"
                                 action="DONE"
                                 onActionTouchTap={this.toggleEditMode}
-                                onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                                onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
                                 style={{bottom: '0px'}} />
                         </MediaQuery>
                     </div>

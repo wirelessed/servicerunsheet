@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
-import { Link, Redirect } from 'react-router';
+import { Redirect } from 'react-router';
 import * as firebase from 'firebase';
-import firebaseApp from '../firebase/Firebase';
 import CircularProgress from 'material-ui/CircularProgress';
 
 class Logout extends Component {

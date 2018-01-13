@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
 import {List, ListItem} from 'material-ui/List';
-import * as firebase from "firebase";
 
 var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
@@ -11,7 +10,7 @@ moment().format();
 import RaisedButton from 'material-ui/RaisedButton';
 import FloatingActionButton from 'material-ui/FloatingActionButton';
 import Divider from 'material-ui/Divider';
-import {grey200, grey500, indigo500, yellow500, cyan500} from 'material-ui/styles/colors';
+import {grey200, indigo500, yellow500} from 'material-ui/styles/colors';
 import NavigationClose from 'material-ui/svg-icons/navigation/close';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 import Snackbar from 'material-ui/Snackbar';
@@ -22,7 +21,7 @@ import Popup from './Popup.jsx';
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 const runsheet = FirebaseStore.store.runsheet;
-const currentUser = FirebaseStore.store.currentUser;
+// const currentUser = FirebaseStore.store.currentUser;
 const programme = FirebaseStore.store.programme;
 const people = FirebaseStore.store.people;
 const songs = FirebaseStore.store.songs;
@@ -214,7 +213,7 @@ const People = observer(class People extends Component {
     render() {
         // check if user is admin
         var isAdmin = false; // @TODO Change back later
-        if(currentUserInRunsheet.data.role == "editor") {
+        if(currentUserInRunsheet.data.role === "editor") {
             isAdmin = true;
         }
 
@@ -228,7 +227,7 @@ const People = observer(class People extends Component {
 
                             // highlight new item
                             var ListItemBGStyle = { clear: 'both', background: 'none', overflow: 'auto', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #eee' };
-                            if(this.state.newItemKey == key){
+                            if(this.state.newItemKey === key){
                                 ListItemBGStyle = { clear: 'both', background: yellow500, overflow: 'auto', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #eee' };
                             }
 
@@ -295,7 +294,7 @@ const People = observer(class People extends Component {
                        message="Editing (All changes are auto saved)"
                        action="DONE"
                        onActionTouchTap={this.toggleEditMode}
-                       onRequestClose={(reason) => {if (reason == 'clickaway') {} }}
+                       onRequestClose={(reason) => {if (reason === 'clickaway') {} }}
                        style={{bottom: '57px'}} />
                }
 

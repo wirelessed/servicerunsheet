@@ -2,23 +2,8 @@ import React from 'react';
 import Dialog from 'material-ui/Dialog';
 import FlatButton from 'material-ui/FlatButton';
 import RaisedButton from 'material-ui/RaisedButton';
-import Textarea from 'react-textarea-autosize';
 import TextField from 'material-ui/TextField';
 import MediaQuery from 'react-responsive';
-const TextFieldEditStyle = {
-    backgroundColor: '#fff',
-    marginTop: '8px',
-    borderRadius: '0px',
-    border: '1px solid #ccc',
-    padding: '4px 8px',
-    color: '#000',
-    width: '95%',
-    height: 'auto',
-    fontFamily: 'Roboto, sans-serif',
-    fontSize: '16px',
-    lineHeight: '26px'
-}
-
 
 export default class Modal extends React.Component {
 

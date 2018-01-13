@@ -15,8 +15,6 @@ import Sharing from './components/Sharing.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import Login from './auth/Login.js';
 import Logout from './auth/Logout.js';
-import Admin from './auth/Admin.js';
-import Admin2 from './auth/Admin2.js';
 import { firebaseAuth } from './firebase/Firebase';
 import './css/App.css';
 import {white, indigo500} from 'material-ui/styles/colors';
@@ -30,7 +28,6 @@ var ReactGA = require('react-ga');
 ReactGA.initialize('UA-101242277-1');
 
 import  * as FirebaseStore from "./firebase/FirebaseStore";
-const runsheet = FirebaseStore.store.runsheet;
 
 const track = () => {
     ReactGA.set({ page: window.location.pathname });

@@ -138,7 +138,7 @@ export default class SongModal extends React.Component {
                 </MediaQuery>
                 <MediaQuery minWidth={1024}>
                     <Dialog
-                        title={this.props.title}
+                        title={this.props.modalTitle}
                         actions={actions}
                         modal={true}
                         open={this.props.isPopupOpen}

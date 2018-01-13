@@ -3,18 +3,11 @@ import FontIcon from 'material-ui/FontIcon';
 import {BottomNavigation, BottomNavigationItem} from 'material-ui/BottomNavigation';
 import Paper from 'material-ui/Paper';
 import {grey200} from 'material-ui/styles/colors';
-import {
-  BrowserRouter as Router,
-  Route,
-  Link
-} from 'react-router-dom';
 import { withRouter } from 'react-router';
 
 const peopleIcon = <FontIcon className="material-icons">people</FontIcon>;
 const listIcon = <FontIcon className="material-icons">list</FontIcon>;
 const musicIcon = <FontIcon className="material-icons">music_note</FontIcon>;
-const copyrightIcon = <FontIcon className="material-icons">copyright</FontIcon>;
-const lyricsIcon = <FontIcon className="material-icons">queue_music</FontIcon>;
 const sharingIcon = <FontIcon className="material-icons">share</FontIcon>;
 
 const BottomNavStyle = {
