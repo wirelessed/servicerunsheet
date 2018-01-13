@@ -430,8 +430,11 @@ const Programme = observer(class Programme extends Component {
                 handleSubmit={() => _self.logTimeNow(doc)}
                 numActions={2}
                 title="Confirm this item has just ended?">
-                <small>{doc.data.text}
-                </small>
+                <div>
+                    <small>{doc.data.text}
+                    </small>
+                    <p>The duration of this item will be updated.</p>
+                </div>
             </Popup>;
         this.setState({thePopup: popup});
     }
