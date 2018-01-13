@@ -37,8 +37,12 @@ import ModalStartTime from './ModalStartTime.jsx';
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
 import { Collection, Document } from 'firestorter';
-const programme = FirebaseStore.store.programme;
 const runsheet = FirebaseStore.store.runsheet;
+const currentUser = FirebaseStore.store.currentUser;
+const programme = FirebaseStore.store.programme;
+const people = FirebaseStore.store.people;
+const songs = FirebaseStore.store.songs;
+const users = FirebaseStore.store.users;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 import firebaseApp from "../firebase/Firebase";
 const db = firebaseApp.firestore();
@@ -153,6 +157,16 @@ const Programme = observer(class Programme extends Component {
         this.onDragStart = this.onDragStart.bind(this);
         this.onDragEnd = this.onDragEnd.bind(this);
         this.changeStartTime = this.changeStartTime.bind(this);
+    }
+
+    componentWillMount(){
+        const id = this.props.serviceKey;
+        programme.path = 'runsheets/' + id + '/programme';
+        people.path = 'runsheets/' + id + '/people';
+        songs.path = 'runsheets/' + id + '/songs';
+        users.path = 'runsheets/' + id + '/users';
+        runsheet.path = 'runsheets/' + id;
+        currentUserInRunsheet.path = 'runsheets/' + id + '/users/' + FirebaseStore.getUserId();
     }
 
     componentDidMount(){

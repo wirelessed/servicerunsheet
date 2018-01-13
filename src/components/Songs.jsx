@@ -34,8 +34,12 @@ import Modal from './SongModal.jsx';
 // Firebase Store
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
-const songs = FirebaseStore.store.songs;
 const runsheet = FirebaseStore.store.runsheet;
+const currentUser = FirebaseStore.store.currentUser;
+const programme = FirebaseStore.store.programme;
+const people = FirebaseStore.store.people;
+const songs = FirebaseStore.store.songs;
+const users = FirebaseStore.store.users;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
 const listItemStyle = {
@@ -264,6 +268,16 @@ const Songs = observer(class Songs extends Component {
                 label: 'Songs'
             });
         }
+    }
+
+    componentWillMount() {
+        const id = this.props.serviceKey;
+        programme.path = 'runsheets/' + id + '/programme';
+        people.path = 'runsheets/' + id + '/people';
+        songs.path = 'runsheets/' + id + '/songs';
+        users.path = 'runsheets/' + id + '/users';
+        runsheet.path = 'runsheets/' + id;
+        currentUserInRunsheet.path = 'runsheets/' + id + '/users/' + FirebaseStore.getUserId();
     }
 
     render() {

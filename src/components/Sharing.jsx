@@ -16,15 +16,21 @@ import Divider from 'material-ui/Divider';
 import FontIcon from 'material-ui/FontIcon';
 import SelectField from 'material-ui/SelectField';
 import MenuItem from 'material-ui/MenuItem';
-
+import Dialog from 'material-ui/Dialog';
+import FlatButton from 'material-ui/FlatButton';
+import {blue400, indigo500} from 'material-ui/styles/colors';
 // Firebase Store
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
-const users = FirebaseStore.store.users;
 const runsheet = FirebaseStore.store.runsheet;
-const programme = FirebaseStore.store.programme;
 const currentUser = FirebaseStore.store.currentUser;
+const programme = FirebaseStore.store.programme;
+const people = FirebaseStore.store.people;
+const songs = FirebaseStore.store.songs;
+const users = FirebaseStore.store.users;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
+import firebaseApp from "../firebase/Firebase";
+const db = firebaseApp.firestore();
 
 class UserListItem extends Component {
     constructor(props){
@@ -40,7 +46,7 @@ class UserListItem extends Component {
 
     handleRoleChange(e) {
         var _self = this;
-        this.setState({role: e.target.value});
+        //this.setState({role: e.target.value});
         FirebaseStore.addRunsheetToUser(runsheet.id, _self.props.userId, e.target.value);
         users.query = users.ref.orderBy('role', 'asc');
     }
@@ -63,11 +69,12 @@ class UserListItem extends Component {
                     {this.props.userId}
                 </div>
                 <div style={{width: '30%', float: 'left'}}>
-                    {(currentUser.id === this.props.userId) ? 
+                    {(FirebaseStore.getUserId() === this.props.userId) ? 
                         <div>(You)</div>
                         :
                         <select
-                            value={this.state.role}
+                            className="roleDropdown"
+                            value={this.props.role}
                             onChange={this.handleRoleChange}
                             style={{width: '100%', height: '32px', background: 'white', fontSize: '14px', border: '1px solid rgba(0,0,0,0.15)'}}
                         >
@@ -87,7 +94,9 @@ const Sharing = observer(class Sharing extends Component {
         super(props);
 
         this.state = {
-            userId: ""
+            userId: "",
+            openAlert: false,
+            timingsArray: []
         };
 
         this.validator = new SimpleReactValidator();
@@ -95,8 +104,11 @@ const Sharing = observer(class Sharing extends Component {
         this.addUser = this.addUser.bind(this);
         this.handleKeyPress = this.handleKeyPress.bind(this);
         this.sendWhatsapp = this.sendWhatsapp.bind(this);
-        this.copyText = this.copyText.bind(this);
+        this.sendToClipboard = this.sendToClipboard.bind(this);
+        this.copyProgramme = this.copyProgramme.bind(this);
+        this.copyLink = this.copyLink.bind(this);
         this.generatePlainText = this.generatePlainText.bind(this);
+        this.handleClose = this.handleClose.bind(this);
     }
 
     addUser() {
@@ -124,10 +136,33 @@ const Sharing = observer(class Sharing extends Component {
         }
     }
 
-    generatePlainText = (docs) => {
+    generatePlainText = (runsheetName, runsheetDate, docs) => {
         var composeMessage = "";
-        composeMessage += "*" + runsheet.data.name + "*\n";
-        composeMessage += runsheet.data.date + "\n\n";
+        composeMessage += "*" + runsheetName + "*\n";
+        composeMessage += moment(runsheetDate).format("DD-MM-YYYY") + "\n\n";
+
+        // check if timings are calculated first
+        if(FirebaseStore.store.timingsArray.length == 0){
+            var _self = this;
+            var tempDocs = db.collection(programme.path).orderBy('orderCount', 'asc');
+            tempDocs.get().then(function(docs) {
+                var previousDuration = moment.duration(0, 'minutes');; // store previous item duration
+                var newTime = moment(runsheet.data.time, "HHmm"); // first time is service start time
+                var timingsArrayTemp = [];
+                var docsCount = 0;
+    
+                docs.forEach((doc) => {
+                    // calculate time based on duration and order
+                    newTime.add(previousDuration);
+                    var itemTime = newTime.clone();
+                    timingsArrayTemp[doc.id] = itemTime;
+                    previousDuration = moment.duration(parseInt(doc.data().duration), 'minutes');
+                    docsCount++;
+                });
+                _self.setState({timingsArray: timingsArrayTemp});
+                FirebaseStore.store.timingsArray = timingsArrayTemp;
+            });
+        }
 
         docs.map((doc, index) => {
             var item = doc.data;
@@ -154,8 +189,18 @@ const Sharing = observer(class Sharing extends Component {
         return composeMessage;
     }
 
-    sendWhatsapp = (docs) => {
-        var composeMessage = this.generatePlainText(docs);
+    copyLink = (runsheetName) => {
+        var link = encodeURI("http://runsheetpro.com/services/" + this.props.serviceKey + "/" + runsheetName + "/Programme");
+        this.sendToClipboard(link);
+    }
+
+    copyProgramme = (runsheetName, runsheetDate, docs) => {
+        var message = this.generatePlainText(runsheetName, runsheetDate, docs); 
+        this.sendToClipboard(message);
+    }
+
+    sendWhatsapp = (runsheetName, runsheetDate, docs) => {
+        var composeMessage = this.generatePlainText(runsheetName, runsheetDate, docs);
         composeMessage=encodeURIComponent(composeMessage);
         // console.log(composeMessage);
 
@@ -168,8 +213,8 @@ const Sharing = observer(class Sharing extends Component {
         window.location = "whatsapp://send?text=" + composeMessage;
     }
 
-    copyText = (docs) => {
-        var composeMessage = this.generatePlainText(docs);
+    sendToClipboard = (message) => {
+        var composeMessage = message;
         var textArea = document.createElement("textarea");
 
         // Place in top-left corner of screen regardless of scroll position.
@@ -202,13 +247,28 @@ const Sharing = observer(class Sharing extends Component {
             var successful = document.execCommand('copy');
             var msg = successful ? 'successful' : 'unsuccessful';
             console.log('Copying text command was ' + msg);
-            alert("Text copied to clipboard!");
+            this.setState({openAlert: true});
         } catch (err) {
             console.log('Oops, unable to copy');
         }
         
         document.body.removeChild(textArea);
         
+    }
+
+    componentWillMount() {
+        const id = this.props.serviceKey;
+        programme.path = 'runsheets/' + id + '/programme';
+        people.path = 'runsheets/' + id + '/people';
+        songs.path = 'runsheets/' + id + '/songs';
+        users.path = 'runsheets/' + id + '/users';
+        runsheet.path = 'runsheets/' + id;
+        currentUserInRunsheet.path = 'runsheets/' + id + '/users/' + FirebaseStore.getUserId();
+        users.query = users.ref.orderBy('role', 'asc');
+    }
+
+    handleClose() {
+        this.setState({openAlert: false});
     }
 
     render() {
@@ -218,18 +278,36 @@ const Sharing = observer(class Sharing extends Component {
             isAdmin = true;
         }
 
+        var forceLoad = runsheet.data;
+        var forceLoad2 = programme.docs.map((doc) => <div></div>);
+
+        const actions = [
+            <FlatButton
+              label="OK"
+              primary={true}
+              keyboardFocused={true}
+              onClick={this.handleClose}
+            />
+        ];
+        
         return (
             <div style={{marginBottom: '56px'}}>
                 <List>
-                    <ListItem leftIcon={<FontIcon className="material-icons">content_copy</FontIcon>} primaryText="Copy to Clipboard (as plain text)" onTouchTap={() => this.copyText(programme.docs)} />
+                    <ListItem leftIcon={<FontIcon className="material-icons" color={indigo500}>link</FontIcon>} 
+                        primaryText="Copy unique link to clipboard" 
+                        secondaryText="(Anyone with the link can view)" 
+                        rightIcon={<div style={{backgroundColor: blue400, color: 'white', fontSize:'10px', padding: '8px 4px 0px 4px', borderRadius: '50px'}}>NEW!</div>}
+                        onTouchTap={() => this.copyLink(runsheet.data.name)} />
                     <Divider />
-                    <ListItem leftIcon={<FontIcon className="material-icons">message</FontIcon>} primaryText="Share on Whatsapp (as text message)" onTouchTap={() => this.sendWhatsapp(programme.docs)} />
+                    <ListItem leftIcon={<FontIcon className="material-icons" color={indigo500}>content_copy</FontIcon>} primaryText="Copy to clipboard (as plain text)" onTouchTap={() => this.copyProgramme(runsheet.data.name, runsheet.data.date, programme.docs)} />
+                    <Divider />
+                    <ListItem leftIcon={<FontIcon className="material-icons" color={indigo500}>message</FontIcon>} primaryText="Share on Whatsapp (as text message)" onTouchTap={() => this.sendWhatsapp(runsheet.data.name, runsheet.data.date, programme.docs)} />
                     <Divider />
                     {(isAdmin) ?
                         <div>
                             <Subheader>ADD USER</Subheader>
                             <div style={{padding: '0 16px 16px 16px'}}>
-                                <TextField style={{width: '200px'}} hintText="Email Address" value={this.state.userId} onChange={this.updateUserId} onKeyPress={this.handleKeyPress} />
+                                <TextField style={{width: '200px', marginRight: '16px'}} hintText="Email Address" value={this.state.userId} onChange={this.updateUserId} onKeyPress={this.handleKeyPress} />
                                 <small style={{color: 'red'}}>{this.validator.message('email', this.state.userId, 'required|email')}</small>
                                 <RaisedButton label="Add" primary={true} onTouchTap={this.addUser} />
                                 <br/>
@@ -246,6 +324,15 @@ const Sharing = observer(class Sharing extends Component {
                     : 
                     ''}
                 </List>
+                <Dialog
+                    title="Text Copied"
+                    actions={actions}
+                    modal={false}
+                    open={this.state.openAlert}
+                    onRequestClose={this.handleClose}
+                    >
+                    Text successfully copied to clipboard!
+                </Dialog>
             </div>
         )
     }

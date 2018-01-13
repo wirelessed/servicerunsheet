@@ -2,6 +2,9 @@ import React from 'react';
 import MediaQuery from 'react-responsive';
 import AppBar from 'material-ui/AppBar';
 import IconButton from 'material-ui/IconButton';
+import IconMenu from 'material-ui/IconMenu';
+import MenuItem from 'material-ui/MenuItem';
+import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
 import FontIcon from 'material-ui/FontIcon';
 import Splash from './components/Splash.jsx';
 import Runsheets from "./components/Runsheets.jsx";
@@ -11,6 +14,7 @@ import Songs from './components/Songs.jsx';
 import Sharing from './components/Sharing.jsx';
 import BottomNav from './components/BottomNav.jsx';
 import Login from './auth/Login.js';
+import Logout from './auth/Logout.js';
 import Admin from './auth/Admin.js';
 import Admin2 from './auth/Admin2.js';
 import { firebaseAuth } from './firebase/Firebase';
@@ -142,6 +146,20 @@ const PrivateRoute = ({ component, authed, ...rest }) => {
   );
 };
 
+const LogoutMenu = (props) => (
+    <IconMenu
+      {...props}
+      iconButtonElement={
+        <IconButton><MoreVertIcon color={white} /></IconButton>
+      }
+      targetOrigin={{horizontal: 'right', vertical: 'top'}}
+      anchorOrigin={{horizontal: 'right', vertical: 'top'}}
+    >
+      <Link to='/logout'><MenuItem primaryText="Log Out" /></Link>
+    </IconMenu>
+  );
+  
+
 
 class App extends React.Component {
 
@@ -211,8 +229,9 @@ class App extends React.Component {
             <Router>
                 <TrackPageView>
                     <div>
-                        <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (v2)" showMenuIconButton={false} style={AppBarStyle} />} />
+                        <Route exact path="/Runsheets" render={() => <AppBar title="RunsheetPro (v2)" showMenuIconButton={false} style={AppBarStyle} iconElementRight={<LogoutMenu></LogoutMenu>} />} />
                         <Route exact path="/login" render={() => <AppBar title="Login" showMenuIconButton={false} style={AppBarStyle} />}/>
+                        <Route exact path="/logout" render={() => <AppBar title="Logout" showMenuIconButton={false} style={AppBarStyle} />}/>                        
                         <Route path="/services/:id/:name" render={({ match }) => {
                             return (
                                 <AppBar title={match.params.name} iconElementLeft={
@@ -228,10 +247,8 @@ class App extends React.Component {
                             <Route exact path="/" component={Home}/>
                             <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Runsheets} uid={this.state.uid} />
                             <PrivateRoute authed={this.state.authed} path='/services/:id/:name' component={Service} uid={this.state.uid} />
-                            <Route exact path="/admin" component={Admin2} />
-                            <Route exact path="/admin/login" component={Admin} />
                             <Route exact path="/login" component={Login} />
-                            {/* <Route path="/services/:id/edit" component={Edit} /> */}
+                            <Route exact path="/logout" component={Logout} />
                         </div>
                     </div>
                 </TrackPageView>

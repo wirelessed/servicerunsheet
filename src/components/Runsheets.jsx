@@ -386,7 +386,6 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
 
     handleClickRunsheet = () => {
         const id = this.props.doc.id;
-        console.log("click",id);
         programme.path = 'runsheets/' + id + '/programme';
         people.path = 'runsheets/' + id + '/people';
         songs.path = 'runsheets/' + id + '/songs';

@@ -21,8 +21,12 @@ import Popup from './Popup.jsx';
 // Firebase Store
 import { observer } from 'mobx-react';
 import * as FirebaseStore from "../firebase/FirebaseStore";
-const people = FirebaseStore.store.people;
 const runsheet = FirebaseStore.store.runsheet;
+const currentUser = FirebaseStore.store.currentUser;
+const programme = FirebaseStore.store.programme;
+const people = FirebaseStore.store.people;
+const songs = FirebaseStore.store.songs;
+const users = FirebaseStore.store.users;
 const currentUserInRunsheet = FirebaseStore.store.currentUserInRunsheet;
 
 const LeftColumnStyle = {
@@ -195,6 +199,16 @@ const People = observer(class People extends Component {
                 label: 'People'
             });
         }
+    }
+
+    componentWillMount() {
+        const id = this.props.serviceKey;
+        programme.path = 'runsheets/' + id + '/programme';
+        people.path = 'runsheets/' + id + '/people';
+        songs.path = 'runsheets/' + id + '/songs';
+        users.path = 'runsheets/' + id + '/users';
+        runsheet.path = 'runsheets/' + id;
+        currentUserInRunsheet.path = 'runsheets/' + id + '/users/' + FirebaseStore.getUserId();
     }
 
     render() {

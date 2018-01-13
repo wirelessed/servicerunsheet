@@ -3107,9 +3107,9 @@ firebase@^4.6.2:
     dom-storage "^2.0.2"
     xmlhttprequest "^1.8.0"
 
-firestorter@^0.8.1:
-  version "0.8.4"
-  resolved "https://registry.yarnpkg.com/firestorter/-/firestorter-0.8.4.tgz#cc0361760b326fc788d42caf8a4c7ea819d01d9f"
+firestorter@^0.9.0:
+  version "0.9.1"
+  resolved "https://registry.yarnpkg.com/firestorter/-/firestorter-0.9.1.tgz#e27c74e5ae25734b928afcf3bd60646a29536fe7"
 
 flat-arguments@^1.0.0:
   version "1.0.2"

@@ -52,6 +52,15 @@ const Login = observer(class Login extends Component {
 
     componentDidMount() {
         var _self = this;
+        // store redirect location in session storage first
+        if(sessionStorage.getItem('redirect') !== null){
+            if (typeof this.props.location.state !== 'undefined'){
+                sessionStorage.setItem('redirect', this.props.location.state.from.pathname);
+            }
+        } else {
+            sessionStorage.setItem('redirect', '/Runsheets');
+        }
+
         firebase.auth().getRedirectResult().then(function(result) {
             // This gives you a Google Access Token. You can use it to access the Google API.
             //var token = result.credential.accessToken;
@@ -88,8 +97,10 @@ const Login = observer(class Login extends Component {
     render() {
 
         // get where to redirect users to
-        const {from} = this.props.location.state || '/Runsheets';
-
+        var from = '/Runsheets';
+        if (sessionStorage.getItem('redirect') !== null ){
+            from = sessionStorage.getItem('redirect');
+        }
         return (
             <div style={{marginTop: '100px', textAlign: 'center'}}>
                 
@@ -98,7 +109,7 @@ const Login = observer(class Login extends Component {
                         <CircularProgress />
                         <p>Logging in...</p><p>Please Wait</p>
                         {(this.state.redirectToReferrer) ?
-                            <Redirect to={'/Runsheets'}/>
+                            <Redirect to={from}/>
                         :''}
                     </div>
                 :
