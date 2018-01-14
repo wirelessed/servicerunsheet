@@ -51,7 +51,7 @@ export const addRunsheetToUser = (id, userId, role) => {
     });
     // add this user ID to the runsheet's users collection
     db.collection('runsheets/' + id + '/users').doc(userId).set({
-        id: userId,
+        id: userId.toLowerCase(),
         role: role
     });
 }

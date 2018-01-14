@@ -125,7 +125,7 @@ const Sharing = observer(class Sharing extends Component {
     }
 
     updateUserId(e) {
-        this.setState({userId: e.target.value});
+        this.setState({userId: e.target.value.toLowerCase()});
     }
 
     handleKeyPress(e) {
