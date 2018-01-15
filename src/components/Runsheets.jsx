@@ -426,7 +426,7 @@ const RunsheetItem = observer(class RunsheetItem extends Component {
                     secondaryTextLines={2}
                     rightIconButton={sideMenu}>
                 </ListItem>
-                <Link to={"/services/" + doc.id + "/" + doc.data.name + "/Programme"} 
+                <Link to={"/services/" + doc.id + "/" + encodeURI(doc.data.name) + "/Programme"} 
                 onClick={() => this.handleClickRunsheet()}
                 style={{
                     display: 'block',

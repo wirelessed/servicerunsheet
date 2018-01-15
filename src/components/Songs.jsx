@@ -222,6 +222,10 @@ const Songs = observer(class Songs extends Component {
         currentUserInRunsheet.path = 'runsheets/' + id + '/users/' + FirebaseStore.getUserId();
     }
 
+    componentDidMount() {
+        songs.query = songs.ref.orderBy('order');
+    }
+
     render() {
         // check if user is admin
         var isAdmin = false; // @TODO Change back later

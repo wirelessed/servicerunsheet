@@ -243,7 +243,7 @@ class App extends React.Component {
                         <div style={{paddingTop: '56px'}}>
                             <Route exact path="/" component={Home}/>
                             <PrivateRoute authed={this.state.authed} path='/Runsheets' component={Runsheets} uid={this.state.uid} />
-                            <PrivateRoute authed={this.state.authed} path='/services/:id/:name' component={Service} uid={this.state.uid} />
+                            <Route path='/services/:id/:name' component={Service} uid={this.state.uid} />
                             <Route exact path="/login" component={Login} />
                             <Route exact path="/logout" component={Logout} />
                         </div>
