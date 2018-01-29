@@ -295,8 +295,28 @@ const Sharing = observer(class Sharing extends Component {
         textArea.value = composeMessage;
 
         document.body.appendChild(textArea);
-        textArea.select();
-
+        var isiOSDevice = navigator.userAgent.match(/ipad|iphone/i);
+        var input = textArea;
+        if (isiOSDevice) {
+            var editable = input.contentEditable;
+            var readOnly = input.readOnly;
+    
+            input.contentEditable = true;
+            input.readOnly = false;
+    
+            var range = document.createRange();
+            range.selectNodeContents(input);
+    
+            var selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+    
+            input.setSelectionRange(0, 999999);
+            input.contentEditable = editable;
+            input.readOnly = readOnly;
+        } else {
+            textArea.select();
+        }
         try {
             var successful = document.execCommand('copy');
             var msg = successful ? 'successful' : 'unsuccessful';
