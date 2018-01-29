@@ -374,18 +374,29 @@ const Programme = observer(class Programme extends Component {
         console.log("destination", result.destination.index);
 
         // get the other guy and swap the order
-        var query = db.collection("runsheets/" + runsheet.id + "/programme/").where("orderCount", "==", result.destination.index);
+        var query;
+        var newIndexCounter;
+        if(result.source.index > result.destination.index){
+            query = db.collection("runsheets/" + runsheet.id + "/programme/").where("orderCount", ">=", result.destination.index).where("orderCount", "<=", result.source.index);
+            newIndexCounter = result.destination.index + 1;
+        } else {
+            query = db.collection("runsheets/" + runsheet.id + "/programme/").where("orderCount", ">", result.source.index).where("orderCount", "<=", result.destination.index);
+            newIndexCounter = result.source.index;
+        }
         query.get().then(function(querySnapshot) {
             querySnapshot.forEach((doc) => {
                 doc.ref.update({
-                    orderCount: result.source.index
+                    orderCount: newIndexCounter
                 });
+                console.log(newIndexCounter);
+                newIndexCounter++;
             });
             // update order of original guy
             db.collection("runsheets/" + runsheet.id + "/programme/").doc(result.draggableId).update({
                 orderCount: result.destination.index
             })
-            _self.reorder();
+            //_self.reorder();
+            _self.calculateTimings();
         }).catch(function(error) {
             console.log("Error getting documents: ", error);
         });

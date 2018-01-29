@@ -52,7 +52,18 @@ class Splash extends Component {
                         </div>
                     </div>
                 </header>
-                
+                <section className="text-center">
+                <div className="container">
+                    <div className="row justify-content-center mt-3 mb-3">
+                        <div className="col-lg-8">
+                            <strong>Changelog</strong>
+                            <p>
+                            29 Jan 2018: Drag and drop reordering bug fixed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                </section>
                 <section className="features-icons bg-light text-center">
                 <div className="container">
                     <div className="row">
