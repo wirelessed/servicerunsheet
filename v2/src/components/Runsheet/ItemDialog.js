@@ -1,5 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
     const [data, setData] = useState({ text: '', remarks: '', duration: '' });
@@ -24,60 +36,55 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
         onSubmit(data);
     };
 
-    if (!open) return null;
-
     return (
-        <dialog className="modal modal-open">
-            <div className="modal-box">
-                <h3 className="font-bold text-lg mb-4">{initialData ? 'Edit Item' : 'Add Item'}</h3>
-
-                <div className="form-control w-full mb-2">
-                    <label className="label">
-                        <span className="label-text">Item Title</span>
-                    </label>
-                    <input
-                        type="text"
-                        name="text"
-                        autoFocus
-                        className="input input-bordered w-full"
-                        value={data.text}
-                        onChange={handleChange}
-                    />
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>{initialData ? 'Edit Item' : 'Add Item'}</DialogTitle>
+                    <DialogDescription>
+                        {initialData ? 'Update item details here.' : 'Enter the details for the new runsheet item.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="text">Item Title</Label>
+                        <Input
+                            id="text"
+                            name="text"
+                            placeholder="e.g. Opening Song"
+                            value={data.text}
+                            onChange={handleChange}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="duration">Duration (minutes)</Label>
+                        <Input
+                            id="duration"
+                            name="duration"
+                            type="number"
+                            placeholder="5"
+                            value={data.duration}
+                            onChange={handleChange}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="remarks">Remarks / Description</Label>
+                        <Textarea
+                            id="remarks"
+                            name="remarks"
+                            placeholder="e.g. Lead singer starts..."
+                            value={data.remarks}
+                            onChange={handleChange}
+                            className="h-24"
+                        />
+                    </div>
                 </div>
-
-                <div className="form-control w-full mb-2">
-                    <label className="label">
-                        <span className="label-text">Duration (minutes)</span>
-                    </label>
-                    <input
-                        type="number"
-                        name="duration"
-                        className="input input-bordered w-full"
-                        value={data.duration}
-                        onChange={handleChange}
-                    />
-                </div>
-
-                <div className="form-control w-full mb-2">
-                    <label className="label">
-                        <span className="label-text">Remarks / Description</span>
-                    </label>
-                    <textarea
-                        name="remarks"
-                        className="textarea textarea-bordered h-24"
-                        value={data.remarks}
-                        onChange={handleChange}
-                    ></textarea>
-                </div>
-
-                <div className="modal-action">
-                    <button className="btn" onClick={onClose}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleSubmit}>Save</button>
-                </div>
-            </div>
-            <form method="dialog" className="modal-backdrop">
-                <button onClick={onClose}>close</button>
-            </form>
-        </dialog>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleSubmit}>Save Item</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

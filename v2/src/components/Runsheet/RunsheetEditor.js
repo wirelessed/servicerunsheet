@@ -17,6 +17,11 @@ import RunsheetMetadataDialog from './RunsheetMetadataDialog';
 import NotesTab from './NotesTab';
 import ConfirmationDialog from '../ConfirmationDialog';
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+
 export default function RunsheetEditor({ runsheet, initialProgramme }) {
     const [items, setItems] = useState(initialProgramme);
     const [timings, setTimings] = useState({});
@@ -77,8 +82,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     };
 
     const handleAddItem = async (data) => {
-        // Find insert index if currentItem was a placeholder (not applicable in this simple Add flow, usually append)
-        // For "Insert Row" feature:
         let insertIndex = items.length;
         if (currentItem && currentItem.insertAtIndex !== undefined) {
             insertIndex = currentItem.insertAtIndex;
@@ -88,16 +91,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
             text: data.text,
             remarks: data.remarks || '',
             duration: data.duration || 0,
-            // Temporary orderCount, will reindex after
         };
 
         const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), newNode);
-
-        // Re-index everything
-        // Ideally we do this optimistically, but for now fetch refetch handles it or we manually splice
-        // Simple append for now unless we do complex reordering logic
-        // To support "Insert Between": we need to shift indices. 
-        // Let's rely on `items` state splice and batch update.
 
         if (currentItem && currentItem.insertAtIndex !== undefined) {
             const newItems = [...items];
@@ -110,7 +106,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
             });
             await batch.commit();
         } else {
-            // Just append
             await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, docRef.id), { orderCount: insertIndex });
         }
 
@@ -119,7 +114,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     };
 
     const handleEditItem = async (data) => {
-        if (!currentItem || !currentItem.id) return; // create mode handled above
+        if (!currentItem || !currentItem.id) return;
         const ref = doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id);
         await updateDoc(ref, {
             text: data.text,
@@ -156,26 +151,26 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
         setIsItemDialogOpen(true);
     };
 
-    // Render Logic
     const renderRunsheetContent = () => (
-        <div className="card w-full bg-base-100 shadow-xl mb-4">
-            <div className="card-body p-0">
+        <Card className="shadow-lg border-muted/60 mb-8 overflow-hidden">
+            <CardContent className="p-0">
                 <DragDropContext onDragEnd={onDragEnd}>
                     <Droppable droppableId="programme" isDropDisabled={mode !== 'edit'}>
                         {(provided) => (
-                            <div ref={provided.innerRef} {...provided.droppableProps} className="divide-y divide-base-200">
+                            <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col">
                                 {items.map((item, index) => (
                                     <div key={item.id} className="group relative">
                                         {/* Insert Button (Top of item) - Only in Edit Mode */}
                                         {mode === 'edit' && (
-                                            <div className="absolute -top-3 left-0 right-0 h-6 flex justify-center items-center opacity-0 group-hover:opacity-100 z-10 hover:opacity-100 transition-opacity">
-                                                <button
-                                                    className="btn btn-xs btn-circle btn-primary shadow-md"
+                                            <div className="absolute -top-[13px] left-0 right-0 h-6 flex justify-center items-center opacity-0 group-hover:opacity-100 z-10 transition-opacity">
+                                                <Button
+                                                    size="icon"
+                                                    variant="secondary"
+                                                    className="h-6 w-6 rounded-full shadow-sm hover:scale-110"
                                                     onClick={() => openAddAtIndex(index)}
-                                                    title="Insert Row"
                                                 >
-                                                    <AddIcon fontSize="small" />
-                                                </button>
+                                                    <AddIcon className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         )}
 
@@ -184,134 +179,144 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                                                 <div
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
-                                                    className={`flex items-start p-4 ${snapshot.isDragging ? 'bg-base-200 shadow-lg' : 'bg-base-100'} hover:bg-base-50 transition-colors`}
+                                                    className={`flex items-start p-5 ${snapshot.isDragging ? 'bg-muted/80 shadow-2xl z-20 scale-[1.02]' : 'bg-background hover:bg-muted/30'} transition-all`}
                                                 >
                                                     {/* Drag Handle (Left) */}
                                                     {mode === 'edit' && (
                                                         <div
                                                             {...provided.dragHandleProps}
-                                                            className="mr-3 mt-1 text-base-content/30 hover:text-base-content cursor-grab active:cursor-grabbing"
+                                                            className="mr-4 mt-1 text-muted-foreground/40 hover:text-primary cursor-grab active:cursor-grabbing"
                                                         >
                                                             <DragIndicatorIcon />
                                                         </div>
                                                     )}
 
                                                     {/* Time & Duration */}
-                                                    <div className="min-w-[80px] mr-4 text-right flex-shrink-0">
-                                                        <p className="font-bold text-sm text-primary">
+                                                    <div className="min-w-[90px] mr-6 text-right flex-shrink-0">
+                                                        <p className="font-extrabold text-sm text-primary tracking-tight">
                                                             {timings[item.id]}
                                                         </p>
-                                                        <p className="text-xs text-base-content/50">
-                                                            {item.duration} min
+                                                        <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-wider">
+                                                            {item.duration} MIN
                                                         </p>
                                                     </div>
 
                                                     {/* Content */}
-                                                    <div className="flex-grow min-w-0 pr-2">
-                                                        <p className="whitespace-pre-line text-sm font-medium">{item.text}</p>
+                                                    <div className="flex-grow min-w-0 pr-4">
+                                                        <p className="whitespace-pre-line text-[15px] font-semibold tracking-tight text-foreground/90">{item.text}</p>
                                                         {item.remarks && (
-                                                            <p className="whitespace-pre-line text-xs text-base-content/60 mt-1 italic">{item.remarks}</p>
+                                                            <p className="whitespace-pre-line text-xs text-muted-foreground mt-1.5 leading-relaxed font-medium italic">{item.remarks}</p>
                                                         )}
                                                     </div>
 
                                                     {/* Edit Controls (Right) */}
                                                     {mode === 'edit' && (
-                                                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                                            <button
-                                                                className="btn btn-ghost btn-xs btn-square"
+                                                        <div className="flex items-center gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-primary"
                                                                 onClick={() => { setCurrentItem(item); setIsItemDialogOpen(true); }}
                                                             >
-                                                                <EditIcon fontSize="small" />
-                                                            </button>
-                                                            <button
-                                                                className="btn btn-ghost btn-xs btn-square text-error"
+                                                                <EditIcon className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                                                 onClick={() => setDeleteItemDialog({ open: true, itemId: item.id })}
                                                             >
-                                                                <DeleteIcon fontSize="small" />
-                                                            </button>
+                                                                <DeleteIcon className="h-4 w-4" />
+                                                            </Button>
                                                         </div>
                                                     )}
                                                 </div>
                                             )}
                                         </Draggable>
+                                        {index < items.length - 1 && <Separator className="bg-muted/60" />}
                                     </div>
                                 ))}
                                 {provided.placeholder}
 
-                                {/* Append Button at bottom */}
                                 {mode === 'edit' && (
-                                    <div className="p-4 flex justify-center">
-                                        <button className="btn btn-outline btn-sm w-full border-dashed" onClick={() => openAddAtIndex(items.length)}>
-                                            <AddIcon /> Add Item
-                                        </button>
+                                    <div className="p-6 flex justify-center bg-muted/10 border-t border-dashed">
+                                        <Button variant="outline" className="w-full border-dashed" onClick={() => openAddAtIndex(items.length)}>
+                                            <AddIcon className="mr-2 h-4 w-4" /> Add Item
+                                        </Button>
                                     </div>
                                 )}
                             </div>
                         )}
                     </Droppable>
                 </DragDropContext>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 
     return (
-        <div className="pb-32">
-            {/* Header */}
-            <div className="flex flex-col gap-4 mb-6">
+        <div className="pb-36">
+            <div className="flex flex-col gap-8 mb-8">
                 <div className="flex justify-between items-start">
-                    <div className="flex-grow">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-2xl font-bold leading-tight">{runsheet.name}</h2>
-                            <button className="btn btn-ghost btn-xs btn-circle" onClick={() => setIsMetadataDialogOpen(true)}>
-                                <EditIcon fontSize="small" />
-                            </button>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-3xl font-extrabold tracking-tighter leading-none">{runsheet.name}</h2>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setIsMetadataDialogOpen(true)}>
+                                <EditIcon className="h-4 w-4" />
+                            </Button>
                         </div>
-                        <p className="text-base-content/70 text-sm">
-                            {moment(runsheet.date).format("dddd, D MMMM YYYY")} • {moment(runsheet.time, "HHmm").format("h:mm a")}
+                        <p className="text-muted-foreground font-medium text-sm">
+                            {moment(runsheet.date).format("dddd, D MMMM YYYY")} • <span className="text-primary/70">{moment(runsheet.time, "HHmm").format("h:mm a")}</span>
                         </p>
                     </div>
                 </div>
 
-                {/* Mode Tabs */}
                 <div className="flex justify-center">
-                    <div role="tablist" className="tabs tabs-boxed bg-base-200 p-1 w-full max-w-md grid grid-cols-3">
-                        <a role="tab" className={`tab ${mode === 'view' ? 'tab-active' : ''}`} onClick={() => setMode('view')}>View</a>
-                        <a role="tab" className={`tab ${mode === 'edit' ? 'tab-active' : ''}`} onClick={() => setMode('edit')}>Edit</a>
-                        <a role="tab" className={`tab ${mode === 'ops' ? 'tab-active' : ''}`} onClick={() => setMode('ops')}>Ops</a>
-                    </div>
+                    <Tabs value={mode} onValueChange={setMode} className="w-full max-w-md">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="view">View</TabsTrigger>
+                            <TabsTrigger value="edit">Edit</TabsTrigger>
+                            <TabsTrigger value="ops">Ops</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
             </div>
 
-            {/* Main Content Area */}
             {activeTab === 'runsheet' && renderRunsheetContent()}
             {activeTab === 'notes' && <NotesTab runsheet={runsheet} />}
 
-            {/* Bottom Dock */}
-            <div className="btm-nav btm-nav-lg bg-base-100 shadow-2xl border-t border-base-200 z-50">
-                <button
-                    className={`${activeTab === 'runsheet' ? 'active text-primary' : ''}`}
-                    onClick={() => setActiveTab('runsheet')}
-                >
-                    <ArticleIcon />
-                    <span className="btm-nav-label text-xs">Runsheet</span>
-                </button>
-                <button
-                    className={`${activeTab === 'notes' ? 'active text-primary' : ''}`}
-                    onClick={() => setActiveTab('notes')}
-                >
-                    <NoteAltIcon />
-                    <span className="btm-nav-label text-xs">Notes</span>
-                </button>
-                <button
-                    className={`${activeTab === 'share' ? 'active text-primary' : ''}`}
-                    onClick={() => setIsShareDialogOpen(true)}
-                >
-                    <ShareIcon />
-                    <span className="btm-nav-label text-xs">Share</span>
-                </button>
+            {/* Dock Navigation */}
+            <div className="fixed bottom-0 left-0 right-0 p-4 z-50 pointer-events-none">
+                <div className="container max-w-2xl mx-auto flex justify-center">
+                    <Card className="flex items-center gap-2 p-1.5 backdrop-blur-md bg-background/80 border-muted/50 shadow-2xl pointer-events-auto rounded-full">
+                        <Button
+                            variant={activeTab === 'runsheet' ? 'default' : 'ghost'}
+                            className="rounded-full gap-2 px-6 h-12"
+                            onClick={() => setActiveTab('runsheet')}
+                        >
+                            <ArticleIcon className="h-5 w-5" />
+                            <span className="font-semibold text-xs">Runsheet</span>
+                        </Button>
+                        <Button
+                            variant={activeTab === 'notes' ? 'default' : 'ghost'}
+                            className="rounded-full gap-2 px-6 h-12"
+                            onClick={() => setActiveTab('notes')}
+                        >
+                            <NoteAltIcon className="h-5 w-5" />
+                            <span className="font-semibold text-xs">Notes</span>
+                        </Button>
+                        <Separator orientation="vertical" className="h-8 mx-1" />
+                        <Button
+                            variant="ghost"
+                            className="rounded-full gap-2 px-6 h-12 text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsShareDialogOpen(true)}
+                        >
+                            <ShareIcon className="h-5 w-5" />
+                            <span className="font-semibold text-xs">Share</span>
+                        </Button>
+                    </Card>
+                </div>
             </div>
 
-            {/* Dialogs */}
             <ItemDialog
                 open={isItemDialogOpen}
                 onClose={() => setIsItemDialogOpen(false)}
@@ -338,8 +343,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                 onClose={() => setDeleteItemDialog({ open: false, itemId: null })}
                 onConfirm={handleDeleteItem}
                 title="Delete Item"
-                message="Are you sure you want to delete this item?"
+                message="Are you sure you want to delete this item? This action will remove it from the programme."
                 confirmText="Delete"
+                confirmStyle="destructive"
             />
         </div>
     );

@@ -1,23 +1,42 @@
 'use client';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
-export default function ConfirmationDialog({ open, onClose, onConfirm, title, message, confirmText = 'Confirm', confirmStyle = 'btn-error' }) {
-    if (!open) return null;
+export default function ConfirmationDialog({
+    open,
+    onClose,
+    onConfirm,
+    title,
+    message,
+    confirmText = 'Confirm',
+    confirmStyle = 'default'
+}) {
+    // Mapping confirmStyle from DaisyUI/MUI names to shadcn Button variants
+    const variant = confirmStyle === 'btn-error' || confirmStyle === 'destructive' ? 'destructive' : 'default';
 
     return (
-        <dialog className="modal modal-open">
-            <div className="modal-box">
-                <h3 className="font-bold text-lg">{title}</h3>
-                <p className="py-4">{message}</p>
-                <div className="modal-action">
-                    <button className="btn" onClick={onClose}>Cancel</button>
-                    <button className={`btn ${confirmStyle}`} onClick={onConfirm}>
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>
+                        {message}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button variant={variant} onClick={onConfirm}>
                         {confirmText}
-                    </button>
-                </div>
-            </div>
-            <form method="dialog" className="modal-backdrop">
-                <button onClick={onClose}>close</button>
-            </form>
-        </dialog>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

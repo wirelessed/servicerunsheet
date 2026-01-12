@@ -11,12 +11,36 @@ import moment from 'moment';
 import RunsheetMetadataDialog from './RunsheetMetadataDialog';
 import ConfirmationDialog from '../ConfirmationDialog';
 
+import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+} from "@/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+
 export default function RunsheetList() {
     const { user } = useAuth();
     const [runsheets, setRunsheets] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('active'); // 'active' or 'archived'
-    const [sortOrder, setSortOrder] = useState('desc'); // 'desc' (New->Old) or 'asc' (Old->New)
+    const [filter, setFilter] = useState('active');
+    const [sortOrder, setSortOrder] = useState('desc');
 
     const [metadataDialog, setMetadataDialog] = useState({ open: false, data: null });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, runsheetId: null });
@@ -55,7 +79,6 @@ export default function RunsheetList() {
 
             const results = await Promise.all(runsheetPromises);
             const validRunsheets = results.filter(r => r !== null);
-            // Initial sort (descending default)
             validRunsheets.sort((a, b) => new Date(b.date) - new Date(a.date));
 
             setRunsheets(validRunsheets);
@@ -96,10 +119,8 @@ export default function RunsheetList() {
 
                 const docRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
 
-                // Add relation to user
                 await setDoc(doc(db, `users/${user.email}/runsheets`, docRef.id), { id: docRef.id });
 
-                // Add user to runsheet's users subcollection
                 await setDoc(doc(db, `runsheets/${docRef.id}/users`, user.email), {
                     id: user.email,
                     role: 'editor',
@@ -117,23 +138,20 @@ export default function RunsheetList() {
     const duplicateRunsheet = async (runsheet) => {
         try {
             setLoading(true);
-            // 1. Fetch original items
             const q = query(collection(db, `runsheets/${runsheet.id}/programme`), orderBy('orderCount', 'asc'));
             const snapshot = await getDocs(q);
             const items = snapshot.docs.map(doc => doc.data());
 
-            // 2. Create new runsheet doc
             const newRunsheet = {
                 ...runsheet,
                 name: `Copy of ${runsheet.name}`,
-                category: 'active', // Reset to active if duplicating an archived one
+                category: 'active',
                 lastUpdated: moment().format()
             };
-            delete newRunsheet.id; // Remove original ID
+            delete newRunsheet.id;
 
             const newDocRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
 
-            // 3. Add relationships
             await setDoc(doc(db, `users/${user.email}/runsheets`, newDocRef.id), { id: newDocRef.id });
             await setDoc(doc(db, `runsheets/${newDocRef.id}/users`, user.email), {
                 id: user.email,
@@ -141,7 +159,6 @@ export default function RunsheetList() {
                 email: user.email
             });
 
-            // 4. Batch add items
             const batch = writeBatch(db);
             items.forEach((item) => {
                 const itemRef = doc(collection(db, `runsheets/${newDocRef.id}/programme`));
@@ -191,123 +208,118 @@ export default function RunsheetList() {
     const filteredRunsheets = sortedRunsheets.filter(r => r.category === filter);
 
     return (
-        <div className="flex flex-col min-h-screen bg-base-200">
+        <div className="flex flex-col min-h-screen bg-muted/40">
             <Navbar />
             <div className="container mx-auto px-4 mt-8 pb-32 max-w-5xl">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                    <h1 className="text-3xl font-bold">My Runsheets</h1>
+                <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+                    <h1 className="text-4xl font-extrabold tracking-tight">My Runsheets</h1>
 
-                    <div className="flex items-center gap-4">
-                        <select
-                            className="select select-bordered select-sm w-full max-w-xs"
-                            value={sortOrder}
-                            onChange={(e) => setSortOrder(e.target.value)}
-                        >
-                            <option value="desc">Newest First</option>
-                            <option value="asc">Oldest First</option>
-                        </select>
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <Select value={sortOrder} onValueChange={setSortOrder}>
+                            <SelectTrigger className="w-[180px] bg-background">
+                                <SelectValue placeholder="Sort by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="desc">Newest First</SelectItem>
+                                <SelectItem value="asc">Oldest First</SelectItem>
+                            </SelectContent>
+                        </Select>
 
-                        <div role="tablist" className="tabs tabs-boxed bg-base-200/50 p-1">
-                            <a
-                                role="tab"
-                                className={`tab px-6 ${filter === 'active' ? 'tab-active' : ''}`}
-                                onClick={() => setFilter('active')}
-                            >
-                                Active
-                            </a>
-                            <a
-                                role="tab"
-                                className={`tab px-6 ${filter === 'archived' ? 'tab-active' : ''}`}
-                                onClick={() => setFilter('archived')}
-                            >
-                                Archive
-                            </a>
-                        </div>
+                        <Tabs value={filter} onValueChange={setFilter} className="w-full md:w-auto">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="active" className="px-8">Active</TabsTrigger>
+                                <TabsTrigger value="archived" className="px-8">Archive</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center mt-10">
-                        <span className="loading loading-spinner loading-lg"></span>
+                    <div className="flex flex-col items-center justify-center mt-20 gap-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                        <p className="text-muted-foreground animate-pulse">Loading your runsheets...</p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-4">
+                    <div className="grid gap-4">
                         {filteredRunsheets.length === 0 && (
-                            <div className="text-center py-10 text-base-content/50">
-                                No {filter} runsheets found.
-                            </div>
+                            <Card className="border-dashed py-12">
+                                <CardContent className="flex flex-col items-center justify-center text-muted-foreground">
+                                    <p className="text-lg">No {filter} runsheets found.</p>
+                                    <Button variant="link" onClick={() => setMetadataDialog({ open: true, data: null })}>
+                                        Create your first one
+                                    </Button>
+                                </CardContent>
+                            </Card>
                         )}
                         {filteredRunsheets.map((runsheet) => {
                             const dateObj = moment(runsheet.date);
                             return (
-                                <div key={runsheet.id} className="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="card-body p-4 flex-row items-center gap-6">
+                                <Card key={runsheet.id} className="group hover:shadow-md transition-all border-muted/60 hover:border-primary/20">
+                                    <CardContent className="p-4 flex items-center gap-6">
                                         {/* Col 1: Visual Date */}
-                                        <div className="flex flex-col items-center justify-center w-16 h-16 bg-base-200 rounded-xl flex-shrink-0">
-                                            <span className="text-xs font-bold uppercase text-base-content/60">
+                                        <div className="flex flex-col items-center justify-center w-16 h-16 bg-muted rounded-xl flex-shrink-0 group-hover:bg-primary/5 transition-colors">
+                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
                                                 {dateObj.format("MMM")}
                                             </span>
-                                            <span className="text-2xl font-bold">
+                                            <span className="text-2xl font-bold tracking-tighter">
                                                 {dateObj.format("D")}
                                             </span>
                                         </div>
 
                                         {/* Col 2: Info */}
                                         <div className="flex-grow min-w-0">
-                                            <Link href={`/runsheet/${runsheet.id}`} className="hover:underline">
-                                                <h3 className="card-title text-lg truncate">
+                                            <Link href={`/runsheet/${runsheet.id}`} className="block">
+                                                <h3 className="text-xl font-bold truncate group-hover:text-primary transition-colors">
                                                     {runsheet.name}
                                                 </h3>
                                             </Link>
-                                            <p className="text-sm text-base-content/70">
-                                                {dateObj.format("dddd, D MMMM YYYY")} • {moment(runsheet.time, "HHmm").format("h:mm a")}
+                                            <p className="text-sm text-muted-foreground font-medium">
+                                                {dateObj.format("dddd, D MMMM YYYY")} • <span className="text-primary/70">{moment(runsheet.time, "HHmm").format("h:mm a")}</span>
                                             </p>
                                         </div>
 
                                         {/* Col 3: Actions */}
-                                        <div className="dropdown dropdown-end">
-                                            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-sm">
-                                                <MoreVertIcon />
-                                            </div>
-                                            <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 border border-base-200">
-                                                <li>
-                                                    <Link href={`/runsheet/${runsheet.id}`}>View</Link>
-                                                </li>
-                                                <li>
-                                                    <a onClick={() => setMetadataDialog({ open: true, data: runsheet })}>
-                                                        Rename
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a onClick={() => duplicateRunsheet(runsheet)}>
-                                                        Duplicate
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a onClick={() => toggleArchive(runsheet)}>
-                                                        {runsheet.category === 'archived' ? 'Unarchive' : 'Archive'}
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a onClick={() => setDeleteDialog({ open: true, runsheetId: runsheet.id })} className="text-error">
-                                                        Delete
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <MoreVertIcon className="h-5 w-5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuItem asChild>
+                                                    <Link href={`/runsheet/${runsheet.id}`} className="cursor-pointer">View Details</Link>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => setMetadataDialog({ open: true, data: runsheet })} className="cursor-pointer">
+                                                    Rename
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => duplicateRunsheet(runsheet)} className="cursor-pointer">
+                                                    Duplicate
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => toggleArchive(runsheet)} className="cursor-pointer">
+                                                    {runsheet.category === 'archived' ? 'Unarchive' : 'Archive'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onClick={() => setDeleteDialog({ open: true, runsheetId: runsheet.id })}
+                                                    className="text-destructive focus:text-destructive cursor-pointer"
+                                                >
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </CardContent>
+                                </Card>
                             );
                         })}
                     </div>
                 )}
 
-                <button
-                    className="btn btn-circle btn-primary btn-lg fixed bottom-8 right-8 shadow-lg"
+                <Button
+                    size="icon"
+                    className="fixed bottom-8 right-8 h-16 w-16 rounded-full shadow-2xl z-50 hover:scale-110 transition-transform"
                     onClick={() => setMetadataDialog({ open: true, data: null })}
                 >
-                    <AddIcon />
-                </button>
+                    <AddIcon className="h-8 w-8" />
+                </Button>
 
                 <RunsheetMetadataDialog
                     open={metadataDialog.open}
@@ -323,6 +335,7 @@ export default function RunsheetList() {
                     title="Delete Runsheet"
                     message="Are you sure you want to delete this runsheet? This action cannot be undone."
                     confirmText="Delete"
+                    confirmStyle="destructive"
                 />
             </div>
         </div>

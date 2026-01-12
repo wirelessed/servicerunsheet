@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function NotesTab({ runsheet }) {
     const [notes, setNotes] = useState(runsheet.notes || '');
@@ -25,29 +28,34 @@ export default function NotesTab({ runsheet }) {
     };
 
     return (
-        <div className="card bg-base-100 shadow-xl h-full min-h-[50vh]">
-            <div className="card-body">
-                <div className="flex justify-between items-center mb-2">
-                    <h2 className="card-title">Runsheet Notes</h2>
-                    <span className="text-xs text-base-content/50 uppercase font-bold">
+        <Card className="shadow-lg border-muted/60 min-h-[50vh] flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div className="space-y-1">
+                    <CardTitle className="text-2xl font-bold tracking-tight">Runsheet Notes</CardTitle>
+                    <CardDescription>Event-specific reminders and operational notes.</CardDescription>
+                </div>
+                {status && (
+                    <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-muted/50 ${status === 'error' ? 'text-destructive' : 'text-primary'}`}>
                         {status === 'saving' && 'Saving...'}
                         {status === 'saved' && 'Saved'}
-                        {status === 'error' && 'Error Saving'}
-                    </span>
-                </div>
-                <textarea
-                    className="textarea textarea-bordered w-full h-full min-h-[40vh] text-lg leading-relaxed resize-none p-4"
+                        {status === 'error' && 'Error'}
+                    </div>
+                )}
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col pt-0">
+                <Textarea
+                    className="flex-grow min-h-[40vh] text-lg leading-relaxed shadow-inner bg-muted/20 border-muted/40 focus-visible:ring-primary/20 p-6 resize-none"
                     placeholder="Enter notes for this service..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     onBlur={handleSave}
-                ></textarea>
-                <div className="card-actions justify-end mt-2">
-                    <button className="btn btn-primary" onClick={handleSave} disabled={status === 'saving'}>
+                />
+                <div className="flex justify-end mt-4">
+                    <Button onClick={handleSave} disabled={status === 'saving'} className="min-w-[120px]">
                         Save Notes
-                    </button>
+                    </Button>
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }
