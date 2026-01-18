@@ -3,7 +3,7 @@ import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import Navbar from '../../../components/Navbar';
+
 import RunsheetEditor from '../../../components/Runsheet/RunsheetEditor';
 
 export default function RunsheetPage() {
@@ -50,11 +50,8 @@ export default function RunsheetPage() {
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-base-200">
-            <Navbar />
-            <div className="container mx-auto px-4 mt-8 flex-1 max-w-4xl">
-                <RunsheetEditor runsheet={runsheet} initialProgramme={programme} />
-            </div>
-        </div>
+        <>
+            <RunsheetEditor runsheet={runsheet} initialProgramme={programme} />
+        </>
     );
 }

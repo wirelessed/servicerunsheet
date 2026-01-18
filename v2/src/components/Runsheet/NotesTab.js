@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MinimalTiptapEditor } from '../ui/minimal-tiptap';
 
 export default function NotesTab({ runsheet }) {
     const [notes, setNotes] = useState(runsheet.notes || '');
@@ -43,12 +43,16 @@ export default function NotesTab({ runsheet }) {
                 )}
             </CardHeader>
             <CardContent className="flex-grow flex flex-col pt-0">
-                <Textarea
-                    className="flex-grow min-h-[40vh] text-lg leading-relaxed shadow-inner bg-muted/20 border-muted/40 focus-visible:ring-primary/20 p-6 resize-none"
-                    placeholder="Enter notes for this service..."
+                <MinimalTiptapEditor
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    onBlur={handleSave}
+                    onChange={setNotes}
+                    onBlur={() => handleSave()}
+                    className="flex-grow min-h-[40vh] w-full border-muted/40 shadow-inner bg-muted/20"
+                    editorContentClassName="p-6 text-lg leading-relaxed min-h-[40vh]"
+                    output="html"
+                    placeholder="Enter notes for this service..."
+                    editable={true}
+                    editorClassName="focus:outline-hidden"
                 />
                 <div className="flex justify-end mt-4">
                     <Button onClick={handleSave} disabled={status === 'saving'} className="min-w-[120px]">

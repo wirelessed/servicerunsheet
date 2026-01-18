@@ -10,21 +10,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { MinimalTiptapEditor } from '../ui/minimal-tiptap';
 
 export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
-    const [data, setData] = useState({ text: '', remarks: '', duration: '' });
+    const [data, setData] = useState({ text: '', remarks: '', duration: '', location: '' });
 
     useEffect(() => {
         if (initialData) {
             setData({
                 text: initialData.text || '',
                 remarks: initialData.remarks || '',
-                duration: initialData.duration || ''
+                duration: initialData.duration || '',
+                location: initialData.location || ''
             });
         } else {
-            setData({ text: '', remarks: '', duration: '' });
+            setData({ text: '', remarks: '', duration: '', location: '' });
         }
     }, [initialData, open]);
 
@@ -33,7 +34,7 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
     };
 
     const handleSubmit = () => {
-        onSubmit(data);
+        if (onSubmit) onSubmit(data);
     };
 
     return (
@@ -57,26 +58,40 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
                             autoFocus
                         />
                     </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="duration">Duration (minutes)</Label>
-                        <Input
-                            id="duration"
-                            name="duration"
-                            type="number"
-                            placeholder="5"
-                            value={data.duration}
-                            onChange={handleChange}
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="duration">Duration (min)</Label>
+                            <Input
+                                id="duration"
+                                name="duration"
+                                type="number"
+                                placeholder="5"
+                                value={data.duration}
+                                onChange={handleChange}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="location">Location</Label>
+                            <Input
+                                id="location"
+                                name="location"
+                                placeholder="Main Stage"
+                                value={data.location}
+                                onChange={handleChange}
+                            />
+                        </div>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="remarks">Remarks / Description</Label>
-                        <Textarea
-                            id="remarks"
-                            name="remarks"
-                            placeholder="e.g. Lead singer starts..."
+                        <MinimalTiptapEditor
                             value={data.remarks}
-                            onChange={handleChange}
-                            className="h-24"
+                            onChange={(val) => setData({ ...data, remarks: val })}
+                            className="w-full border-input shadow-xs"
+                            editorContentClassName="p-3 h-32 overflow-y-auto"
+                            output="html"
+                            placeholder="e.g. Lead singer starts..."
+                            editable={true}
+                            editorClassName="focus:outline-hidden"
                         />
                     </div>
                 </div>
