@@ -11,7 +11,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MinimalTiptapEditor } from '../ui/minimal-tiptap';
+import { MinimalTiptapEditor } from "@/components/ui/minimal-tiptap/minimal-tiptap";
+
 
 export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
     const [data, setData] = useState({ text: '', remarks: '', duration: '', location: '' });
@@ -39,7 +40,7 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[800px]">
                 <DialogHeader>
                     <DialogTitle>{initialData ? 'Edit Item' : 'Add Item'}</DialogTitle>
                     <DialogDescription>

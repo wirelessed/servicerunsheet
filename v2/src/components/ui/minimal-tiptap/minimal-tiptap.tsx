@@ -9,7 +9,7 @@ import { SectionOne } from "./components/section/one"
 import { SectionTwo } from "./components/section/two"
 import { SectionThree } from "./components/section/three"
 import { SectionFour } from "./components/section/four"
-import { SectionFive } from "./components/section/five"
+import { LinkEditPopover } from "./components/link/link-edit-popover"
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu"
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap"
 import { MeasuredContainer } from "./components/measured-container"
@@ -49,21 +49,19 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
 
       <SectionThree editor={editor} />
 
-      <Separator orientation="vertical" className="mx-2" />
+      <div className="hidden sm:flex items-center gap-px">
+        <Separator orientation="vertical" className="mx-2" />
 
-      <SectionFour
-        editor={editor}
-        activeActions={["orderedList", "bulletList"]}
-        mainActionCount={0}
-      />
+        <SectionFour
+          editor={editor}
+          activeActions={["orderedList", "bulletList"]}
+          mainActionCount={0}
+        />
 
-      <Separator orientation="vertical" className="mx-2" />
+        <Separator orientation="vertical" className="mx-2" />
 
-      <SectionFive
-        editor={editor}
-        activeActions={["codeBlock", "blockquote", "horizontalRule"]}
-        mainActionCount={0}
-      />
+        <LinkEditPopover editor={editor} />
+      </div>
     </div>
   </div>
 )
