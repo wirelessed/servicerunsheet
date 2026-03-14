@@ -16,14 +16,12 @@ export default function RunsheetPage() {
     useEffect(() => {
         if (!id) return;
 
-        // 1. Subscribe to Runsheet Metadata
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (doc) => {
             if (doc.exists()) {
                 setRunsheet({ id: doc.id, ...doc.data() });
             }
         });
 
-        // 2. Subscribe to Programme Subcollection
         const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
         const unsubProgramme = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -31,27 +29,31 @@ export default function RunsheetPage() {
             setLoading(false);
         });
 
-        return () => {
-            unsubRunsheet();
-            unsubProgramme();
-        };
+        return () => { unsubRunsheet(); unsubProgramme(); };
     }, [id]);
 
     if (loading) {
         return (
-            <div className="flex justify-center mt-10">
-                <span className="loading loading-spinner loading-lg"></span>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
+                <div className="relative">
+                    <div className="w-10 h-10 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading runsheet...</p>
             </div>
         );
     }
 
     if (!runsheet) {
-        return <p className="text-center mt-10">Runsheet not found</p>;
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                    <span className="material-symbols-outlined text-3xl text-muted-foreground">error</span>
+                </div>
+                <p className="text-base font-semibold text-foreground">Runsheet not found</p>
+                <p className="text-sm text-muted-foreground">The runsheet you&apos;re looking for doesn&apos;t exist.</p>
+            </div>
+        );
     }
 
-    return (
-        <>
-            <RunsheetEditor runsheet={runsheet} initialProgramme={programme} />
-        </>
-    );
+    return <RunsheetEditor runsheet={runsheet} initialProgramme={programme} />;
 }

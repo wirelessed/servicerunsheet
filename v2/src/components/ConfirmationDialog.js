@@ -18,21 +18,27 @@ export default function ConfirmationDialog({
     confirmText = 'Confirm',
     confirmStyle = 'default'
 }) {
-    // Mapping confirmStyle from DaisyUI/MUI names to shadcn Button variants
     const variant = confirmStyle === 'btn-error' || confirmStyle === 'destructive' ? 'destructive' : 'default';
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[400px]">
                 <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
+                    <div className="flex items-center gap-3 mb-1">
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${variant === 'destructive' ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                            <span className={`material-symbols-outlined text-xl ${variant === 'destructive' ? 'text-destructive' : 'text-primary'}`}>
+                                {variant === 'destructive' ? 'warning' : 'help'}
+                            </span>
+                        </div>
+                        <DialogTitle>{title}</DialogTitle>
+                    </div>
                     <DialogDescription>
                         {message}
                     </DialogDescription>
                 </DialogHeader>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button variant={variant} onClick={onConfirm}>
+                <DialogFooter className="gap-2 pt-2">
+                    <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>
+                    <Button variant={variant} onClick={onConfirm} className="rounded-xl shadow-sm">
                         {confirmText}
                     </Button>
                 </DialogFooter>

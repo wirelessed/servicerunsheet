@@ -5,6 +5,7 @@ import { StarterKit } from "@tiptap/starter-kit"
 import { useEditor } from "@tiptap/react"
 import { Typography } from "@tiptap/extension-typography"
 import { TextStyle } from "@tiptap/extension-text-style"
+import Link from "@tiptap/extension-link"
 import { Placeholder, Selection } from "@tiptap/extensions"
 import {
   Image,
@@ -50,138 +51,139 @@ const createExtensions = ({
   placeholder: string
   uploader?: (file: File) => Promise<string>
 }) => [
-  StarterKit.configure({
-    blockquote: { HTMLAttributes: { class: "block-node" } },
-    // bold
-    bulletList: { HTMLAttributes: { class: "list-node" } },
-    code: { HTMLAttributes: { class: "inline", spellcheck: "false" } },
-    codeBlock: false,
-    // document
-    dropcursor: { width: 2, class: "ProseMirror-dropcursor border" },
-    // gapcursor
-    // hardBreak
-    heading: { HTMLAttributes: { class: "heading-node" } },
-    // undoRedo
-    horizontalRule: false,
-    // italic
-    // listItem
-    // listKeymap
-    link: {
-      enableClickSelection: true,
+    StarterKit.configure({
+      blockquote: { HTMLAttributes: { class: "block-node" } },
+      // bold
+      bulletList: { HTMLAttributes: { class: "list-node" } },
+      code: { HTMLAttributes: { class: "inline", spellcheck: "false" } },
+      codeBlock: false,
+      // document
+      dropcursor: { width: 2, class: "ProseMirror-dropcursor border" },
+      // gapcursor
+      // hardBreak
+      heading: { HTMLAttributes: { class: "heading-node" } },
+      // undoRedo
+      horizontalRule: false,
+      // italic
+      // listItem
+      // listKeymap
+      orderedList: { HTMLAttributes: { class: "list-node" } },
+      paragraph: { HTMLAttributes: { class: "text-node" } },
+      // strike
+      // text
+      // underline
+      // trailingNode
+    }),
+    Image.configure({
+      allowedMimeTypes: ["image/*"],
+      maxFileSize: 5 * 1024 * 1024,
+      allowBase64: true,
+      uploadFn: async (file) => {
+        return uploader ? await uploader(file) : await fakeuploader(file)
+      },
+      onToggle(editor, files, pos) {
+        editor.commands.insertContentAt(
+          pos,
+          files.map((image) => {
+            const blobUrl = URL.createObjectURL(image)
+            const id = randomId()
+
+            return {
+              type: "image",
+              attrs: {
+                id,
+                src: blobUrl,
+                alt: image.name,
+                title: image.name,
+                fileName: image.name,
+              },
+            }
+          })
+        )
+      },
+      onImageRemoved({ id, src }) {
+        console.log("Image removed", { id, src })
+      },
+      onValidationError(errors) {
+        errors.forEach((error) => {
+          toast.error("Image validation error", {
+            position: "bottom-right",
+            description: error.reason,
+          })
+        })
+      },
+      onActionSuccess({ action }) {
+        const mapping = {
+          copyImage: "Copy Image",
+          copyLink: "Copy Link",
+          download: "Download",
+        }
+        toast.success(mapping[action], {
+          position: "bottom-right",
+          description: "Image action success",
+        })
+      },
+      onActionError(error, { action }) {
+        const mapping = {
+          copyImage: "Copy Image",
+          copyLink: "Copy Link",
+          download: "Download",
+        }
+        toast.error(`Failed to ${mapping[action]}`, {
+          position: "bottom-right",
+          description: error.message,
+        })
+      },
+    }),
+    FileHandler.configure({
+      allowBase64: true,
+      allowedMimeTypes: ["image/*"],
+      maxFileSize: 5 * 1024 * 1024,
+      onDrop: (editor, files, pos) => {
+        files.forEach(async (file) => {
+          const src = await fileToBase64(file)
+          editor.commands.insertContentAt(pos, {
+            type: "image",
+            attrs: { src },
+          })
+        })
+      },
+      onPaste: (editor, files) => {
+        files.forEach(async (file) => {
+          const src = await fileToBase64(file)
+          editor.commands.insertContent({
+            type: "image",
+            attrs: { src },
+          })
+        })
+      },
+      onValidationError: (errors) => {
+        errors.forEach((error) => {
+          toast.error("Image validation error", {
+            position: "bottom-right",
+            description: error.reason,
+          })
+        })
+      },
+    }),
+    Color,
+    TextStyle,
+    Selection,
+    Typography,
+    UnsetAllMarks,
+    HorizontalRule,
+    ResetMarksOnEnter,
+    CodeBlockLowlight,
+    Placeholder.configure({ placeholder: () => placeholder }),
+    Link.configure({
+      autolink: true,
+      linkOnPaste: true,
       openOnClick: false,
       HTMLAttributes: {
-        class: "link",
+        class: "text-primary underline underline-offset-[3px] hover:text-primary/80 transition-colors cursor-pointer",
       },
-    },
-    orderedList: { HTMLAttributes: { class: "list-node" } },
-    paragraph: { HTMLAttributes: { class: "text-node" } },
-    // strike
-    // text
-    // underline
-    // trailingNode
-  }),
-  Image.configure({
-    allowedMimeTypes: ["image/*"],
-    maxFileSize: 5 * 1024 * 1024,
-    allowBase64: true,
-    uploadFn: async (file) => {
-      return uploader ? await uploader(file) : await fakeuploader(file)
-    },
-    onToggle(editor, files, pos) {
-      editor.commands.insertContentAt(
-        pos,
-        files.map((image) => {
-          const blobUrl = URL.createObjectURL(image)
-          const id = randomId()
-
-          return {
-            type: "image",
-            attrs: {
-              id,
-              src: blobUrl,
-              alt: image.name,
-              title: image.name,
-              fileName: image.name,
-            },
-          }
-        })
-      )
-    },
-    onImageRemoved({ id, src }) {
-      console.log("Image removed", { id, src })
-    },
-    onValidationError(errors) {
-      errors.forEach((error) => {
-        toast.error("Image validation error", {
-          position: "bottom-right",
-          description: error.reason,
-        })
-      })
-    },
-    onActionSuccess({ action }) {
-      const mapping = {
-        copyImage: "Copy Image",
-        copyLink: "Copy Link",
-        download: "Download",
-      }
-      toast.success(mapping[action], {
-        position: "bottom-right",
-        description: "Image action success",
-      })
-    },
-    onActionError(error, { action }) {
-      const mapping = {
-        copyImage: "Copy Image",
-        copyLink: "Copy Link",
-        download: "Download",
-      }
-      toast.error(`Failed to ${mapping[action]}`, {
-        position: "bottom-right",
-        description: error.message,
-      })
-    },
-  }),
-  FileHandler.configure({
-    allowBase64: true,
-    allowedMimeTypes: ["image/*"],
-    maxFileSize: 5 * 1024 * 1024,
-    onDrop: (editor, files, pos) => {
-      files.forEach(async (file) => {
-        const src = await fileToBase64(file)
-        editor.commands.insertContentAt(pos, {
-          type: "image",
-          attrs: { src },
-        })
-      })
-    },
-    onPaste: (editor, files) => {
-      files.forEach(async (file) => {
-        const src = await fileToBase64(file)
-        editor.commands.insertContent({
-          type: "image",
-          attrs: { src },
-        })
-      })
-    },
-    onValidationError: (errors) => {
-      errors.forEach((error) => {
-        toast.error("Image validation error", {
-          position: "bottom-right",
-          description: error.reason,
-        })
-      })
-    },
-  }),
-  Color,
-  TextStyle,
-  Selection,
-  Typography,
-  UnsetAllMarks,
-  HorizontalRule,
-  ResetMarksOnEnter,
-  CodeBlockLowlight,
-  Placeholder.configure({ placeholder: () => placeholder }),
-]
+    }),
+  ]
 
 export const useMinimalTiptapEditor = ({
   value,

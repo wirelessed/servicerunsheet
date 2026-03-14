@@ -49,7 +49,7 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
 
       <SectionThree editor={editor} />
 
-      <div className="hidden sm:flex items-center gap-px">
+      <div className="flex items-center gap-px">
         <Separator orientation="vertical" className="mx-2" />
 
         <SectionFour

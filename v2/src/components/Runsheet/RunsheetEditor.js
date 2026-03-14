@@ -27,7 +27,6 @@ import NotesTab from './NotesTab';
 import ConfirmationDialog from '../ConfirmationDialog';
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
     DropdownMenu,
@@ -36,7 +35,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function RunsheetEditor({ runsheet, initialProgramme }) {
@@ -45,7 +43,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     const [items, setItems] = useState(initialProgramme);
     const [timings, setTimings] = useState({});
     const [now, setNow] = useState(moment());
-    const [clock, setClock] = useState(moment()); // For real-time display
+    const [clock, setClock] = useState(moment());
     const [isEditor, setIsEditor] = useState(false);
 
     // UI States
@@ -62,33 +60,22 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     const calculateTimings = useCallback((programmeItems, startTimeStr) => {
         const dateStr = runsheet.date ? runsheet.date.split('T')[0] : moment().format('YYYY-MM-DD');
         let currentTime = moment(`${dateStr} ${startTimeStr}`, "YYYY-MM-DD HHmm");
-
         const newTimings = {};
-
         programmeItems.forEach(item => {
-            newTimings[item.id] = {
-                start: currentTime.format("h:mm"),
-                amPm: currentTime.format("A"),
-                obj: currentTime.clone()
-            };
-            const duration = parseInt(item.duration) || 0;
-            currentTime.add(duration, 'minutes');
+            newTimings[item.id] = { start: currentTime.format("h:mm"), amPm: currentTime.format("A"), obj: currentTime.clone() };
+            currentTime.add(parseInt(item.duration) || 0, 'minutes');
         });
         setTimings(newTimings);
     }, [runsheet.date]);
 
     useEffect(() => {
-        // eslint-disable-next-line
         setItems(initialProgramme);
         calculateTimings(initialProgramme, runsheet.time);
     }, [initialProgramme, runsheet.time, calculateTimings]);
 
     useEffect(() => {
         const checkPermissions = async () => {
-            if (!user?.email) {
-                setIsEditor(false);
-                return;
-            }
+            if (!user?.email) { setIsEditor(false); return; }
             try {
                 const userRef = doc(db, `runsheets/${runsheet.id}/users`, user.email);
                 const userSnap = await getDoc(userRef);
@@ -96,30 +83,23 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                     setIsEditor(true);
                 } else {
                     setIsEditor(false);
-                    setMode('view'); // Force view mode
+                    setMode('view');
                 }
             } catch (error) {
                 console.error("Error checking permissions:", error);
                 setIsEditor(false);
             }
         };
-
         checkPermissions();
     }, [user, runsheet.id]);
 
-    // Update current time every minute for highlighting
     useEffect(() => {
-        const interval = setInterval(() => {
-            setNow(moment());
-        }, 60000);
+        const interval = setInterval(() => setNow(moment()), 60000);
         return () => clearInterval(interval);
     }, []);
 
-    // Update clock every second for Ops mode display
     useEffect(() => {
-        const interval = setInterval(() => {
-            setClock(moment());
-        }, 1000);
+        const interval = setInterval(() => setClock(moment()), 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -132,20 +112,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
 
     const onDragEnd = async (result) => {
         if (!result.destination) return;
-
-        const newItems = reorder(
-            items,
-            result.source.index,
-            result.destination.index
-        );
-
+        const newItems = reorder(items, result.source.index, result.destination.index);
         setItems(newItems);
         calculateTimings(newItems, runsheet.time);
-
         const batch = writeBatch(db);
         newItems.forEach((item, index) => {
-            const ref = doc(db, `runsheets/${runsheet.id}/programme`, item.id);
-            batch.update(ref, { orderCount: index });
+            batch.update(doc(db, `runsheets/${runsheet.id}/programme`, item.id), { orderCount: index });
         });
         await batch.commit();
     };
@@ -153,226 +125,172 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     const handleAddItem = async (data) => {
         try {
             let insertIndex = items.length;
-            if (currentItem && typeof currentItem.insertAtIndex === 'number') {
-                insertIndex = currentItem.insertAtIndex;
-            }
-
+            if (currentItem && typeof currentItem.insertAtIndex === 'number') insertIndex = currentItem.insertAtIndex;
             const tempId = `temp-${Date.now()}`;
-            const newNode = {
-                id: tempId,
-                text: data.text,
-                remarks: data.remarks || '',
-                duration: data.duration || 0,
-                location: data.location || ''
-            };
-
+            const newNode = { id: tempId, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' };
             const newItems = [...items];
             newItems.splice(insertIndex, 0, newNode);
-
             setItems(newItems);
             calculateTimings(newItems, runsheet.time);
-
             setIsItemDialogOpen(false);
             setCurrentItem(null);
-
             const { id, ...nodeData } = newNode;
             const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), nodeData);
-
-            setItems(prevItems => prevItems.map(item =>
-                item.id === tempId ? { ...item, id: docRef.id } : item
-            ));
-
+            setItems(prevItems => prevItems.map(item => item.id === tempId ? { ...item, id: docRef.id } : item));
             const batch = writeBatch(db);
             newItems.forEach((item, index) => {
                 const itemId = item.id === tempId ? docRef.id : item.id;
-                const ref = doc(db, `runsheets/${runsheet.id}/programme`, itemId);
-                batch.update(ref, { orderCount: index });
+                batch.update(doc(db, `runsheets/${runsheet.id}/programme`, itemId), { orderCount: index });
             });
             await batch.commit();
-
         } catch (error) {
             console.error("Error adding item:", error);
-            alert(`Failed to save item: ${error.message}`);
         }
     };
 
     const handleEditItem = async (data) => {
         if (!currentItem || !currentItem.id) return;
-
         const updatedItems = items.map(item =>
-            item.id === currentItem.id
-                ? { ...item, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' }
-                : item
+            item.id === currentItem.id ? { ...item, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' } : item
         );
         setItems(updatedItems);
         calculateTimings(updatedItems, runsheet.time);
         setIsItemDialogOpen(false);
         setCurrentItem(null);
-
-        const ref = doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id);
-        await updateDoc(ref, {
-            text: data.text,
-            remarks: data.remarks || '',
-            duration: data.duration || 0,
-            location: data.location || ''
-        });
+        await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id), { text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' });
     };
 
     const handleDeleteItem = async () => {
         if (!deleteItemDialog.itemId) return;
-
-        const itemIdToDelete = deleteItemDialog.itemId;
-
-        const newItems = items.filter(item => item.id !== itemIdToDelete);
+        const newItems = items.filter(item => item.id !== deleteItemDialog.itemId);
         setItems(newItems);
         calculateTimings(newItems, runsheet.time);
         setDeleteItemDialog({ open: false, itemId: null });
-
-        try {
-            await deleteDoc(doc(db, `runsheets/${runsheet.id}/programme`, itemIdToDelete));
-        } catch (error) {
-            console.error("Error deleting item:", error);
-        }
-    }
+        try { await deleteDoc(doc(db, `runsheets/${runsheet.id}/programme`, deleteItemDialog.itemId)); } catch (error) { console.error("Error deleting item:", error); }
+    };
 
     const quickUpdateItem = async (itemId, updates) => {
-        // Optimistic Update
-        const updatedItems = items.map(item =>
-            item.id === itemId ? { ...item, ...updates } : item
-        );
+        const updatedItems = items.map(item => item.id === itemId ? { ...item, ...updates } : item);
         setItems(updatedItems);
         calculateTimings(updatedItems, runsheet.time);
-
-        try {
-            const ref = doc(db, `runsheets/${runsheet.id}/programme`, itemId);
-            await updateDoc(ref, updates);
-        } catch (error) {
-            console.error("Error updating item:", error);
-        }
+        try { await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, itemId), updates); } catch (error) { console.error("Error updating item:", error); }
     };
 
     const handleLogTransition = () => {
         const currentMoment = moment();
-
-        // Find active item based on current moment
-        // We need to use the logic from isItemActive but with the precise currentMoment
         const activeItem = items.find(item => {
             const timing = timings[item.id];
             if (!timing || !timing.obj) return false;
-
             const startTime = timing.obj;
             const endTime = startTime.clone().add(parseInt(item.duration) || 0, 'minutes');
-
             return currentMoment.isSameOrAfter(startTime) && currentMoment.isBefore(endTime);
         });
-
-        if (!activeItem) {
-            return;
-        }
-
+        if (!activeItem) return;
         const timing = timings[activeItem.id];
-        const startTime = timing.obj;
-        // Calculate new duration (minutes)
-        const diffMinutes = Math.max(1, Math.round(currentMoment.diff(startTime, 'minutes', true)));
-
+        const diffMinutes = Math.max(1, Math.round(currentMoment.diff(timing.obj, 'minutes', true)));
         quickUpdateItem(activeItem.id, { duration: diffMinutes });
     };
 
     const handleMetadataUpdate = async (formData) => {
-        const runsheetRef = doc(db, 'runsheets', runsheet.id);
-        await updateDoc(runsheetRef, {
-            name: formData.name,
-            date: formData.date,
-            time: formData.time,
-            lastUpdated: moment().format()
-        });
+        await updateDoc(doc(db, 'runsheets', runsheet.id), { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
         setIsMetadataDialogOpen(false);
     };
 
-    const openAddAtIndex = (index) => {
-        setCurrentItem({ insertAtIndex: index });
-        setIsItemDialogOpen(true);
-    };
+    const openAddAtIndex = (index) => { setCurrentItem({ insertAtIndex: index }); setIsItemDialogOpen(true); };
 
     const isItemActive = (item) => {
         const timing = timings[item.id];
         if (!timing || !timing.obj) return false;
-
         const startTime = timing.obj;
         const endTime = startTime.clone().add(parseInt(item.duration) || 0, 'minutes');
-
         return now.isSameOrAfter(startTime) && now.isBefore(endTime);
     };
 
-    const renderHeader = () => (
-        <header className="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-xl px-4 pt-4 pb-2 border-transparent dark:border-white/5 transition-all">
-            <div className="relative flex items-center justify-between md:justify-end">
+    const handleItemSubmit = (data) => {
+        if (currentItem && currentItem.id) handleEditItem(data);
+        else handleAddItem(data);
+    };
+
+    // ── Compute total duration ──
+    const totalDuration = items.reduce((sum, item) => sum + (parseInt(item.duration) || 0), 0);
+    const totalHours = Math.floor(totalDuration / 60);
+    const totalMins = totalDuration % 60;
+
+    // ── Mode pill component ──
+    const ModePills = ({ className = '' }) => (
+        <div className={`flex items-center gap-1 p-1 rounded-xl bg-muted/80 border border-border/40 shadow-xs ${className}`}>
+            {isEditor ? (
+                ['view', 'edit', 'ops'].map((m) => (
+                    <button
+                        key={m}
+                        onClick={() => setMode(m)}
+                        className={`
+                            px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200
+                            ${mode === m
+                                ? 'bg-card text-primary shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }
+                        `}
+                    >
+                        {m}
+                    </button>
+                ))
+            ) : (
+                <div className="px-4 py-1.5 text-[11px] font-bold uppercase text-muted-foreground tracking-wider">View Only</div>
+            )}
+        </div>
+    );
+
+    // ── Mobile header ──
+    const renderMobileHeader = () => (
+        <header className="md:hidden sticky top-0 z-50 glass border-b border-border/30 px-3 pt-3 pb-2">
+            <div className="flex items-center justify-between">
                 <button
                     onClick={() => router.back()}
-                    className="flex size-12 items-center justify-center rounded-full bg-gray-100 dark:bg-surface-dark-high hover:bg-gray-200 dark:hover:bg-surface-highlight transition-all text-slate-900 dark:text-text-primary active:scale-95 z-50 md:hidden"
+                    className="flex size-10 items-center justify-center rounded-xl bg-muted hover:bg-muted/80 text-foreground transition-all active:scale-95"
                 >
-                    <ArrowBackIcon className="text-2xl" />
+                    <ArrowBackIcon style={{ fontSize: 20 }} />
                 </button>
 
-                {isEditor && (
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 md:hidden">
-                        <div className="flex items-center gap-1 p-1 rounded-full bg-gray-100 dark:bg-surface-dark border border-gray-200 dark:border-white/5 shadow-sm">
-                            {['view', 'edit', 'ops'].map((m) => (
-                                <button
-                                    key={m}
-                                    onClick={() => setMode(m)}
-                                    className={`
-                                    px-5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all
-                                    ${mode === m
-                                            ? 'bg-white dark:bg-surface-highlight text-primary shadow-sm'
-                                            : 'text-slate-500 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white'
-                                        }
-                                `}
-                                >
-                                    {m}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                <ModePills />
 
-                <div className="flex items-center gap-2 z-10">
+                {isEditor ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button
-                                className="flex size-12 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-surface-dark-high text-slate-600 dark:text-text-primary transition-colors active:scale-95 outline-none"
-                            >
-                                <MoreVertIcon className="text-2xl" />
+                            <button className="flex size-10 items-center justify-center rounded-xl hover:bg-muted text-muted-foreground transition-all active:scale-95">
+                                <MoreVertIcon style={{ fontSize: 20 }} />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            {isEditor && (
-                                <DropdownMenuItem onClick={() => setIsMetadataDialogOpen(true)}>
-                                    Edit Name, Date & Start Time
-                                </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem onClick={() => setIsMetadataDialogOpen(true)}>
+                                <span className="material-symbols-outlined text-base mr-2">edit</span>
+                                Edit Details
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </div>
+                ) : (
+                    <div className="size-10" />
+                )}
             </div>
         </header>
     );
 
+    // ── Runsheet content ──
     const renderRunsheetContent = () => (
-        <main className="flex-1 flex flex-col pt-2 pb-32 relative px-0">
+        <main className="flex-1 flex flex-col pt-2 pb-32 relative px-0 page-enter">
             <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId="programme" isDropDisabled={mode === 'view'} isDragDisabled={mode === 'view'}>
                     {(provided) => (
                         <div ref={provided.innerRef} {...provided.droppableProps} className="w-full">
                             {mode === 'edit' && (
-                                <div className="flex w-full mb-6 z-10 relative items-center">
+                                <div className="flex w-full mb-4 z-10 relative items-center">
                                     <div className="w-[25%]"></div>
                                     <div className="w-[75%] pl-4 pr-4">
                                         <button
                                             onClick={() => openAddAtIndex(0)}
-                                            className="w-full h-8 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-primary/5 transition-all duration-200 group active:scale-[0.98]"
+                                            className="w-full h-9 flex items-center justify-center rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-200 group active:scale-[0.98]"
                                         >
-                                            <AddIcon className="text-[20px] group-hover:scale-110 transition-transform" />
+                                            <AddIcon className="text-[18px] group-hover:scale-110 transition-transform" />
                                         </button>
                                     </div>
                                 </div>
@@ -381,97 +299,88 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                             {items.map((item, index) => {
                                 const timing = timings[item.id] || { start: '--:--', amPm: '--' };
                                 const isHighlighted = isItemActive(item);
-                                const minHeight = Math.max(90, (parseInt(item.duration) || 0) * 4);
 
                                 return (
                                     <div key={item.id}>
                                         <Draggable draggableId={item.id} index={index} isDragDisabled={mode !== 'edit'}>
                                             {(provided, snapshot) => (
-                                                <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                // Drag handle logic applied to specific handle below
-                                                >
-                                                    <div className="flex w-full mb-2 z-10 relative group">
+                                                <div ref={provided.innerRef} {...provided.draggableProps}>
+                                                    <div className="flex w-full mb-1.5 z-10 relative group">
+                                                        {/* Time column */}
                                                         <div className="w-[25%] shrink-0 pt-4 text-right flex flex-col items-end pr-0">
-                                                            <div className={`flex items-baseline gap-1 ${isHighlighted ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>
-                                                                <span className="text-xl font-bold leading-none">
-                                                                    {timing.start}
-                                                                </span>
-                                                                <span className={`text-[10px] font-bold uppercase ${isHighlighted ? 'text-primary/80' : 'text-slate-400 dark:text-text-secondary'}`}>
-                                                                    {timing.amPm}
-                                                                </span>
+                                                            <div className="flex items-baseline gap-1 transition-colors text-primary">
+                                                                <span className="text-lg font-bold leading-none tracking-tight">{timing.start}</span>
+                                                                <span className={`text-[9px] font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>{timing.amPm}</span>
                                                             </div>
-                                                            <div className={`mt-2 px-1.5 py-0.5 rounded-sm text-xs font-bold ${isHighlighted ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-surface-dark-high text-slate-600 dark:text-text-secondary'}`}>
-                                                                {item.duration}m
+                                                            <div className={`mt-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums ${isHighlighted ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                                                {item.duration} min
                                                             </div>
                                                         </div>
 
-                                                        <div className="w-[75%] pl-4 pr-4">
+                                                        {/* Card */}
+                                                        <div className="w-[75%] pl-3 pr-3 md:pl-4 md:pr-4">
                                                             <div
                                                                 onClick={() => {
-                                                                    if (mode === 'edit') {
-                                                                        setCurrentItem(item);
-                                                                        setIsItemDialogOpen(true);
-                                                                    }
+                                                                    if (mode === 'edit') { setCurrentItem(item); setIsItemDialogOpen(true); }
                                                                 }}
-                                                                style={{ minHeight: `${minHeight}px` }}
-                                                                className={`rounded-lg p-4 shadow-sm border transition-all duration-200 active:scale-[0.98] flex flex-col relative
-                                                                    ${mode === 'edit' ? 'cursor-default hover:bg-gray-50 dark:hover:bg-gray-700' : 'cursor-default'}
+                                                                className={`
+                                                                    rounded-xl p-4 border transition-all duration-200 relative overflow-hidden
+                                                                    ${mode === 'edit' ? 'cursor-pointer hover:shadow-md hover:border-primary/20' : 'cursor-default'}
+                                                                    ${snapshot.isDragging ? 'shadow-lg rotate-1 scale-[1.02]' : ''}
                                                                     ${isHighlighted
-                                                                        ? 'bg-primary-light/50 dark:bg-primary-container border-primary/20 overflow-hidden'
-                                                                        : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-transparent'
+                                                                        ? 'bg-primary/5 dark:bg-primary/8 border-primary/20 shadow-sm shadow-primary/5 pulse-glow'
+                                                                        : 'bg-card border-border/60 shadow-xs hover:shadow-sm'
                                                                     }
                                                                 `}
                                                             >
-                                                                {isHighlighted && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
+                                                                {/* Active indicator bar */}
+                                                                {isHighlighted && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-r-full"></div>}
 
+                                                                {/* Drag handle */}
                                                                 {mode === 'edit' && (
                                                                     <div
                                                                         {...provided.dragHandleProps}
-                                                                        className="absolute top-1 left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-slate-500 hover:bg-black/5 dark:hover:bg-white/10 rounded z-20"
+                                                                        className="absolute top-1.5 left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted rounded-md z-20 transition-colors"
                                                                         onClick={(e) => e.stopPropagation()}
                                                                     >
-                                                                        <DragHandleIcon fontSize="small" />
+                                                                        <DragHandleIcon style={{ fontSize: 16 }} />
                                                                     </div>
                                                                 )}
 
                                                                 <div className={`flex-1 flex flex-col ${mode === 'edit' ? 'mt-4' : ''}`}>
-                                                                    <div className="flex items-start justify-between mb-2 relative z-10">
+                                                                    <div className="flex items-start justify-between mb-1 relative z-10">
                                                                         <div className="min-w-0 flex-1">
-                                                                            <h3 className={`text-lg font-bold leading-tight truncate ${isHighlighted ? 'text-slate-900 dark:text-on-primary-container' : 'text-slate-900 dark:text-white'}`}>
+                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'}`}>
                                                                                 {item.text}
                                                                             </h3>
                                                                             {item.location && (
-                                                                                <div className="flex items-center gap-1.5 mt-1 text-primary dark:text-blue-300">
-                                                                                    <LocationOnIcon style={{ fontSize: 18 }} className="icon-filled" />
-                                                                                    <span className="text-xs font-bold uppercase tracking-wide">{item.location}</span>
+                                                                                <div className="flex items-center gap-1 mt-1.5">
+                                                                                    <LocationOnIcon style={{ fontSize: 14 }} className="text-primary/70" />
+                                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">{item.location}</span>
                                                                                 </div>
                                                                             )}
                                                                         </div>
                                                                         {mode === 'edit' && (
                                                                             <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setDeleteItemDialog({ open: true, itemId: item.id });
-                                                                                }}
-                                                                                className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                                                                                onClick={(e) => { e.stopPropagation(); setDeleteItemDialog({ open: true, itemId: item.id }); }}
+                                                                                className="text-muted-foreground/40 hover:text-destructive transition-colors p-1 rounded-lg hover:bg-destructive/10"
                                                                             >
-                                                                                <DeleteIcon className="text-xl" />
+                                                                                <DeleteIcon style={{ fontSize: 18 }} />
                                                                             </button>
                                                                         )}
                                                                     </div>
 
                                                                     {item.remarks && (
                                                                         <div
-                                                                            className={`text-sm leading-relaxed mb-4 relative z-10 prose prose-sm max-w-none dark:prose-invert ${isHighlighted ? 'font-medium text-slate-700 dark:text-blue-100' : 'text-slate-500 dark:text-gray-400'}`}
-                                                                            dangerouslySetInnerHTML={{ __html: item.remarks.replace(/\n/g, '<br />') }}
+                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
+                                                                            dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
                                                                         />
                                                                     )}
 
+                                                                    {/* Active item decorative element */}
                                                                     {isHighlighted && (
-                                                                        <div className="absolute -bottom-6 -right-6 text-primary/5 dark:text-white/5 pointer-events-none">
-                                                                            <GraphicEqIcon style={{ fontSize: 120 }} />
+                                                                        <div className="absolute -bottom-4 -right-4 text-primary/[0.03] pointer-events-none">
+                                                                            <GraphicEqIcon style={{ fontSize: 100 }} />
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -483,14 +392,14 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                                         </Draggable>
 
                                         {mode === 'edit' && (
-                                            <div className="flex w-full mb-6 z-10 relative items-center">
+                                            <div className="flex w-full mb-4 z-10 relative items-center">
                                                 <div className="w-[25%]"></div>
-                                                <div className="w-[75%] pl-4 pr-4">
+                                                <div className="w-[75%] pl-3 pr-3 md:pl-4 md:pr-4">
                                                     <button
                                                         onClick={() => openAddAtIndex(index + 1)}
-                                                        className="w-full h-8 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-primary/5 transition-all duration-200 group active:scale-[0.98]"
+                                                        className="w-full h-9 flex items-center justify-center rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-200 group active:scale-[0.98]"
                                                     >
-                                                        <AddIcon className="text-[20px] group-hover:scale-110 transition-transform" />
+                                                        <AddIcon className="text-[18px] group-hover:scale-110 transition-transform" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -499,9 +408,35 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                                 );
                             })}
 
+                            {items.length > 0 && (
+                                (() => {
+                                    const lastItem = items[items.length - 1];
+                                    const lastTiming = timings[lastItem.id];
+                                    if (lastTiming && lastTiming.obj) {
+                                        const endTimeObj = lastTiming.obj.clone().add(parseInt(lastItem.duration) || 0, 'minutes');
+                                        return (
+                                            <div className="flex w-full mt-4 mb-8 z-10 relative items-center justify-center">
+                                                <div className="px-4 py-2 rounded-full bg-muted/50 border border-border/50 shadow-sm flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-primary/40"></div>
+                                                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">End Time:</span>
+                                                    <span className="text-sm font-bold text-primary tabular-nums tracking-wide">{endTimeObj.format("h:mm A")}</span>
+                                                    <div className="w-2 h-2 rounded-full bg-primary/40"></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()
+                            )}
+
+
                             {items.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                                    <p>No items yet. Switch to Edit mode to add.</p>
+                                <div className="flex flex-col items-center justify-center py-24 text-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-5">
+                                        <span className="material-symbols-outlined text-3xl text-muted-foreground">playlist_add</span>
+                                    </div>
+                                    <p className="text-base font-semibold text-foreground">No items yet</p>
+                                    <p className="text-sm text-muted-foreground mt-1">Switch to Edit mode to add programme items.</p>
                                 </div>
                             )}
 
@@ -511,75 +446,172 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                 </Droppable>
             </DragDropContext>
         </main>
-    )
+    );
 
-    const handleItemSubmit = (data) => {
-        if (currentItem && currentItem.id) {
-            handleEditItem(data);
-        } else {
-            handleAddItem(data);
-        }
-    };
-
+    // ── Desktop Sidebar ──
     const DesktopSidebar = () => (
-        <aside className="hidden md:flex flex-col w-64 border-r border-gray-200 dark:border-white/5 bg-gray-50/50 dark:bg-surface-dark/30 pt-4 pb-4 justify-between h-screen sticky top-0">
-            <div className="flex flex-col gap-2 px-3">
+        <aside className="hidden md:flex flex-col w-[260px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0">
+            <div className="flex flex-col gap-1 px-3">
+                {/* Back */}
                 <button
                     onClick={() => router.push('/')}
-                    className="flex items-center justify-start gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors mb-2"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all mb-1"
                 >
-                    <ArrowBackIcon style={{ fontSize: 16 }} />
-                    Back to Dashboard
+                    <ArrowBackIcon style={{ fontSize: 14 }} />
+                    Dashboard
                 </button>
-                <div className="px-3 py-2 mb-2">
-                    <h1 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white truncate" title={runsheet.name}>{runsheet.name}</h1>
-                    <p className="text-xs font-medium text-slate-500 dark:text-text-secondary">{moment(runsheet.date).format("MMM D, YYYY")}</p>
+
+                {/* Runsheet info */}
+                <div className="px-3 py-3 mb-2">
+                    <h1 className="text-base font-extrabold tracking-tight text-foreground leading-snug line-clamp-2" title={runsheet.name}>{runsheet.name}</h1>
+                    <div className="flex items-center gap-1.5 mt-2 text-muted-foreground">
+                        <CalendarTodayIcon style={{ fontSize: 13 }} />
+                        <span className="text-xs font-medium">{moment(runsheet.date).format("ddd, MMM D, YYYY")}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-md">{items.length} items</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                            {totalHours > 0 ? `${totalHours}h ${totalMins} min` : `${totalMins} min`}
+                        </span>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
+                {/* Nav */}
+                <div className="flex flex-col gap-0.5">
                     <button
                         onClick={() => setActiveTab('runsheet')}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'runsheet'
-                            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
-                            : 'text-slate-600 dark:text-text-secondary hover:bg-black/5 dark:hover:bg-white/5'
-                            }`}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'runsheet' ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
                     >
-                        <CalendarViewDayIcon className="text-[20px]" />
+                        <CalendarViewDayIcon style={{ fontSize: 20 }} />
                         Runsheet
                     </button>
                     <button
                         onClick={() => setActiveTab('notes')}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'notes'
-                            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
-                            : 'text-slate-600 dark:text-text-secondary hover:bg-black/5 dark:hover:bg-white/5'
-                            }`}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'notes' ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
                     >
-                        <ArticleIcon className="text-[20px]" />
+                        <ArticleIcon style={{ fontSize: 20 }} />
                         Notes
                     </button>
                     <button
                         onClick={() => setIsShareDialogOpen(true)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-600 dark:text-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
                     >
-                        <ShareIcon className="text-[20px]" />
+                        <ShareIcon style={{ fontSize: 20 }} />
                         Share
                     </button>
                 </div>
             </div>
 
-            <div className="flex flex-col gap-4 px-4 pb-4">
-                {/* Ops Mode - Desktop Sidebar */}
+            {/* Bottom section */}
+            <div className="flex flex-col gap-3 px-4 pb-2">
+                {/* Ops Mode panel */}
                 {mode === 'ops' && (
-                    <div className="p-4 bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-white/5 shadow-sm">
+                    <div className="p-4 bg-card rounded-xl border border-border shadow-sm">
                         <div className="flex flex-col mb-3">
-                            <span className="text-[10px] font-bold uppercase text-slate-400 dark:text-text-secondary tracking-wider">Current Time</span>
-                            <div className="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-none tracking-tight">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Current Time</span>
+                            <div className="text-2xl font-mono font-bold text-foreground leading-none tracking-tight mt-1">
                                 {clock.format("HH:mm:ss")}
                             </div>
                         </div>
                         <Button
                             onClick={handleLogTransition}
-                            className="w-full bg-primary hover:bg-primary-dark text-white shadow-sm active:scale-95"
+                            className="w-full shadow-sm active:scale-95 transition-all"
+                            size="sm"
+                        >
+                            <UpdateIcon className="mr-2 h-4 w-4" />
+                            Log Transition
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </aside>
+    );
+
+    return (
+        <div className="relative flex h-full min-h-screen w-full flex-row overflow-hidden bg-background text-foreground">
+
+            <DesktopSidebar />
+
+            <div className="flex-1 flex flex-col h-screen overflow-y-auto relative w-full scrollbar-thin">
+                <div className="w-full max-w-3xl mx-auto flex-1 flex flex-col min-h-full pb-32 md:pb-12 md:pt-6 md:px-6">
+
+                    {/* Common Headers */}
+                    {(activeTab === 'runsheet' || activeTab === 'notes') && (
+                        <>
+                            {/* Mobile header */}
+                            {renderMobileHeader()}
+
+                            {/* Mobile runsheet info */}
+                            <div className="md:hidden flex flex-col gap-1 px-5 pt-4 mb-4 page-enter">
+                                <h1 className="text-[26px] leading-snug font-extrabold tracking-tight text-foreground line-clamp-2">{runsheet.name}</h1>
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-lg">
+                                        <CalendarTodayIcon style={{ fontSize: 14 }} className="text-muted-foreground" />
+                                        <span className="text-xs font-semibold text-foreground">{moment(runsheet.date).format("ddd, MMM D")}</span>
+                                    </div>
+                                    <span className="text-xs font-medium text-muted-foreground">{items.length} items</span>
+                                    <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
+                                    <span className="text-xs font-medium text-muted-foreground">
+                                        {totalHours > 0 ? `${totalHours}h ${totalMins} min` : `${totalMins} min`}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Desktop header */}
+                            <div className="hidden md:block mb-6 page-enter">
+                                <div className="flex justify-center mb-6">
+                                    <ModePills />
+                                </div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex flex-col">
+                                        <h2 className="text-2xl font-extrabold tracking-tight text-foreground">{runsheet.name}</h2>
+                                        <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium mt-1">
+                                            <CalendarTodayIcon style={{ fontSize: 14 }} />
+                                            {moment(runsheet.date).format("dddd, MMMM Do YYYY")}
+                                            <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
+                                            {runsheet.time} Start
+                                            <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
+                                            {items.length} items
+                                        </div>
+                                    </div>
+                                    {isEditor && (
+                                        <Button variant="outline" size="sm" onClick={() => setIsMetadataDialogOpen(true)} className="rounded-xl">
+                                            <span className="material-symbols-outlined text-sm mr-1.5">edit</span>
+                                            Edit Details
+                                        </Button>
+                                    )}
+                                </div>
+                                <Separator className="my-4" />
+                            </div>
+                        </>
+                    )}
+
+                    {activeTab === 'runsheet' ? (
+                        <>
+                            {renderRunsheetContent()}
+                        </>
+                    ) : activeTab === 'notes' ? (
+                        <div className="page-enter px-4 md:px-0 mt-4 md:mt-0">
+                            <NotesTab runsheet={runsheet} isEditor={isEditor} mode={mode} />
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+
+            {/* ── Bottom Dock - Mobile Only ── */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass border-t border-border/30 pb-8 pt-3 px-6 shadow-xl">
+                {/* Ops Mode Controls */}
+                {mode === 'ops' && (
+                    <div className="absolute bottom-full left-0 right-0 p-4 glass border-t border-border/30 flex items-center justify-between shadow-lg animate-in slide-in-from-bottom-3">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Current Time</span>
+                            <div className="text-xl font-mono font-bold text-foreground leading-none tracking-tight mt-0.5">
+                                {clock.format("HH:mm:ss")}
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleLogTransition}
+                            className="shadow-md shadow-primary/20 active:scale-95 rounded-xl"
                             size="sm"
                         >
                             <UpdateIcon className="mr-2 h-4 w-4" />
@@ -588,176 +620,45 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                     </div>
                 )}
 
-
-
-
-            </div>
-        </aside>
-    );
-
-    return (
-        <div className="relative flex h-full min-h-screen w-full flex-row overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
-
-            <DesktopSidebar />
-
-            <div className="flex-1 flex flex-col h-screen overflow-y-auto relative w-full">
-                <div className="w-full max-w-md md:max-w-3xl mx-auto flex-1 flex flex-col min-h-full pb-32 md:pb-12 md:pt-8 md:px-6">
-
-                    {/* Header - Hidden on Desktop sidebar since it's there, OR simplified? 
-                        Let's keep the existing header but hide the back button/hamburger if needed.
-                        For now, just using the existing flow.
-                    */}
-
-                    {activeTab === 'runsheet' ? (
-                        <>
-                            <div className="contents md:hidden">
-                                {renderHeader()}
-                            </div>
-                            <div className="md:hidden flex flex-col gap-1 px-5 mb-4">
-                                <span className="text-sm font-bold uppercase tracking-wider text-primary dark:text-primary">Runsheet</span>
-                                <h1 className="text-[32px] leading-[40px] font-extrabold tracking-tight text-slate-900 dark:text-white truncate">{runsheet.name}</h1>
-                                <div className="flex items-center gap-2 mt-2 text-slate-500 dark:text-text-secondary">
-                                    <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-surface-dark-high px-3 py-1 rounded-md">
-                                        <CalendarTodayIcon style={{ fontSize: 18 }} />
-                                        <span className="text-sm font-semibold">{moment(runsheet.date).format("ddd, MMM D")}</span>
-                                    </div>
-                                    <span className="text-sm font-medium">• {items.length} Items</span>
-                                </div>
-                            </div>
-                            {/* Desktop Header equivalent if needed, or just rely on Sidebar title. 
-                                Actually, the main document needs a header too for context scroll.
-                                Let's show a simplified header on desktop or keep the existing one adapted.
-                            */}
-                            <div className="hidden md:block mb-6">
-                                {/* Desktop specific top bar or just spacing? Let's use the existing header structure but cleaner */}
-                                <div className="flex justify-center mb-6">
-                                    <div className="flex items-center gap-1 p-1 rounded-full bg-gray-100 dark:bg-surface-dark border border-gray-200 dark:border-white/5 shadow-sm">
-                                        {isEditor ? (
-                                            ['view', 'edit', 'ops'].map((m) => (
-                                                <button
-                                                    key={m}
-                                                    onClick={() => setMode(m)}
-                                                    className={`
-                                                    px-5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all
-                                                    ${mode === m
-                                                            ? 'bg-white dark:bg-surface-highlight text-primary shadow-sm'
-                                                            : 'text-slate-500 dark:text-text-secondary hover:text-slate-900 dark:hover:text-white'
-                                                        }
-                                                `}
-                                                >
-                                                    {m}
-                                                </button>
-                                            ))
-                                        ) : (
-                                            <div className="px-4 py-1.5 text-[11px] font-bold uppercase text-slate-400">View Only</div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex flex-col">
-                                        <h2 className="text-3xl font-extrabold tracking-tight">{runsheet.name}</h2>
-                                        <div className="flex items-center gap-2 text-slate-500 dark:text-text-secondary text-sm font-medium">
-                                            <CalendarTodayIcon style={{ fontSize: 16 }} />
-                                            {moment(runsheet.date).format("dddd, MMMM Do YYYY")}
-                                            <span className="mx-1">•</span>
-                                            {runsheet.time} Start
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {isEditor && (
-                                            <Button variant="outline" size="sm" onClick={() => setIsMetadataDialogOpen(true)}>
-                                                Edit Details
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-                                <Separator className="my-4" />
-                            </div>
-
-                            {renderRunsheetContent()}
-                        </>
-                    ) : activeTab === 'notes' ? (
-                        <>
-                            <div className="md:hidden">
-                                <header className="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-xl px-4 py-4 border-b border-transparent dark:border-white/5">
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={() => setActiveTab('runsheet')} className="p-2 -ml-2 rounded-full hover:bg-muted"><ArrowBackIcon /></button>
-                                        <h1 className="text-2xl font-bold dark:text-white">Notes</h1>
-                                    </div>
-                                </header>
-                            </div>
-                            <div className="hidden md:block mb-6">
-                                <h2 className="text-3xl font-extrabold tracking-tight mb-4">Event Notes</h2>
-                                <Separator className="my-4" />
-                            </div>
-                            <NotesTab runsheet={runsheet} />
-                        </>
-                    ) : null}
-                </div>
-            </div>
-
-            {/* Bottom Dock - Mobile Only */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 bg-white dark:bg-surface-dark border-t border-gray-200 dark:border-transparent pb-8 pt-4 px-6 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-                {/* Ops Mode Controls - Contextual */}
-                {mode === 'ops' && (
-                    <div className="absolute bottom-[calc(100%+0px)] left-0 right-0 p-4 bg-white/95 dark:bg-surface-dark/95 backdrop-blur-md border-t border-gray-200 dark:border-white/5 flex items-center justify-between shadow-lg animate-in slide-in-from-bottom-5">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase text-slate-400 dark:text-text-secondary tracking-wider">Current Time</span>
-                            <div className="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-none tracking-tight">
-                                {clock.format("HH:mm:ss")}
-                            </div>
-                        </div>
-
-                        <Button
-                            onClick={handleLogTransition}
-                            className="bg-primary hover:bg-primary-dark text-white shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-95"
-                            size="sm"
-                        >
-                            <UpdateIcon className="mr-2 h-4 w-4" />
-                            Log Transition
-                        </Button>
-                    </div>
-                )}
-
-                <div className="flex items-center justify-between text-slate-400 dark:text-text-secondary px-6">
+                <div className="flex items-center justify-around">
                     <button
                         onClick={() => setActiveTab('runsheet')}
-                        className={`flex flex-col items-center gap-1.5 transition-colors active:scale-95 ${activeTab === 'runsheet' ? 'text-primary dark:text-primary' : 'hover:text-slate-900 dark:hover:text-white group'}`}
+                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'runsheet' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <div className={`px-5 py-1 rounded-full ${activeTab === 'runsheet' ? 'bg-primary/10 dark:bg-primary/20' : ''}`}>
-                            <CalendarViewDayIcon className={activeTab === 'runsheet' ? "text-[26px] icon-filled" : "text-[26px] group-hover:-translate-y-0.5 transition-transform"} />
+                        <div className={`px-5 py-1 rounded-xl transition-colors ${activeTab === 'runsheet' ? 'bg-primary/10' : ''}`}>
+                            <CalendarViewDayIcon className={activeTab === 'runsheet' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
                         </div>
-                        <span className="text-[11px] font-bold">Runsheet</span>
+                        <span className="text-[10px] font-bold">Runsheet</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('notes')}
-                        className={`flex flex-col items-center gap-1.5 transition-colors active:scale-95 ${activeTab === 'notes' ? 'text-primary dark:text-primary' : 'hover:text-slate-900 dark:hover:text-white group'}`}
+                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'notes' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <div className={`px-5 py-1 rounded-full ${activeTab === 'notes' ? 'bg-primary/10 dark:bg-primary/20' : ''}`}>
-                            <ArticleIcon className={activeTab === 'notes' ? "text-[26px] icon-filled" : "text-[26px] group-hover:-translate-y-0.5 transition-transform"} />
+                        <div className={`px-5 py-1 rounded-xl transition-colors ${activeTab === 'notes' ? 'bg-primary/10' : ''}`}>
+                            <ArticleIcon className={activeTab === 'notes' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
                         </div>
-                        <span className="text-[11px] font-bold">Notes</span>
+                        <span className="text-[10px] font-bold">Notes</span>
                     </button>
                     <button
                         onClick={() => setIsShareDialogOpen(true)}
-                        className="flex flex-col items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors active:scale-95 group"
+                        className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-all active:scale-95 group"
                     >
                         <div className="px-5 py-1">
-                            <ShareIcon className="text-[26px] group-hover:-translate-y-0.5 transition-transform" />
+                            <ShareIcon className="text-[24px] group-hover:-translate-y-0.5 transition-transform" />
                         </div>
-                        <span className="text-[11px] font-bold">Share</span>
+                        <span className="text-[10px] font-bold">Share</span>
                     </button>
                 </div>
             </div>
 
-            {/* FAB - Only in Edit Mode */}
-            {mode === 'edit' && (
-                <div className="fixed bottom-28 right-[calc(50%-224px+24px)] md:right-10 md:bottom-10 z-50">
+            {/* FAB - Edit Mode */}
+            {mode === 'edit' && activeTab === 'runsheet' && (
+                <div className="fixed bottom-28 right-6 md:right-10 md:bottom-10 z-50">
                     <button
                         onClick={() => openAddAtIndex(items.length)}
-                        className="flex items-center justify-center size-[64px] rounded-[18px] bg-primary dark:bg-primary text-white shadow-elevation-3 hover:shadow-lg hover:scale-105 transition-all duration-300 active:scale-95 group"
+                        className="flex items-center justify-center size-14 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300 active:scale-95 group"
                     >
-                        <AddIcon className="text-[32px] group-hover:rotate-90 transition-transform" />
+                        <AddIcon className="text-[28px] group-hover:rotate-90 transition-transform duration-300" />
                     </button>
                 </div>
             )}

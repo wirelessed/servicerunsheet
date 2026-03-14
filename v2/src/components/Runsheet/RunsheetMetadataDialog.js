@@ -13,10 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-// Note: Label is not added yet, I should add it.
-// Actually shadcn @/components/ui/label usually needs to be added.
-// I forgot to add 'label' in the 'add' command.
-
 export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initialData }) {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
@@ -29,7 +25,6 @@ export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initia
                 : initialData?.date
                     ? moment(initialData.date).format('YYYY-MM-DDTHH:mm')
                     : moment().format('YYYY-MM-DDTHH:mm');
-
             setDate(initialDate);
         }
     }, [open, initialData]);
@@ -37,47 +32,49 @@ export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initia
     const handleSubmit = () => {
         if (name.trim() && date) {
             const dateObj = moment(date);
-            onSubmit({
-                name: name,
-                date: dateObj.format('YYYY-MM-DD'),
-                time: dateObj.format('HHmm')
-            });
+            onSubmit({ name, date: dateObj.format('YYYY-MM-DD'), time: dateObj.format('HHmm') });
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[420px]">
                 <DialogHeader>
-                    <DialogTitle>{initialData ? 'Edit Details' : 'New Runsheet'}</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-xl">{initialData ? 'edit_calendar' : 'add_circle'}</span>
+                        {initialData ? 'Edit Details' : 'New Runsheet'}
+                    </DialogTitle>
                     <DialogDescription>
                         {initialData ? 'Update the title and date of your runsheet.' : 'Create a new runsheet to start planning your event.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Runsheet Title</Label>
+                        <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Runsheet Title</Label>
                         <Input
                             id="name"
                             placeholder="e.g. Sunday Service"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             autoFocus
+                            className="rounded-xl h-11 text-base"
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="date">Date & Time</Label>
+                        <Label htmlFor="date" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date & Time</Label>
                         <Input
                             id="date"
                             type="datetime-local"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
+                            className="rounded-xl"
                         />
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={!name.trim() || !date}>
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>
+                    <Button onClick={handleSubmit} disabled={!name.trim() || !date} className="rounded-xl shadow-sm">
+                        <span className="material-symbols-outlined text-sm mr-1.5">{initialData ? 'save' : 'add'}</span>
                         {initialData ? 'Save' : 'Create'}
                     </Button>
                 </DialogFooter>

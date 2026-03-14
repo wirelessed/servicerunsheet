@@ -5,6 +5,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PrintIcon from '@mui/icons-material/Print';
 import {
     Dialog,
     DialogContent,
@@ -17,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { db } from '../../lib/firebase';
-import { collection, query, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 
@@ -27,7 +28,6 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
     const shareUrl = `${origin}/runsheet/${runsheetId}`;
     const [copied, setCopied] = useState(false);
 
-    // Editor Management
     const [editors, setEditors] = useState([]);
     const [newEditorEmail, setNewEditorEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -36,24 +36,14 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
 
     useEffect(() => {
         if (!open || !runsheetId) return;
-
-        // Real-time listener for editors
         const unsubscribe = onSnapshot(collection(db, `runsheets/${runsheetId}/users`), (snapshot) => {
-            const userList = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            const userList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setEditors(userList);
-
-            // Check if current user is editor
             if (user?.email) {
                 const me = userList.find(u => u.email === user.email);
-                if (me && me.role === 'editor') {
-                    setCurrentUserIsEditor(true);
-                }
+                setCurrentUserIsEditor(me?.role === 'editor');
             }
         });
-
         return () => unsubscribe();
     }, [open, runsheetId, user]);
 
@@ -65,136 +55,119 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
 
     const handleShareWhatsApp = () => {
         const text = `Check out this runsheet: ${runsheetName}`;
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`;
-        window.open(whatsappUrl, '_blank');
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
+    };
+
+    const handleExportPDF = () => {
+        window.open(`/runsheet/${runsheetId}/print`, '_blank');
     };
 
     const handleAddEditor = async (e) => {
         e.preventDefault();
         if (!newEditorEmail || !newEditorEmail.includes('@')) return;
-
         setIsLoading(true);
         try {
             const email = newEditorEmail.trim().toLowerCase();
-
-            // 1. Add to Runsheet's users subcollection
-            await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), {
-                email: email,
-                role: 'editor',
-                addedAt: new Date().toISOString(),
-                addedBy: user.email
-            });
-
-            // 2. Add to User's runsheets subcollection (so they see it in their list)
-            await setDoc(doc(db, `users/${email}/runsheets`, runsheetId), {
-                id: runsheetId,
-                role: 'editor',
-                sharedBy: user.email,
-                sharedAt: new Date().toISOString()
-            });
-
+            await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), { email, role: 'editor', addedAt: new Date().toISOString(), addedBy: user.email });
+            await setDoc(doc(db, `users/${email}/runsheets`, runsheetId), { id: runsheetId, role: 'editor', sharedBy: user.email, sharedAt: new Date().toISOString() });
             setNewEditorEmail('');
-        } catch (error) {
-            console.error("Error adding editor:", error);
-        } finally {
-            setIsLoading(false);
-        }
+        } catch (error) { console.error("Error adding editor:", error); }
+        finally { setIsLoading(false); }
     };
 
     const handleRemoveEditor = async () => {
         if (!deleteConfirm.email) return;
-
-        const emailToRemove = deleteConfirm.email;
         setIsLoading(true);
         try {
-            // 1. Remove from Runsheet's users
-            await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, emailToRemove));
-
-            // 2. Remove from User's runsheets
-            await deleteDoc(doc(db, `users/${emailToRemove}/runsheets`, runsheetId));
-
+            await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, deleteConfirm.email));
+            await deleteDoc(doc(db, `users/${deleteConfirm.email}/runsheets`, runsheetId));
             setDeleteConfirm({ open: false, email: null });
-        } catch (error) {
-            console.error("Error removing editor:", error);
-        } finally {
-            setIsLoading(false);
-        }
+        } catch (error) { console.error("Error removing editor:", error); }
+        finally { setIsLoading(false); }
     };
 
     return (
         <>
             <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
-                        <DialogTitle>Share Runsheet</DialogTitle>
-                        <DialogDescription>
-                            Share this runsheet with your team.
-                        </DialogDescription>
+                        <DialogTitle className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary text-xl">share</span>
+                            Share Runsheet
+                        </DialogTitle>
+
                     </DialogHeader>
 
-                    <div className="flex flex-col gap-6 py-4">
-                        {/* Section 1: Public Link */}
-                        <div className="space-y-3">
-                            <h4 className="text-sm font-medium leading-none">Viewing Link</h4>
+                    <div className="flex flex-col gap-5 py-4">
+                        {/* Link section */}
+                        <div className="space-y-2.5">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Viewing Link</h4>
                             <div className="flex items-center gap-2">
-                                <Input
-                                    value={shareUrl}
-                                    readOnly
-                                    className="bg-muted focus-visible:ring-0"
-                                />
-                                <Button size="icon" onClick={copyToClipboard} variant={copied ? "outline" : "default"} title="Copy Link">
-                                    {copied ? <CheckIcon className="h-4 w-4 text-green-500" /> : <ContentCopyIcon className="h-4 w-4" />}
-                                </Button>
-                                <Button size="icon" onClick={handleShareWhatsApp} className="bg-[#25D366] hover:bg-[#128C7E] text-white" title="Share via WhatsApp">
-                                    <WhatsAppIcon className="h-5 w-5" />
+                                <Input value={shareUrl} readOnly className="bg-muted/60 focus-visible:ring-0 text-sm rounded-xl" />
+                                <Button size="icon" onClick={copyToClipboard} variant={copied ? "outline" : "default"} className="shrink-0 rounded-xl" title="Copy Link">
+                                    {copied ? <CheckIcon className="h-4 w-4 text-success" /> : <ContentCopyIcon className="h-4 w-4" />}
                                 </Button>
                             </div>
+                            <Button
+                                onClick={handleShareWhatsApp}
+                                variant="outline"
+                                className="w-full rounded-xl gap-2 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                            >
+                                <WhatsAppIcon className="h-4 w-4" />
+                                Share via WhatsApp
+                            </Button>
+                            <Button
+                                onClick={handleExportPDF}
+                                variant="outline"
+                                className="w-full rounded-xl gap-2 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary"
+                            >
+                                <PrintIcon className="h-4 w-4" />
+                                Export as PDF
+                            </Button>
                         </div>
 
                         <Separator />
 
-                        {/* Section 2: Editors */}
+                        {/* Editors section */}
                         {currentUserIsEditor && (
                             <div className="space-y-3">
-                                <h4 className="text-sm font-medium leading-none">Editors</h4>
-                                <p className="text-xs text-muted-foreground">Editors can modify the programme and details.</p>
+                                <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Editors</h4>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Editors can modify the programme and details.</p>
+                                </div>
 
-                                {/* Add Editor Form */}
                                 <form onSubmit={handleAddEditor} className="flex gap-2">
                                     <Input
                                         placeholder="Add email address"
                                         value={newEditorEmail}
                                         onChange={(e) => setNewEditorEmail(e.target.value)}
                                         type="email"
+                                        className="rounded-xl"
                                     />
-                                    <Button type="submit" disabled={isLoading || !newEditorEmail}>
-                                        <PersonAddIcon className="h-5 w-5" />
+                                    <Button type="submit" disabled={isLoading || !newEditorEmail} className="shrink-0 rounded-xl">
+                                        <PersonAddIcon className="h-4 w-4" />
                                     </Button>
                                 </form>
 
-                                {/* Editors List */}
-                                <div className="mt-4 max-h-[200px] overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50 dark:bg-black/20">
+                                <div className="max-h-[200px] overflow-y-auto space-y-1.5 scrollbar-thin">
                                     {editors.length === 0 ? (
-                                        <div className="text-center text-sm text-muted-foreground py-2">No editors yet</div>
+                                        <div className="text-center text-sm text-muted-foreground py-4 bg-muted/30 rounded-xl">No editors yet</div>
                                     ) : (
                                         editors.map((editor) => (
-                                            <div key={editor.id} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-surface-dark shadow-sm">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">{editor.email}</span>
-                                                    <span className="text-[10px] text-muted-foreground capitalize">{editor.role}</span>
+                                            <div key={editor.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/40">
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-sm font-medium text-foreground truncate">{editor.email}</span>
+                                                    <span className="text-[10px] text-muted-foreground capitalize font-medium">{editor.role}</span>
                                                 </div>
-
-                                                {/* Don't allow removing self, or if not authorized (logic handled by parent check mostly) */}
-                                                {editor.email !== user?.email && (
+                                                {editor.email === user?.email ? (
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2 py-0.5 rounded-lg shrink-0">You</span>
+                                                ) : (
                                                     <button
                                                         onClick={() => setDeleteConfirm({ open: true, email: editor.email })}
-                                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                                        className="text-muted-foreground/50 hover:text-destructive transition-colors p-1 rounded-lg hover:bg-destructive/10 shrink-0"
                                                     >
-                                                        <DeleteIcon className="text-lg" />
+                                                        <DeleteIcon style={{ fontSize: 16 }} />
                                                     </button>
-                                                )}
-                                                {editor.email === user?.email && (
-                                                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">You</span>
                                                 )}
                                             </div>
                                         ))
@@ -205,7 +178,7 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                     </div>
 
                     <DialogFooter>
-                        <Button variant="secondary" onClick={onClose}>Done</Button>
+                        <Button variant="outline" onClick={onClose} className="rounded-xl">Done</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
