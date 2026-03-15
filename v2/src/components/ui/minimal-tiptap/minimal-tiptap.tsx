@@ -14,6 +14,9 @@ import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu"
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap"
 import { MeasuredContainer } from "./components/measured-container"
 import { useTiptapEditor } from "./hooks/use-tiptap-editor"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DotsHorizontalIcon, PlusIcon } from "@radix-ui/react-icons"
+import { ToolbarButton } from "./components/toolbar-button"
 
 export interface MinimalTiptapProps extends Omit<
   UseMinimalTiptapEditorProps,
@@ -45,11 +48,9 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
         mainActionCount={3}
       />
 
-      <Separator orientation="vertical" className="mx-2" />
+      <div className="hidden sm:flex items-center gap-px">
+        <SectionThree editor={editor} />
 
-      <SectionThree editor={editor} />
-
-      <div className="flex items-center gap-px">
         <Separator orientation="vertical" className="mx-2" />
 
         <SectionFour
@@ -61,6 +62,27 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
         <Separator orientation="vertical" className="mx-2" />
 
         <LinkEditPopover editor={editor} />
+      </div>
+
+      <div className="flex sm:hidden items-center gap-px">
+        <Popover>
+          <PopoverTrigger asChild>
+            <ToolbarButton tooltip="More options" aria-label="More options">
+              <PlusIcon className="size-5" />
+            </ToolbarButton>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-auto flex items-center gap-1 p-1">
+            <SectionThree editor={editor} />
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            <SectionFour
+              editor={editor}
+              activeActions={["orderedList", "bulletList"]}
+              mainActionCount={0}
+            />
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            <LinkEditPopover editor={editor} />
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   </div>
