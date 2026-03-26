@@ -73,7 +73,7 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
                                     id="duration"
                                     name="duration"
                                     type="number"
-                                    placeholder="5"
+                                    placeholder="e.g. 5"
                                     value={data.duration}
                                     onChange={handleChange}
                                     className="rounded-xl"
@@ -84,7 +84,7 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
                                 <Input
                                     id="location"
                                     name="location"
-                                    placeholder="Main Stage"
+                                    placeholder="e.g. Main Stage"
                                     value={data.location}
                                     onChange={handleChange}
                                     className="rounded-xl"
@@ -93,16 +93,18 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
                         </div>
                         <div className="grid gap-2 flex-grow flex flex-col min-h-0">
                             <Label htmlFor="remarks" className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">Remarks / Description</Label>
-                            <MinimalTiptapEditor
-                                value={data.remarks}
-                                onChange={(val) => setData({ ...data, remarks: val })}
-                                className="w-full border-input shadow-xs rounded-xl flex-grow flex flex-col min-h-[200px]"
-                                editorContentClassName="p-3 flex-grow overflow-y-auto prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal"
-                                output="html"
-                                placeholder="e.g. Lead singer starts..."
-                                editable={true}
-                                editorClassName="focus:outline-hidden"
-                            />
+                            <div className="touch-auto" style={{ WebkitUserSelect: 'text', userSelect: 'text' }}>
+                                <MinimalTiptapEditor
+                                    value={data.remarks}
+                                    onChange={(val) => setData({ ...data, remarks: val })}
+                                    className="w-full border-input shadow-xs rounded-xl flex-grow flex flex-col min-h-[200px]"
+                                    editorContentClassName="p-3 flex-grow overflow-y-auto prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal"
+                                    output="html"
+                                    placeholder="e.g. Lead singer starts..."
+                                    editable={true}
+                                    editorClassName="focus:outline-hidden touch-auto select-text"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,26 @@
+{
+  "hosting": {
+    "public": "out",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      {
+        "source": "/runsheet/*/print",
+        "destination": "/runsheet/fallback/print.html"
+      },
+      {
+        "source": "/runsheet/*",
+        "destination": "/runsheet/fallback.html"
+      },
+      {
+        "source": "/share/*",
+        "destination": "/share/fallback.html"
+      }
+    ]
+  }
+}

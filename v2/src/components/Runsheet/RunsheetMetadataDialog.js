@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initialData }) {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (open) {
@@ -26,14 +27,17 @@ export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initia
                     ? moment(initialData.date).format('YYYY-MM-DDTHH:mm')
                     : moment().format('YYYY-MM-DDTHH:mm');
             setDate(initialDate);
+            setIsSubmitting(false);
         }
     }, [open, initialData]);
 
     const handleSubmit = () => {
-        if (name.trim() && date) {
-            const dateObj = moment(date);
-            onSubmit({ name, date: dateObj.format('YYYY-MM-DD'), time: dateObj.format('HHmm') });
-        }
+        if (!name.trim() || !date || isSubmitting) return;
+        setIsSubmitting(true);
+        const dateObj = moment(date);
+        // Close dialog immediately (optimistic) — parent handles the async write
+        onClose();
+        onSubmit({ name, date: dateObj.format('YYYY-MM-DD'), time: dateObj.format('HHmm') });
     };
 
     return (
@@ -73,9 +77,9 @@ export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initia
                 </div>
                 <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={!name.trim() || !date} className="rounded-xl shadow-sm">
+                    <Button onClick={handleSubmit} disabled={!name.trim() || !date || isSubmitting} className="rounded-xl shadow-sm">
                         <span className="material-symbols-outlined text-sm mr-1.5">{initialData ? 'save' : 'add'}</span>
-                        {initialData ? 'Save' : 'Create'}
+                        {isSubmitting ? 'Saving...' : initialData ? 'Save' : 'Create'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

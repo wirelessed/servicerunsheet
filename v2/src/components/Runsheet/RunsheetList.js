@@ -58,44 +58,61 @@ export default function RunsheetList() {
     };
 
     const fetchRunsheets = async () => {
-        if (!user) return;
-        setLoading(true);
-        try {
-            if (!user.email) { setLoading(false); return; }
+        if (!user || !user.email) return;
 
+        // Instant load from cache (stale-while-revalidate)
+        const cacheKey = `runsheetsCache_${user.email}`;
+        const cachedStr = localStorage.getItem(cacheKey);
+        let hasCache = false;
+        
+        if (cachedStr) {
+            try {
+                const cachedData = JSON.parse(cachedStr);
+                if (Array.isArray(cachedData) && cachedData.length > 0) {
+                    setRunsheets(cachedData);
+                    setLoading(false);
+                    hasCache = true;
+                }
+            } catch (e) {
+                console.error('Failed to parse runsheets cache', e);
+            }
+        }
+
+        if (!hasCache) {
+            setLoading(true);
+        }
+
+        try {
             const userRunsheetsRef = collection(db, `users/${user.email}/runsheets`);
             const snapshot = await getDocs(query(userRunsheetsRef));
-            const runsheetPromises = snapshot.docs.map(async (userDoc) => {
-                try {
-                    const runsheetSnap = await getDoc(doc(db, 'runsheets', userDoc.id));
-                    if (runsheetSnap.exists()) {
+
+            // Fetch runsheet doc + role doc concurrently per entry
+            const withRoles = (await Promise.all(
+                snapshot.docs.map(async (userDoc) => {
+                    try {
+                        const [runsheetSnap, userRoleSnap] = await Promise.all([
+                            getDoc(doc(db, 'runsheets', userDoc.id)),
+                            getDoc(doc(db, `runsheets/${userDoc.id}/users`, user.email)),
+                        ]);
+                        if (!runsheetSnap.exists()) return null;
                         const data = runsheetSnap.data();
-                        return { id: runsheetSnap.id, ...data, category: data.category || 'active' };
+                        const role = userRoleSnap.exists() ? userRoleSnap.data().role : null;
+                        return { id: runsheetSnap.id, ...data, category: data.category || 'active', isEditor: role === 'editor' || role === 'owner' };
+                    } catch (e) {
+                        console.error('Error fetching runsheet', userDoc.id, e);
+                        return null;
                     }
-                } catch (e) {
-                    console.error("Error fetching runsheet", userDoc.id, e);
-                }
-                return null;
-            });
-
-            const results = await Promise.all(runsheetPromises);
-            const validRunsheets = results.filter(r => r !== null);
-
-            // Fetch user role for each runsheet
-            const withRoles = await Promise.all(validRunsheets.map(async (rs) => {
-                try {
-                    const userRoleSnap = await getDoc(doc(db, `runsheets/${rs.id}/users`, user.email));
-                    const role = userRoleSnap.exists() ? userRoleSnap.data().role : null;
-                    return { ...rs, isEditor: role === 'editor' };
-                } catch {
-                    return { ...rs, isEditor: false };
-                }
-            }));
+                })
+            )).filter(Boolean);
 
             withRoles.sort((a, b) => new Date(a.date) - new Date(b.date));
             setRunsheets(withRoles);
+            
+            // Update cache silently
+            localStorage.setItem(cacheKey, JSON.stringify(withRoles));
+
         } catch (error) {
-            console.error("Error fetching runsheets:", error);
+            console.error('Error fetching runsheets:', error);
         } finally {
             setLoading(false);
         }
@@ -113,7 +130,11 @@ export default function RunsheetList() {
                 const newRunsheet = { name: formData.name, date: formData.date, time: formData.time, orderCount: 0, lastUpdated: moment().format(), category: 'active' };
                 const docRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
                 await setDoc(doc(db, `users/${user.email}/runsheets`, docRef.id), { id: docRef.id });
-                await setDoc(doc(db, `runsheets/${docRef.id}/users`, user.email), { id: user.email, role: 'editor', email: user.email });
+                await setDoc(doc(db, `runsheets/${docRef.id}/users`, user.email), {
+                    id: user.email,
+                    role: 'owner',
+                    email: user.email
+                });
             }
             setMetadataDialog({ open: false, data: null });
             fetchRunsheets();
@@ -130,7 +151,11 @@ export default function RunsheetList() {
             delete newRunsheet.id;
             const newDocRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
             await setDoc(doc(db, `users/${user.email}/runsheets`, newDocRef.id), { id: newDocRef.id });
-            await setDoc(doc(db, `runsheets/${newDocRef.id}/users`, user.email), { id: user.email, role: 'editor', email: user.email });
+            await setDoc(doc(db, `runsheets/${newDocRef.id}/users`, user.email), {
+                id: user.email,
+                role: 'owner',
+                email: user.email
+            });
             const batch = writeBatch(db);
             items.forEach((item) => { batch.set(doc(collection(db, `runsheets/${newDocRef.id}/programme`)), item); });
             await batch.commit();
@@ -144,7 +169,21 @@ export default function RunsheetList() {
             await deleteDoc(doc(db, 'runsheets', deleteDialog.runsheetId));
             setRunsheets(prev => prev.filter(r => r.id !== deleteDialog.runsheetId));
             setDeleteDialog({ open: false, runsheetId: null });
-        } catch (err) { console.error("Error deleting runsheet", err); }
+        } catch (err) { console.error('Error deleting runsheet', err); }
+    };
+
+    // Bug 1: Archive / Unarchive
+    const handleArchiveToggle = async (runsheet) => {
+        const newCategory = runsheet.category === 'archive' ? 'active' : 'archive';
+        // Optimistic update
+        setRunsheets(prev => prev.map(r => r.id === runsheet.id ? { ...r, category: newCategory } : r));
+        try {
+            await updateDoc(doc(db, 'runsheets', runsheet.id), { category: newCategory });
+        } catch (err) {
+            console.error('Error updating category', err);
+            // Rollback on failure
+            setRunsheets(prev => prev.map(r => r.id === runsheet.id ? { ...r, category: runsheet.category } : r));
+        }
     };
 
     // Group runsheets by month
@@ -191,7 +230,7 @@ export default function RunsheetList() {
                 {sortedKeys.map(groupKey => (
                     <div key={groupKey} className="mb-2">
                         {/* Month header */}
-                        <div className="sticky top-[142px] md:top-[150px] z-10 px-4 md:px-0 py-3">
+                        <div className="sticky top-[142px] z-10 px-4 md:px-0 py-3">
                             <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em]">{groupKey}</h2>
                         </div>
                         {/* Cards */}
@@ -276,6 +315,11 @@ export default function RunsheetList() {
                                                     {runsheet.isEditor && (
                                                         <>
                                                             <DropdownMenuSeparator />
+                                                            <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleArchiveToggle(runsheet); }}>
+                                                                <span className="material-symbols-outlined text-base mr-2">{runsheet.category === 'archive' ? 'unarchive' : 'archive'}</span>
+                                                                {runsheet.category === 'archive' ? 'Unarchive' : 'Archive'}
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
                                                             <DropdownMenuItem
                                                                 onClick={(e) => { e.preventDefault(); setDeleteDialog({ open: true, runsheetId: runsheet.id }); }}
                                                                 className="text-destructive focus:text-destructive"
@@ -310,6 +354,11 @@ export default function RunsheetList() {
                                                     </DropdownMenuItem>
                                                     {runsheet.isEditor && (
                                                         <>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleArchiveToggle(runsheet); }}>
+                                                                <span className="material-symbols-outlined text-base mr-2">{runsheet.category === 'archive' ? 'unarchive' : 'archive'}</span>
+                                                                {runsheet.category === 'archive' ? 'Unarchive' : 'Archive'}
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem
                                                                 onClick={(e) => { e.preventDefault(); setDeleteDialog({ open: true, runsheetId: runsheet.id }); }}
@@ -437,9 +486,9 @@ export default function RunsheetList() {
 
                     {/* Header */}
                     <header className="sticky top-0 z-50 glass border-b border-border/30">
-                        <div className="px-4 md:px-6 pt-4 pb-2">
+                        <div className="px-4 md:px-0 pt-4 pb-2">
                             {/* Top bar */}
-                            <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center justify-between mb-4 relative">
                                 {/* Mobile: Hamburger menu */}
                                 <div className="md:hidden">
                                     <DropdownMenu>
@@ -468,6 +517,14 @@ export default function RunsheetList() {
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
+                                </div>
+
+                                {/* Mobile Center: RunsheetPro Branding */}
+                                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:hidden">
+                                    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 dark:bg-primary/15">
+                                        <span className="material-symbols-outlined text-primary text-base icon-filled">event_note</span>
+                                    </div>
+                                    <span className="text-base font-extrabold tracking-tight text-foreground">RunsheetPro</span>
                                 </div>
 
                                 <div className="hidden md:block" />
@@ -561,9 +618,12 @@ export default function RunsheetList() {
                             </div>
                         ) : (
                             <div className="w-full flex-1 flex flex-col">
-                                {activeTab === 'upcoming' && renderRunsheetList(upcomingRunsheets)}
-                                {activeTab === 'past' && renderRunsheetList(pastRunsheets)}
-                                {activeTab === 'archive' && renderRunsheetList(archivedRunsheets)}
+                                {showSearch && searchQuery.trim()
+                                    ? renderRunsheetList(runsheets)
+                                    : activeTab === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
+                                        : activeTab === 'past' ? renderRunsheetList(pastRunsheets)
+                                            : renderRunsheetList(archivedRunsheets)
+                                }
                             </div>
                         )}
                     </main>

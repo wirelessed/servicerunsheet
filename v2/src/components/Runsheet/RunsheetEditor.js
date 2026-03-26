@@ -21,7 +21,7 @@ import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, getDoc } fro
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import ItemDialog from './ItemDialog';
-import ShareDialog from './ShareDialog';
+import ShareTab from './ShareTab';
 import RunsheetMetadataDialog from './RunsheetMetadataDialog';
 import NotesTab from './NotesTab';
 import ConfirmationDialog from '../ConfirmationDialog';
@@ -53,7 +53,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     // Dialogs
     const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
-    const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
     const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false);
     const [deleteItemDialog, setDeleteItemDialog] = useState({ open: false, itemId: null });
 
@@ -79,7 +78,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
             try {
                 const userRef = doc(db, `runsheets/${runsheet.id}/users`, user.email);
                 const userSnap = await getDoc(userRef);
-                if (userSnap.exists() && userSnap.data().role === 'editor') {
+                const role = userSnap.exists() ? userSnap.data().role : null;
+                // owner and editor both count as having edit access
+                if (role === 'editor' || role === 'owner') {
                     setIsEditor(true);
                 } else {
                     setIsEditor(false);
@@ -218,7 +219,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
 
     // ── Mode pill component ──
     const ModePills = ({ className = '' }) => (
-        <div className={`flex items-center gap-1 p-1 rounded-xl bg-muted/80 border border-border/40 shadow-xs ${className}`}>
+        <div className={`flex items-center gap-1 p-1 rounded-xl bg-muted border border-border/40 shadow-xs ${className}`}>
             {isEditor ? (
                 ['view', 'edit', 'ops'].map((m) => (
                     <button
@@ -372,7 +373,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
 
                                                                     {item.remarks && (
                                                                         <div
-                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
+                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
                                                                             dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
                                                                         />
                                                                     )}
@@ -493,8 +494,8 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                         Notes
                     </button>
                     <button
-                        onClick={() => setIsShareDialogOpen(true)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+                        onClick={() => setActiveTab('share')}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'share' ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
                     >
                         <ShareIcon style={{ fontSize: 20 }} />
                         Share
@@ -586,6 +587,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                         </>
                     )}
 
+                    {/* Share tab mobile header */}
+                    {activeTab === 'share' && (
+                        <div className="md:hidden">
+                            {renderMobileHeader()}
+                            <div className="px-5 pt-4 mb-2">
+                                <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+                                    Share {runsheet.name.length > 15 ? runsheet.name.substring(0, 15) + '...' : runsheet.name}
+                                </h1>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'runsheet' ? (
                         <>
                             {renderRunsheetContent()}
@@ -593,6 +606,14 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                     ) : activeTab === 'notes' ? (
                         <div className="page-enter px-4 md:px-0 mt-4 md:mt-0">
                             <NotesTab runsheet={runsheet} isEditor={isEditor} mode={mode} />
+                        </div>
+                    ) : activeTab === 'share' ? (
+                        <div className="page-enter mt-2 md:mt-0">
+                            <ShareTab
+                                runsheetId={runsheet.id}
+                                runsheetName={runsheet.name}
+                                isEditor={isEditor}
+                            />
                         </div>
                     ) : null}
                 </div>
@@ -640,18 +661,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                         <span className="text-[10px] font-bold">Notes</span>
                     </button>
                     <button
-                        onClick={() => setIsShareDialogOpen(true)}
-                        className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-all active:scale-95 group"
+                        onClick={() => setActiveTab('share')}
+                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'share' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <div className="px-5 py-1">
-                            <ShareIcon className="text-[24px] group-hover:-translate-y-0.5 transition-transform" />
+                        <div className={`px-5 py-1 rounded-xl transition-colors ${activeTab === 'share' ? 'bg-primary/10' : ''}`}>
+                            <ShareIcon className={activeTab === 'share' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
                         </div>
                         <span className="text-[10px] font-bold">Share</span>
                     </button>
                 </div>
             </div>
 
-            {/* FAB - Edit Mode */}
+            {/* FAB - Edit Mode: Add item */}
             {mode === 'edit' && activeTab === 'runsheet' && (
                 <div className="fixed bottom-28 right-6 md:right-10 md:bottom-10 z-50">
                     <button
@@ -659,6 +680,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                         className="flex items-center justify-center size-14 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300 active:scale-95 group"
                     >
                         <AddIcon className="text-[28px] group-hover:rotate-90 transition-transform duration-300" />
+                    </button>
+                </div>
+            )}
+
+            {/* FAB - View Mode: Enter edit */}
+            {mode === 'view' && isEditor && activeTab === 'runsheet' && (
+                <div className="fixed bottom-28 right-6 md:right-10 md:bottom-10 z-50">
+                    <button
+                        onClick={() => setMode('edit')}
+                        className="flex items-center justify-center size-14 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300 active:scale-95"
+                    >
+                        <span className="material-symbols-outlined text-[26px]">edit</span>
                     </button>
                 </div>
             )}
@@ -677,12 +710,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                 initialData={runsheet}
             />
 
-            <ShareDialog
-                open={isShareDialogOpen}
-                onClose={() => setIsShareDialogOpen(false)}
-                runsheetId={runsheet.id}
-                runsheetName={runsheet.name}
-            />
+
 
             <ConfirmationDialog
                 open={deleteItemDialog.open}
