@@ -230,7 +230,7 @@ export default function RunsheetList() {
                 {sortedKeys.map(groupKey => (
                     <div key={groupKey} className="mb-2">
                         {/* Month header */}
-                        <div className="sticky top-[142px] z-10 px-4 md:px-0 py-3">
+                        <div className="px-4 md:px-0 py-3">
                             <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em]">{groupKey}</h2>
                         </div>
                         {/* Cards */}
