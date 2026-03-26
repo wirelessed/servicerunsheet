@@ -31,22 +31,20 @@ export default function RunsheetPage() {
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
             if (docSnap.exists()) {
                 setRunsheet({ id: docSnap.id, ...docSnap.data() });
-            } else {
-                setLoading(false); // Only set loading false if we searched and found nothing
             }
+            setLoading(false); // Stop loading as soon as runsheet doc resolves
         });
 
         const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
         const unsubProgramme = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setProgramme(items);
-            if (items.length > 0) setLoading(false); // Found items, stop loading
         });
 
-        // If we haven't found anything after 2 seconds, stop loading to show "Not Found" if runsheet is still null
+        // Failsafe timeout
         const timer = setTimeout(() => {
             setLoading(false);
-        }, 2000);
+        }, 3000);
 
         return () => { unsubRunsheet(); unsubProgramme(); clearTimeout(timer); };
     }, [id]);

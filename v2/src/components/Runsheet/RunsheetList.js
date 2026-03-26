@@ -64,7 +64,7 @@ export default function RunsheetList() {
         const cacheKey = `runsheetsCache_${user.email}`;
         const cachedStr = localStorage.getItem(cacheKey);
         let hasCache = false;
-        
+
         if (cachedStr) {
             try {
                 const cachedData = JSON.parse(cachedStr);
@@ -107,7 +107,7 @@ export default function RunsheetList() {
 
             withRoles.sort((a, b) => new Date(a.date) - new Date(b.date));
             setRunsheets(withRoles);
-            
+
             // Update cache silently
             localStorage.setItem(cacheKey, JSON.stringify(withRoles));
 
@@ -269,7 +269,7 @@ export default function RunsheetList() {
                                                 </div>
 
                                                 {/* Content */}
-                                                <div className="flex-1 min-w-0 pt-1.5 pr-8">
+                                                <div className="flex-1 min-w-0 pr-8">
                                                     <h3 className="text-[15px] font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                                                         {runsheet.name}
                                                     </h3>
