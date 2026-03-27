@@ -136,7 +136,12 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
 
     // Sort: owners first, then editors, then viewers
     const roleOrder = { owner: 0, editor: 1, viewer: 2 };
-    const sortedUsers = [...users].sort((a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3));
+    let displayUsers = [...users].sort((a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3));
+
+    // Viewers should not see other viewers or editors, only owners and themselves
+    if (!canManage) {
+        displayUsers = displayUsers.filter(u => u.role === 'owner' || u.email === user?.email);
+    }
 
     return (
         <>
@@ -216,12 +221,12 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
 
                     {/* Users list */}
                     <div className="space-y-2">
-                        {sortedUsers.length === 0 ? (
+                        {displayUsers.length === 0 ? (
                             <div className="text-center text-sm text-muted-foreground py-6 bg-muted/30 rounded-xl">
                                 No people added yet
                             </div>
                         ) : (
-                            sortedUsers.map((member) => {
+                            displayUsers.map((member) => {
                                 const isOwner = member.role === 'owner';
                                 const isMe = member.email === user?.email;
                                 // Other owners cannot be modified; current user's own row: no X but owns it
