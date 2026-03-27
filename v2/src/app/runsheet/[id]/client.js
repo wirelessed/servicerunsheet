@@ -28,11 +28,17 @@ export default function RunsheetPage() {
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
 
+        let snapshotFired = false;
+
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
             if (docSnap.exists()) {
                 setRunsheet({ id: docSnap.id, ...docSnap.data() });
             }
-            setLoading(false); // Stop loading as soon as runsheet doc resolves
+            // Only stop loading once the snapshot has actually responded
+            if (!snapshotFired) {
+                snapshotFired = true;
+                setLoading(false);
+            }
         });
 
         const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
@@ -44,7 +50,7 @@ export default function RunsheetPage() {
         // Failsafe timeout
         const timer = setTimeout(() => {
             setLoading(false);
-        }, 3000);
+        }, 5000);
 
         return () => { unsubRunsheet(); unsubProgramme(); clearTimeout(timer); };
     }, [id]);
