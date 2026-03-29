@@ -397,9 +397,13 @@ ol.list-node ol.list-node ol.list-node {
   list-style-type: lower-alpha;
 }
 
-/* ── Prevent empty Tiptap lines from collapsing ── */
-.prose p:empty::before,
-p.text-node:empty::before {
-  content: "\00a0";
-  /* Non-breaking space forces line height */
+/* ── Indeterminate progress bar ── */
+@keyframes indeterminate-progress {
+  0% { transform: translateX(-100%) scaleX(0.2); }
+  50% { transform: translateX(0%) scaleX(0.5); }
+  100% { transform: translateX(100%) scaleX(0.2); }
+}
+
+.animate-indeterminate-progress {
+  animation: indeterminate-progress 1.5s infinite linear;
 }

@@ -11,8 +11,11 @@ export default function RunsheetPage() {
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
     const [programme, setProgramme] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [metaLoading, setMetaLoading] = useState(true);
+    const [programmeLoading, setProgrammeLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
 
+    // Resolve the real ID from params or URL
     useEffect(() => {
         let currentId = params?.id;
         if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D') {
@@ -28,45 +31,59 @@ export default function RunsheetPage() {
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
 
-        let snapshotFired = false;
-
+        // ── Phase 1: Runsheet metadata ──
+        let metaSnapshotFired = false;
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
             if (docSnap.exists()) {
                 setRunsheet({ id: docSnap.id, ...docSnap.data() });
+                setNotFound(false);
+            } else if (metaSnapshotFired) {
+                // Only show not-found after first successful resolution (doc deleted)
+                setNotFound(true);
+            } else {
+                setNotFound(true);
             }
-            // Only stop loading once the snapshot has actually responded
-            if (!snapshotFired) {
-                snapshotFired = true;
-                setLoading(false);
+            if (!metaSnapshotFired) {
+                metaSnapshotFired = true;
+                setMetaLoading(false);
             }
         });
 
+        // ── Phase 2: Programme items (independent) ──
+        let programmeSnapshotFired = false;
         const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
         const unsubProgramme = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setProgramme(items);
+            if (!programmeSnapshotFired) {
+                programmeSnapshotFired = true;
+                setProgrammeLoading(false);
+            }
         });
 
-        // Failsafe timeout
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 5000);
+        // Failsafe timeouts
+        const metaTimer = setTimeout(() => setMetaLoading(false), 5000);
+        const progTimer = setTimeout(() => setProgrammeLoading(false), 8000);
 
-        return () => { unsubRunsheet(); unsubProgramme(); clearTimeout(timer); };
+        return () => {
+            unsubRunsheet();
+            unsubProgramme();
+            clearTimeout(metaTimer);
+            clearTimeout(progTimer);
+        };
     }, [id]);
 
-    if (loading) {
+    // Phase 1 loading — show minimal spinner only until metadata arrives
+    if (metaLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
-                <div className="relative">
-                    <div className="w-10 h-10 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
-                </div>
+                <div className="w-10 h-10 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
                 <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading runsheet...</p>
             </div>
         );
     }
 
-    if (!runsheet) {
+    if (notFound || !runsheet) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
@@ -78,5 +95,6 @@ export default function RunsheetPage() {
         );
     }
 
-    return <RunsheetEditor runsheet={runsheet} initialProgramme={programme} />;
+    // Phase 2: Render editor immediately; programme items stream in
+    return <RunsheetEditor runsheet={runsheet} initialProgramme={programme} programmeLoading={programmeLoading} />;
 }

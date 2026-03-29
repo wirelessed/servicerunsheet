@@ -39,7 +39,7 @@ import {
 
 import { useRouter } from 'next/navigation';
 
-export default function RunsheetEditor({ runsheet, initialProgramme }) {
+export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false }) {
     const { user } = useAuth();
     const router = useRouter();
     const [items, setItems] = useState(initialProgramme);
@@ -320,13 +320,14 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
             id: "time", 
             header: "Time", 
             width: 90, 
+            resize: true,
             cell: ({ row }) => {
-                return <div className="font-mono text-[13px] text-muted-foreground h-full flex items-center pl-2">{row.__timeStart} <span className="text-[10px] ml-0.5">{row.__timeAmPm}</span></div>;
+                return <div className="font-mono text-[13px] text-primary font-semibold h-full flex items-center pl-2">{row.__timeStart} <span className="text-[10px] ml-0.5 text-primary/70">{row.__timeAmPm}</span></div>;
             }
         },
-        { id: "text", header: "Item Title", width: 250, editor: "text", flexgrow: 1 },
-        { id: "duration", header: "Duration (m)", width: 100, editor: "text" },
-        { id: "location", header: "Location", width: 150, editor: "text" },
+        { id: "text", header: "Item Title", width: 250, editor: "text", resize: true, flexgrow: 1 },
+        { id: "duration", header: "Duration (m)", width: 100, editor: "text", resize: true },
+        { id: "location", header: "Location", width: 150, editor: "text", resize: true },
         { 
             id: "remarks", 
             header: "Description", 
@@ -398,7 +399,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
     );
 
     const renderAdvancedContent = () => (
-        <main className="flex-1 flex flex-col pt-2 pb-32 relative px-0 page-enter min-h-[500px]">
+        <main className="flex-1 flex flex-col pt-2 pb-32 relative px-0 page-enter">
+             {/* Beta banner */}
+             <div className="mb-3 mx-0.5 flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-muted/60 border border-border/40 text-muted-foreground text-[12px]">
+                 <span className="material-symbols-outlined text-[16px] shrink-0 text-primary/60">info</span>
+                 <span>You&rsquo;re using <span className="font-semibold text-foreground">Advanced Mode</span> — still in beta, so you might spot a bug or two! <span className="hidden sm:inline">Double-click any cell to edit, hit <kbd className="px-1 py-0.5 rounded bg-background border border-border text-[11px] font-mono">Enter</kbd> to save, and drag rows by the handle on the left to reorder.</span></span>
+             </div>
              <style>{`
                  /* Add borders to all Grid cells and highlight active selection for better Excel feel */
                  [role="gridcell"], .wx-grid-cell, .sg-cell {
@@ -709,7 +715,24 @@ export default function RunsheetEditor({ runsheet, initialProgramme }) {
                             )}
 
 
-                            {items.length === 0 && (
+                            {programmeLoading && items.length === 0 && (
+                                <div className="flex flex-col gap-3 px-4 md:px-0 py-4">
+                                    {[1, 2, 3, 4].map(i => (
+                                        <div key={i} className="flex w-full gap-4 animate-pulse">
+                                            <div className="w-[25%] flex flex-col items-end gap-2 pt-3">
+                                                <div className="h-5 w-12 rounded-lg bg-muted"></div>
+                                                <div className="h-4 w-10 rounded-md bg-muted/60"></div>
+                                            </div>
+                                            <div className="flex-1 py-3 pr-4">
+                                                <div className="h-4 w-3/4 rounded-lg bg-muted mb-2"></div>
+                                                <div className="h-3 w-1/2 rounded-md bg-muted/60"></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {!programmeLoading && items.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-24 text-center">
                                     <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-5">
                                         <span className="material-symbols-outlined text-3xl text-muted-foreground">playlist_add</span>
