@@ -43,6 +43,14 @@ export default function RootLayout({ children }) {
             {children}
           </TooltipProvider>
         </AuthContextProvider>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+          window.Userback = window.Userback || { };
+          Userback.access_token = "A-JavE1oVG9a849HKZI9zgIyBkN";
+          (function(d) {
+            var s = d.createElement('script');s.async = true;s.src = 'https://static.userback.io/widget/v1.js';(d.head || d.body).appendChild(s);
+          })(document);
+        ` }} />
       </body>
     </html>
   );
