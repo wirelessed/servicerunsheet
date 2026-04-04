@@ -12,8 +12,8 @@ import ArticleIcon from '@mui/icons-material/Description';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import ShareIcon from '@mui/icons-material/Share';
 import CalendarViewDayIcon from '@mui/icons-material/CalendarViewDay';
-import { Grid, Willow, WillowDark } from '@svar-ui/react-grid';
-import '@svar-ui/react-grid/all.css';
+import dynamic from 'next/dynamic';
+
 import UpdateIcon from '@mui/icons-material/Update';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
@@ -39,7 +39,9 @@ import {
 
 import { useRouter } from 'next/navigation';
 
-export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false }) {
+const AdvancedGrid = dynamic(() => import('./AdvancedGrid'), { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center bg-card rounded-xl border border-border/50 animate-pulse text-muted-foreground"><span className="material-symbols-outlined text-4xl mb-4 p-4 bg-muted rounded-full">grid_on</span></div> });
+
+export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false, isAuthenticated = true }) {
     const { user } = useAuth();
     const router = useRouter();
     const [items, setItems] = useState(initialProgramme);
@@ -49,6 +51,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const [now, setNow] = useState(moment());
     const [clock, setClock] = useState(moment());
     const [isEditor, setIsEditor] = useState(false);
+
+    // Guests (unauthenticated) are always read-only
+    const effectiveIsEditor = isAuthenticated && isEditor;
 
     // UI States
     const [mode, setMode] = useState('view'); // 'view', 'edit', 'ops'
@@ -249,7 +254,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     // ── Mode pill component ──
     const renderModePills = ({ className = '' } = {}) => (
         <div className={`flex items-center gap-1 p-1 rounded-xl bg-muted border border-border/40 shadow-xs ${className}`}>
-            {isEditor ? (
+            {effectiveIsEditor ? (
                 <>
                     {['view', 'edit', 'ops'].map((m) => (
                         <button
@@ -285,173 +290,55 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         </div>
     );
 
-    // ── Advanced Mode Grid ──
-    const [gridApi, setGridApi] = useState(null);
-
-    const handleGridAction = (action, data) => {
-        if (action === "update-cell") {
-            // Note: Svar gives updated field. So data is something like: { id: rowId, column: colId, value: newValue }
-            const { id, column, value } = data;
-            if (id && column) {
-                 quickUpdateItem(id, { [column]: value });
-            }
-        }
-    };
-
-    const gridItems = useMemo(() => items.map(item => ({
-        ...item,
-        __timeStart: timings[item.id] ? timings[item.id].start : '',
-        __timeAmPm: timings[item.id] ? timings[item.id].amPm : ''
-    })), [items, timings]);
-
-    const advancedColumns = [
-        {
-            id: "drag",
-            header: "",
-            width: 40,
-            draggable: true,
-            cell: () => (
-                <div className="flex items-center justify-center w-full h-full cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/50 transition-colors">
-                    <DragHandleIcon style={{ fontSize: 18 }} />
-                </div>
-            )
-        },
-        { 
-            id: "time", 
-            header: "Time", 
-            width: 90, 
-            resize: true,
-            cell: ({ row }) => {
-                return <div className="font-mono text-[13px] text-primary font-semibold h-full flex items-center pl-2">{row.__timeStart} <span className="text-[10px] ml-0.5 text-primary/70">{row.__timeAmPm}</span></div>;
-            }
-        },
-        { id: "text", header: "Item Title", width: 250, editor: "text", resize: true, flexgrow: 1 },
-        { id: "duration", header: "Duration (m)", width: 100, editor: "text", resize: true },
-        { id: "location", header: "Location", width: 150, editor: "text", resize: true },
-        { 
-            id: "remarks", 
-            header: "Description", 
-            flexgrow: 2,
-            cell: ({ row }) => {
-                // strip HTML for preview if it exists
-                const plainText = row.remarks ? row.remarks.replace(/<[^>]+>/g, '') : '';
-                return (
-                    <div 
-                        onClick={(e) => { e.stopPropagation(); setCurrentItem(row); setIsItemDialogOpen(true); }} 
-                        className="flex justify-between items-center w-full h-full group cursor-pointer hover:bg-muted/10 px-2 transition-colors"
-                    >
-                        <span className="truncate mr-2 text-muted-foreground text-[13px]">{plainText || <span className="text-muted-foreground/50 italic">Click to add description...</span>}</span>
-                        <div 
-                            className="p-1 text-muted-foreground hover:text-primary transition-colors bg-background/50 rounded"
-                        >
-                            <span className="material-symbols-outlined text-[16px]">edit_note</span>
-                        </div>
-                    </div>
-                );
-            }
-        },
-        {
-            id: "actions",
-            header: "",
-            width: 50,
-            cell: ({ row }) => (
-                <div className="flex items-center justify-center w-full h-full">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); setDeleteItemDialog({ open: true, itemId: row.id }); }} 
-                        className="p-1 text-muted-foreground hover:text-destructive rounded hover:bg-destructive/10 transition-colors"
-                    >
-                        <DeleteIcon style={{ fontSize: 16 }}/>
-                    </button>
-                </div>
-            )
-        }
-    ];
-
-
-    const renderGrid = () => (
-        <Grid 
-            data={gridItems} 
-            columns={advancedColumns} 
-            rowHeight={48}
-            reorder={true}
-            cellStyle={() => "border-r border-b border-border/30"}
-            init={(api) => {
-                setGridApi(api);
-                api.on("update-cell", (ev) => handleGridAction("update-cell", ev));
-                api.on("move-item", async (ev) => {
-                    if (ev.inProgress) return;
-                    const state = api.getState();
-                    if (state && state.data) {
-                        setTimeout(async () => {
-                            const newOrder = api.getState().data;
-                            setItems(newOrder); 
-                            calculateTimings(newOrder, runsheet.time);
-                            const batch = writeBatch(db);
-                            newOrder.forEach((item, index) => {
-                                batch.update(doc(db, `runsheets/${runsheet.id}/programme`, item.id), { orderCount: index });
-                            });
-                            await batch.commit();
-                        }, 100);
-                    }
-                });
-            }}
-        />
-    );
-
     const renderAdvancedContent = () => (
-        <main className="flex-1 flex flex-col pt-2 pb-32 relative px-0 page-enter">
-             {/* Beta banner */}
-             <div className="mb-3 mx-0.5 flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-muted/60 border border-border/40 text-muted-foreground text-[12px]">
-                 <span className="material-symbols-outlined text-[16px] shrink-0 text-primary/60">info</span>
-                 <span>You&rsquo;re using <span className="font-semibold text-foreground">Advanced Mode</span> — still in beta, so you might spot a bug or two! <span className="hidden sm:inline">Double-click any cell to edit, hit <kbd className="px-1 py-0.5 rounded bg-background border border-border text-[11px] font-mono">Enter</kbd> to save, and drag rows by the handle on the left to reorder.</span></span>
-             </div>
-             <style>{`
-                 /* Add borders to all Grid cells and highlight active selection for better Excel feel */
-                 [role="gridcell"], .wx-grid-cell, .sg-cell {
-                     border-right: 1px solid hsl(var(--border) / 0.4) !important;
-                     border-bottom: 1px solid hsl(var(--border) / 0.4) !important;
-                 }
-                 [role="row"][aria-selected="true"], .wx-grid-row.wx-selected, .sg-row.sg-selected {
-                     background-color: hsl(var(--primary) / 0.05) !important;
-                 }
-                 [role="gridcell"][aria-selected="true"], .wx-grid-cell.wx-selected, .sg-cell.sg-selected, .wx-focus, .sg-focus {
-                     box-shadow: inset 0 0 0 2px hsl(var(--primary)) !important;
-                 }
-             `}</style>
-             <div className="w-full h-full border border-border/50 rounded-xl overflow-hidden shadow-sm bg-card relative">
-                 {theme === 'dark' ? (
-                     <WillowDark>{renderGrid()}</WillowDark>
-                 ) : (
-                     <Willow>{renderGrid()}</Willow>
-                 )}
-                 <div className="absolute bottom-0 left-0 right-0 p-3 bg-muted/30 border-t border-border/50 flex justify-center backdrop-blur-sm shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                     <Button 
-                         variant="outline" 
-                         size="sm" 
-                         className="rounded-full shadow-sm bg-background border-dashed hover:border-primary hover:text-primary transition-colors"
-                         onClick={async () => {
-                             // add a blank row immediately
-                             const tempId = `temp-${Date.now()}`;
-                             const newNode = { id: tempId, text: '', remarks: '', duration: 0, location: '' };
-                             const newItems = [...items, newNode];
-                             setItems(newItems);
-                             calculateTimings(newItems, runsheet.time);
-                             
-                             const { id, ...nodeData } = newNode;
-                             const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), { ...nodeData, orderCount: items.length });
-                             setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i));
-                         }}
-                     >
-                         <AddIcon className="mr-1 text-[16px]" /> Add Row
-                     </Button>
-                 </div>
-             </div>
+        <main className="flex-1 flex flex-col pt-2 relative px-0 page-enter overflow-hidden">
+            {/* Beta banner */}
+            <div className="mb-3 mx-0.5 flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-muted/60 border border-border/40 text-muted-foreground text-[12px]">
+                <span className="material-symbols-outlined text-[16px] shrink-0 text-primary/60">info</span>
+                <span>You&rsquo;re using <span className="font-semibold text-foreground">Advanced Mode</span> — still in beta, so you might spot a bug or two! <span className="hidden sm:inline">Double-click any cell to edit, hit <kbd className="px-1 py-0.5 rounded bg-background border border-border text-[11px] font-mono">Enter</kbd> to save, and drag rows by the handle on the left to reorder.</span></span>
+            </div>
+            
+            <AdvancedGrid
+                items={items}
+                timings={timings}
+                theme={theme}
+                runsheetId={runsheet.id}
+                runsheetTime={runsheet.time}
+                setItems={setItems}
+                calculateTimings={calculateTimings}
+                quickUpdateItem={quickUpdateItem}
+                setCurrentItem={setCurrentItem}
+                setIsItemDialogOpen={setIsItemDialogOpen}
+                setDeleteItemDialog={setDeleteItemDialog}
+            />
+
+                <div className="p-8 flex justify-center">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full shadow-sm bg-background border-dashed hover:border-primary hover:text-primary transition-colors pr-4 py-5"
+                        onClick={async () => {
+                            // add a blank row immediately
+                            const tempId = `temp-${Date.now()}`;
+                            const newNode = { id: tempId, text: '', remarks: '', duration: 0, location: '' };
+                            const newItems = [...items, newNode];
+                            setItems(newItems);
+                            calculateTimings(newItems, runsheet.time);
+
+                            const { id, ...nodeData } = newNode;
+                            const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), { ...nodeData, orderCount: items.length });
+                            setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i));
+                        }}
+                    >
+                        <AddIcon className="mr-1 text-[16px]" /> Add new item
+                    </Button>
+                </div>
         </main>
     );
 
     // ── Mobile header ──
     const renderMobileHeader = () => (
-        <header className="md:hidden sticky top-0 z-50 glass border-b border-border/30 px-3 pt-3 pb-2">
+        <header className="md:hidden sticky top-0 z-50 bg-background border-b border-border/30 px-3 pt-3 pb-2">
             <div className="flex items-center justify-between">
                 <button
                     onClick={() => router.back()}
@@ -462,23 +349,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                 {renderModePills()}
 
-                {isEditor ? (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button className="flex size-10 items-center justify-center rounded-xl hover:bg-muted text-muted-foreground transition-all active:scale-95">
-                                <MoreVertIcon style={{ fontSize: 20 }} />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setIsMetadataDialogOpen(true)}>
-                                <span className="material-symbols-outlined text-base mr-2">edit</span>
-                                Edit Details
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                ) : (
-                    <div className="size-10" />
-                )}
+                <div className="size-10" />
             </div>
         </header>
     );
@@ -675,15 +546,15 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                     const lastItem = items[items.length - 1];
                                     const lastTiming = timings[lastItem.id];
                                     const origLastTiming = originalTimings[lastItem.id] || lastTiming;
-                                    
+
                                     if (lastTiming && lastTiming.obj) {
                                         const duration = parseInt(lastItem.duration) || 0;
                                         const origDuration = lastItem.originalDuration !== undefined ? parseInt(lastItem.originalDuration) : duration;
-                                        
+
                                         const currentEndTime = lastTiming.obj.clone().add(duration, 'minutes');
                                         const origEndTime = origLastTiming.obj ? origLastTiming.obj.clone().add(origDuration, 'minutes') : null;
                                         const endDiffMinutes = origEndTime ? currentEndTime.diff(origEndTime, 'minutes') : 0;
-                                        
+
                                         return (
                                             <div className="flex flex-col w-full mt-4 mb-8 z-10 relative items-center justify-center gap-2">
                                                 <div className="px-4 py-2 rounded-full bg-muted/50 border border-border/50 shadow-sm flex items-center gap-2">
@@ -756,7 +627,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             <div className="flex flex-col gap-1 px-3">
                 {/* Back */}
                 <button
-                    onClick={() => router.push('/')}
+                    onClick={() => router.back()}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all mb-1"
                 >
                     <ArrowBackIcon style={{ fontSize: 14 }} />
@@ -834,8 +705,8 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
             {renderDesktopSidebar()}
 
-            <div className="flex-1 flex flex-col h-screen overflow-y-auto relative w-full scrollbar-thin">
-            <div className={`w-full mx-auto flex-1 flex flex-col min-h-full pb-32 md:pb-12 md:pt-6 md:px-6 transition-all duration-300 ${mode === 'advanced' ? 'max-w-[1400px]' : 'max-w-3xl'}`}>
+            <div className={`flex-1 flex flex-col h-screen relative w-full scrollbar-thin ${mode === 'advanced' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                <div className={`w-full mx-auto flex-1 flex flex-col pb-32 md:pb-12 md:pt-6 md:px-6 transition-all duration-300 ${mode === 'advanced' ? 'max-w-[1400px] h-full overflow-hidden' : 'max-w-3xl min-h-full'}`}>
 
                     {/* Common Headers */}
                     {(activeTab === 'runsheet' || activeTab === 'notes') && (
@@ -845,7 +716,17 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                             {/* Mobile runsheet info */}
                             <div className="md:hidden flex flex-col gap-1 px-5 pt-4 mb-4 page-enter">
-                                <h1 className="text-[26px] leading-snug font-extrabold tracking-tight text-foreground line-clamp-2">{runsheet.name}</h1>
+                                <div className="flex items-start justify-between gap-3">
+                                    <h1 className="text-[26px] leading-snug font-extrabold tracking-tight text-foreground line-clamp-2">{runsheet.name}</h1>
+                                    {effectiveIsEditor && (
+                                        <button 
+                                            onClick={() => setIsMetadataDialogOpen(true)}
+                                            className="mt-1 shrink-0 flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                                     <div className="flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-lg">
                                         <CalendarTodayIcon style={{ fontSize: 14 }} className="text-muted-foreground" />
@@ -876,7 +757,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                             {items.length} items
                                         </div>
                                     </div>
-                                    {isEditor && (
+                                    {effectiveIsEditor && (
                                         <Button variant="outline" size="sm" onClick={() => setIsMetadataDialogOpen(true)} className="rounded-xl">
                                             <span className="material-symbols-outlined text-sm mr-1.5">edit</span>
                                             Edit Details
@@ -912,20 +793,20 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             {/* Fallback for mobile if they somehow get into advanced mode */}
                             {mode === 'advanced' && (
                                 <div className="md:hidden">
-                                     {renderRunsheetContent()}
+                                    {renderRunsheetContent()}
                                 </div>
                             )}
                         </>
                     ) : activeTab === 'notes' ? (
                         <div className="page-enter px-4 md:px-0 mt-4 md:mt-0">
-                            <NotesTab runsheet={runsheet} isEditor={isEditor} mode={mode} />
+                            <NotesTab runsheet={runsheet} isEditor={effectiveIsEditor} mode={mode} />
                         </div>
                     ) : activeTab === 'share' ? (
                         <div className="page-enter mt-2 md:mt-0">
                             <ShareTab
                                 runsheetId={runsheet.id}
                                 runsheetName={runsheet.name}
-                                isEditor={isEditor}
+                                isEditor={effectiveIsEditor}
                             />
                         </div>
                     ) : null}
@@ -933,10 +814,10 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             </div>
 
             {/* ── Bottom Dock - Mobile Only ── */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass border-t border-border/30 pb-8 pt-3 px-6 shadow-xl">
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border/30 pb-8 pt-3 px-6 shadow-xl">
                 {/* Ops Mode Controls */}
                 {mode === 'ops' && (
-                    <div className="absolute bottom-full left-0 right-0 p-4 glass border-t border-border/30 flex items-center justify-center shadow-lg animate-in slide-in-from-bottom-3 md:hidden">
+                    <div className="absolute bottom-full left-0 right-0 p-4 bg-background border-t border-border/30 flex items-center justify-center shadow-lg animate-in slide-in-from-bottom-3 md:hidden">
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">Current Time</span>
                             <div className="text-3xl font-mono font-bold text-foreground leading-none tracking-tight">
@@ -990,7 +871,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             )}
 
             {/* FAB - View Mode: Enter edit */}
-            {mode === 'view' && isEditor && activeTab === 'runsheet' && (
+            {mode === 'view' && effectiveIsEditor && activeTab === 'runsheet' && (
                 <div className="fixed bottom-28 right-6 md:right-10 md:bottom-10 z-50">
                     <button
                         onClick={() => setMode('edit')}

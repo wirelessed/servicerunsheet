@@ -16,7 +16,8 @@ export default function ConfirmationDialog({
     title,
     message,
     confirmText = 'Confirm',
-    confirmStyle = 'default'
+    confirmStyle = 'default',
+    isLoading = false
 }) {
     const variant = confirmStyle === 'btn-error' || confirmStyle === 'destructive' ? 'destructive' : 'default';
 
@@ -38,7 +39,10 @@ export default function ConfirmationDialog({
                 </DialogHeader>
                 <DialogFooter className="gap-2 pt-2">
                     <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>
-                    <Button variant={variant} onClick={onConfirm} className="rounded-xl shadow-sm">
+                    <Button variant={variant} onClick={onConfirm} className="rounded-xl shadow-sm" disabled={isLoading}>
+                        {isLoading ? (
+                            <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin mr-2"></div>
+                        ) : null}
                         {confirmText}
                     </Button>
                 </DialogFooter>

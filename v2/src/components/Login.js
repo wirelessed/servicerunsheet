@@ -62,7 +62,7 @@ export default function Login() {
 
                 {/* Footer */}
                 <p className="text-center text-[11px] text-muted-foreground/60 mt-8">
-                    © 2026 RunsheetPro • Built for event teams
+                    © 2026 RunsheetPro • Built for production teams
                 </p>
             </div>
         </div>

@@ -170,7 +170,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
                     <Button
                         onClick={handleShareWhatsApp}
                         variant="outline"
-                        className="w-full rounded-xl gap-2 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                        className="w-full rounded-xl gap-2 bg-muted border text-emerald-700 hover:bg-muted/80 border-emerald-700/20 dark:bg-transparent dark:text-[#25D366] dark:border-[#25D366]/30 dark:hover:bg-[#25D366]/10"
                     >
                         <WhatsAppIcon className="h-4 w-4" />
                         Share via WhatsApp
@@ -178,7 +178,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
                     <Button
                         onClick={handleExportPDF}
                         variant="outline"
-                        className="w-full rounded-xl gap-2 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary"
+                        className="w-full rounded-xl gap-2 bg-muted border text-foreground hover:bg-muted/80 border-border dark:bg-transparent dark:text-primary dark:border-primary/30 dark:hover:bg-primary/10"
                     >
                         <PrintIcon className="h-4 w-4" />
                         Export as PDF

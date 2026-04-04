@@ -5,8 +5,10 @@ import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import moment from 'moment';
-import RunsheetMetadataDialog from './RunsheetMetadataDialog';
-import ConfirmationDialog from '../ConfirmationDialog';
+import dynamic from 'next/dynamic';
+
+const RunsheetMetadataDialog = dynamic(() => import('./RunsheetMetadataDialog'), { ssr: false });
+const ConfirmationDialog = dynamic(() => import('../ConfirmationDialog'), { ssr: false });
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -16,17 +18,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import GroupDialog from './GroupDialog';
+import { useRouter } from 'next/navigation';
 
-export default function RunsheetList() {
+const GroupDialog = dynamic(() => import('./GroupDialog'), { ssr: false });
+const ShareGroupDialog = dynamic(() => import('./ShareGroupDialog'), { ssr: false });
+
+
+export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const { user, logOut } = useAuth();
+    const router = useRouter();
     const [runsheets, setRunsheets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [theme, setTheme] = useState('dark');
 
-    // Tab/Filter State
-    const [activeFilter, setActiveFilter] = useState('upcoming'); // 'upcoming' | 'past' | 'archive' | groupId
+    // Tab/Filter State — driven by URL via initialFilter prop
+    const [activeFilter, setActiveFilter] = useState(initialFilter); // 'upcoming' | 'past' | 'archive' | groupId
     const [groups, setGroups] = useState([]); // Array of { id, name } derived from runsheets
 
     // Sort order
@@ -37,12 +44,22 @@ export default function RunsheetList() {
     const [metadataDialog, setMetadataDialog] = useState({ open: false, data: null });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, runsheetId: null });
     const [groupDialog, setGroupDialog] = useState({ open: false, runsheet: null });
+    const [shareGroupDialog, setShareGroupDialog] = useState({ open: false, group: null });
 
     // Update default sort order when filter changes
     useEffect(() => {
         const isDesc = activeFilter === 'past' || activeFilter === 'archive';
         setSortOrder(isDesc ? 'desc' : 'asc');
     }, [activeFilter]);
+
+    // Navigate to filter: update state + push URL so browser Back works correctly
+    const navigateToFilter = (filter) => {
+        setActiveFilter(filter);
+        if (filter === 'upcoming') router.replace('/upcoming');
+        else if (filter === 'past') router.replace('/past');
+        else if (filter === 'archive') router.replace('/archive');
+        else router.replace(`/group/${filter}`);
+    };
 
     useEffect(() => {
         const storedTheme = localStorage.getItem('theme');
@@ -185,6 +202,8 @@ export default function RunsheetList() {
             throw err;
         }
     };
+
+
 
     const handleSetGroup = async (runsheetId, groupId) => {
         try {
@@ -360,7 +379,7 @@ export default function RunsheetList() {
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
-                                                                    setActiveFilter(runsheet.groupId);
+                                                                    navigateToFilter(runsheet.groupId);
                                                                 }}
                                                                 className="px-1.5 py-0.5 rounded-sm bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase transition-colors whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]"
                                                                 title={`Go to group: ${groups.find(g => g.id === runsheet.groupId)?.name || 'Group'}`}
@@ -461,7 +480,7 @@ export default function RunsheetList() {
     const archivedRunsheets = runsheets.filter(r => r.category === 'archive');
 
     const groupRunsheetsList = activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive'
-        ? runsheets.filter(r => r.groupId === activeFilter && r.category !== 'archive' && (moment(r.date).isSameOrAfter(today) || moment(r.date).isAfter(moment().subtract(7, 'days'))))
+        ? runsheets.filter(r => r.groupId === activeFilter && r.category !== 'archive')
         : [];
 
     const tabCounts = {
@@ -488,7 +507,7 @@ export default function RunsheetList() {
                     {/* Nav items: Upcoming */}
                     <div className="flex flex-col gap-0.5">
                         <button
-                            onClick={() => setActiveFilter('upcoming')}
+                            onClick={() => navigateToFilter('upcoming')}
                             className={`
                                 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
                                 ${activeFilter === 'upcoming'
@@ -509,7 +528,7 @@ export default function RunsheetList() {
                             {groups.map(group => (
                                 <button
                                     key={group.id}
-                                    onClick={() => setActiveFilter(group.id)}
+                                    onClick={() => navigateToFilter(group.id)}
                                     className={`
                                         flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
                                         ${activeFilter === group.id
@@ -538,7 +557,7 @@ export default function RunsheetList() {
                         ].map(tab => (
                             <button
                                 key={tab.key}
-                                onClick={() => setActiveFilter(tab.key)}
+                                onClick={() => navigateToFilter(tab.key)}
                                 className={`
                                     flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
                                     ${activeFilter === tab.key
@@ -601,7 +620,7 @@ export default function RunsheetList() {
                 <div className="w-full max-w-5xl mx-auto pb-28 md:pb-12 relative">
 
                     {/* Header */}
-                    <header className="sticky top-0 z-50 glass border-b border-border/30 md:pl-8 md:pr-8">
+                    <header className="sticky top-0 z-50 bg-background border-b border-border/30 md:pl-8 md:pr-8">
                         <div className="px-4 md:px-0 pt-4 pb-2">
                             {/* Top bar */}
                             <div className="flex items-center justify-between mb-4 relative">
@@ -703,7 +722,7 @@ export default function RunsheetList() {
                         <div className="md:hidden px-4 pb-3 overflow-x-auto scrollbar-hide">
                             <div className="flex items-center gap-1.5 w-max">
                                 <button
-                                    onClick={() => setActiveFilter('upcoming')}
+                                    onClick={() => navigateToFilter('upcoming')}
                                     className={`
                                         px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
                                         ${activeFilter === 'upcoming'
@@ -717,7 +736,7 @@ export default function RunsheetList() {
                                 {groups.map(group => (
                                     <button
                                         key={group.id}
-                                        onClick={() => setActiveFilter(group.id)}
+                                        onClick={() => navigateToFilter(group.id)}
                                         className={`
                                             px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
                                             ${activeFilter === group.id
@@ -737,7 +756,7 @@ export default function RunsheetList() {
                                 {['past', 'archive'].map((tab) => (
                                     <button
                                         key={tab}
-                                        onClick={() => setActiveFilter(tab)}
+                                        onClick={() => navigateToFilter(tab)}
                                         className={`
                                             px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
                                             ${activeFilter === tab
@@ -773,6 +792,22 @@ export default function RunsheetList() {
                                 }
                             </div>
                         )}
+                        {/* Share Group button — shown at bottom when viewing a group the user owns */}
+                        {!loading && activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive' && (() => {
+                            const activeGroup = groups.find(g => g.id === activeFilter);
+                            if (!activeGroup) return null;
+                            return (
+                                <div className="flex justify-center py-6 md:pl-8 md:pr-8">
+                                    <button
+                                        onClick={() => setShareGroupDialog({ open: true, group: activeGroup })}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted/60 hover:bg-primary/10 border border-border/40 hover:border-primary/30 text-muted-foreground hover:text-primary text-sm font-semibold transition-all"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">share</span>
+                                        Share Group
+                                    </button>
+                                </div>
+                            );
+                        })()}
                     </main>
 
                     {/* FAB */}
@@ -799,6 +834,7 @@ export default function RunsheetList() {
                         message="Are you sure you want to delete this runsheet? This action cannot be undone."
                         confirmText="Delete"
                         confirmStyle="destructive"
+                        isLoading={isSyncing}
                     />
 
                     <GroupDialog
@@ -808,6 +844,12 @@ export default function RunsheetList() {
                         onSetGroup={(groupId) => handleSetGroup(groupDialog.runsheet?.id, groupId)}
                         onCreateGroup={handleCreateGroup}
                         currentGroupId={groupDialog.runsheet?.groupId}
+                    />
+
+                    <ShareGroupDialog
+                        open={shareGroupDialog.open}
+                        onClose={() => setShareGroupDialog({ open: false, group: null })}
+                        group={shareGroupDialog.group}
                     />
                 </div>
             </div>

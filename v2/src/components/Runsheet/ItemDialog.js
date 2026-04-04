@@ -11,7 +11,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MinimalTiptapEditor } from "@/components/ui/minimal-tiptap/minimal-tiptap";
+import dynamic from 'next/dynamic';
+
+const MinimalTiptapEditor = dynamic(
+    () => import('@/components/ui/minimal-tiptap/minimal-tiptap').then(mod => mod.MinimalTiptapEditor),
+    { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded-md w-full" /> }
+);
 
 
 export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
@@ -31,15 +36,6 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
             <DialogContent className="sm:max-w-[700px] w-full h-[100dvh] sm:h-auto !rounded-none sm:!rounded-2xl border-0 sm:border p-0 sm:p-6 flex flex-col gap-0 [&>button.absolute]:hidden sm:[&>button.absolute]:flex max-h-[100dvh] overflow-hidden">
-                {/* Mobile Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b sm:hidden bg-card z-10 shrink-0">
-                    <button onClick={onClose} className="flex p-2 -ml-2 text-muted-foreground hover:text-foreground items-center justify-center transition-colors">
-                        <span className="material-symbols-outlined text-2xl">close</span>
-                    </button>
-                    <span className="font-bold text-base">{initialData ? 'Edit Item' : 'Add Item'}</span>
-                    <Button onClick={handleSubmit} size="sm" className="h-8 rounded-full px-4 text-xs font-semibold shadow-none">Save</Button>
-                </div>
-
                 {/* Desktop Header */}
                 <DialogHeader className="hidden sm:block shrink-0">
                     <DialogTitle className="flex items-center gap-2">
@@ -52,7 +48,16 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
                 </DialogHeader>
 
                 {/* Form Content */}
-                <div className="flex-1 overflow-y-auto w-full min-h-0">
+                <div className="flex-1 overflow-y-auto w-full min-h-0 relative">
+                    {/* Mobile Header (Sticky) */}
+                    <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b sm:hidden bg-card z-50">
+                        <button onClick={onClose} className="flex p-2 -ml-2 text-muted-foreground hover:text-foreground items-center justify-center transition-colors">
+                            <span className="material-symbols-outlined text-2xl">close</span>
+                        </button>
+                        <span className="font-bold text-base">{initialData ? 'Edit Item' : 'Add Item'}</span>
+                        <Button onClick={handleSubmit} size="sm" className="h-8 rounded-full px-4 text-xs font-semibold shadow-none">Save</Button>
+                    </div>
+
                     <div className="grid gap-4 p-4 sm:p-0 sm:py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="text" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Item Title</Label>

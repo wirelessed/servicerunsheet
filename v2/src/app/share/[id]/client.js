@@ -1,19 +1,23 @@
 'use client';
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { useAuth } from '../../../context/AuthContext';
+import LoginBanner from '../../../components/LoginBanner';
 import moment from 'moment';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 export default function SharePage() {
     const params = useParams();
+    const { user } = useAuth();
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
     const [programme, setProgramme] = useState([]);
     const [loading, setLoading] = useState(true);
     const [timings, setTimings] = useState({});
+    const [enrolled, setEnrolled] = useState(false);
 
     useEffect(() => {
         let currentId = params?.id;
@@ -56,6 +60,22 @@ export default function SharePage() {
                     });
                     setTimings(newTimings);
                     setProgramme(items);
+
+                    // Auto-enroll logged-in user as viewer
+                    if (user?.email) {
+                        try {
+                            const userRoleRef = doc(db, `runsheets/${id}/users`, user.email);
+                            const existing = await getDoc(userRoleRef);
+                            if (!existing.exists()) {
+                                await setDoc(userRoleRef, { role: 'viewer', email: user.email, id: user.email });
+                                await setDoc(doc(db, `users/${user.email}/runsheets`, id), { id });
+                                setEnrolled(true);
+                            }
+                        } catch (e) {
+                            console.error('Error auto-enrolling user', e);
+                        }
+                    }
+
                     setLoading(false);
                 } else {
                     setLoading(false);
@@ -94,7 +114,15 @@ export default function SharePage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-muted/30">
+            {!user && <LoginBanner message="Log in to save this runsheet" />}
             <div className="container mx-auto px-4 mt-12 mb-20 max-w-4xl">
+                {/* Enrolled badge */}
+                {enrolled && (
+                    <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold">
+                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                        Saved to your runsheet list!
+                    </div>
+                )}
                 <div className="mb-12 text-center space-y-2">
                     <h1 className="text-5xl font-extrabold tracking-tighter">{runsheet.name}</h1>
                     <p className="text-xl text-muted-foreground font-semibold">

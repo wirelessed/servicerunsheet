@@ -3,11 +3,13 @@ import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-
+import { useAuth } from '../../../context/AuthContext';
+import LoginBanner from '../../../components/LoginBanner';
 import RunsheetEditor from '../../../components/Runsheet/RunsheetEditor';
 
 export default function RunsheetPage() {
     const params = useParams();
+    const { user, loading: authLoading } = useAuth();
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
     const [programme, setProgramme] = useState([]);
@@ -33,15 +35,20 @@ export default function RunsheetPage() {
 
         // ── Phase 1: Runsheet metadata ──
         let metaSnapshotFired = false;
+        let notFoundTimer = null;
+        
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
             if (docSnap.exists()) {
+                if (notFoundTimer) clearTimeout(notFoundTimer);
                 setRunsheet({ id: docSnap.id, ...docSnap.data() });
                 setNotFound(false);
             } else if (metaSnapshotFired) {
                 // Only show not-found after first successful resolution (doc deleted)
                 setNotFound(true);
             } else {
-                setNotFound(true);
+                notFoundTimer = setTimeout(() => {
+                    setNotFound(true);
+                }, 1000);
             }
             if (!metaSnapshotFired) {
                 metaSnapshotFired = true;
@@ -68,6 +75,7 @@ export default function RunsheetPage() {
         return () => {
             unsubRunsheet();
             unsubProgramme();
+            if (notFoundTimer) clearTimeout(notFoundTimer);
             clearTimeout(metaTimer);
             clearTimeout(progTimer);
         };
@@ -96,5 +104,15 @@ export default function RunsheetPage() {
     }
 
     // Phase 2: Render editor immediately; programme items stream in
-    return <RunsheetEditor runsheet={runsheet} initialProgramme={programme} programmeLoading={programmeLoading} />;
+    return (
+        <>
+            {!authLoading && !user && <LoginBanner />}
+            <RunsheetEditor
+                runsheet={runsheet}
+                initialProgramme={programme}
+                programmeLoading={programmeLoading}
+                isAuthenticated={!!user}
+            />
+        </>
+    );
 }
