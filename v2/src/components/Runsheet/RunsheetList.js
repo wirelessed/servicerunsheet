@@ -36,6 +36,12 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [activeFilter, setActiveFilter] = useState(initialFilter); // 'upcoming' | 'past' | 'archive' | groupId
     const [groups, setGroups] = useState([]); // Array of { id, name } derived from runsheets
 
+    useEffect(() => {
+        if (initialFilter && initialFilter !== activeFilter) {
+            setActiveFilter(initialFilter);
+        }
+    }, [initialFilter]);
+
     // Sort order
     const [sortOrder, setSortOrder] = useState('asc');
     const [showSearch, setShowSearch] = useState(false);

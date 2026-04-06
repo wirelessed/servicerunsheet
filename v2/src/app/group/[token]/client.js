@@ -29,7 +29,15 @@ export default function GroupPageClient() {
 
     // ── LOGGED-IN: render the full dashboard filtered to this group ──
     if (!authLoading && user) {
-        return <RunsheetList initialFilter={id || 'upcoming'} />;
+        // Wait until id is resolved to prevent RunsheetList from initializing with 'upcoming'
+        if (!id) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            );
+        }
+        return <RunsheetList initialFilter={id} />;
     }
 
     // ── LOGGED-OUT: public group listing ──
@@ -43,6 +51,27 @@ function PublicGroupView({ id, authLoading }) {
 
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[token]' || authLoading) return;
+
+        const cacheKeyGroup = `public_group_${id}`;
+        const cacheKeyRunsheets = `public_group_runsheets_${id}`;
+        
+        let hasCache = false;
+        try {
+            const cachedGroup = localStorage.getItem(cacheKeyGroup);
+            const cachedRunsheets = localStorage.getItem(cacheKeyRunsheets);
+            if (cachedGroup && cachedRunsheets) {
+                setGroup(JSON.parse(cachedGroup));
+                setRunsheets(JSON.parse(cachedRunsheets));
+                setLoading(false);
+                hasCache = true;
+            }
+        } catch (e) {
+            console.error('Failed to parse public group cache', e);
+        }
+
+        if (!hasCache) {
+            setLoading(true);
+        }
 
         const fetchData = async () => {
             try {
@@ -59,13 +88,16 @@ function PublicGroupView({ id, authLoading }) {
                     if (!groupSnap.exists()) { setLoading(false); return; }
                 }
 
-                setGroup({ id: groupId, ...groupSnap.data() });
+                const groupData = { id: groupId, ...groupSnap.data() };
+                setGroup(groupData);
+                localStorage.setItem(cacheKeyGroup, JSON.stringify(groupData));
 
                 const rsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
                 const rsSnap = await getDocs(rsQuery);
                 const rsData = rsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                 rsData.sort((a, b) => new Date(a.date) - new Date(b.date));
                 setRunsheets(rsData);
+                localStorage.setItem(cacheKeyRunsheets, JSON.stringify(rsData));
             } catch (err) {
                 console.error('Error loading public group page', err);
             } finally {
@@ -165,6 +197,14 @@ function PublicGroupView({ id, authLoading }) {
                     ))}
                 </div>
             </div>
+
+            {/* Footer */}
+            <footer className="mt-auto py-8 text-center border-t border-border/10">
+                <Link href="/" className="inline-flex items-center gap-1.5 text-muted-foreground/40 hover:text-primary/60 transition-colors group">
+                    <span className="text-[11px] font-bold tracking-widest uppercase">Powered by</span>
+                    <span className="text-[13px] font-black tracking-tighter">RunsheetPro</span>
+                </Link>
+            </footer>
         </div>
     );
 }
