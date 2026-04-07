@@ -13,8 +13,19 @@ export default function GroupPageClient() {
     const params = useParams();
     const { user, loading: authLoading } = useAuth();
 
-    // Resolve id/token from params or URL path
-    const [id, setId] = useState(null);
+    const [id, setId] = useState(() => {
+        // Try to resolve ID synchronously from path to prevent initial flicker
+        if (typeof window !== 'undefined') {
+            const segments = window.location.pathname.split('/');
+            const groupIndex = segments.indexOf('group');
+            if (groupIndex !== -1 && segments.length > groupIndex + 1) {
+                const t = segments[groupIndex + 1];
+                if (t && t !== 'fallback' && t !== '[token]') return t;
+            }
+        }
+        return params?.token || null;
+    });
+
     useEffect(() => {
         let t = params?.token;
         if (!t || t === 'fallback' || t === '[token]' || t === '%5Btoken%5D') {
@@ -24,20 +35,28 @@ export default function GroupPageClient() {
                 t = segments[groupIndex + 1];
             }
         }
-        setId(t);
-    }, [params]);
+        
+        if (!t || t === 'fallback' || t === '[token]') return;
+
+        const resolveToken = async () => {
+            // Only need to resolve if it's not already a direct groupId
+            // We'll check if we actually have it in our Firestore to be safe
+            // but we won't block the UI for it
+            const tokenDoc = await getDoc(doc(db, 'groupTokens', t));
+            if (tokenDoc.exists()) {
+                const groupId = tokenDoc.data().groupId;
+                if (groupId !== id) setId(groupId);
+            }
+        };
+
+        resolveToken();
+    }, [params, id]);
 
     // ── LOGGED-IN: render the full dashboard filtered to this group ──
     if (!authLoading && user) {
-        // Wait until id is resolved to prevent RunsheetList from initializing with 'upcoming'
-        if (!id) {
-            return (
-                <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                </div>
-            );
-        }
-        return <RunsheetList initialFilter={id} />;
+        // Use a fallback or current id instantly to prevent "blank screen"
+        const currentId = id || params?.token;
+        return <RunsheetList initialFilter={currentId} />;
     }
 
     // ── LOGGED-OUT: public group listing ──

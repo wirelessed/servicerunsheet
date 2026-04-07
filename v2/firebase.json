@@ -20,6 +20,10 @@
       {
         "source": "/share/*",
         "destination": "/share/fallback.html"
+      },
+      {
+        "source": "/group/*",
+        "destination": "/group/fallback.html"
       }
     ]
   }

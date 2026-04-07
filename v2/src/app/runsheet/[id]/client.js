@@ -1,7 +1,7 @@
 'use client';
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
 import LoginBanner from '../../../components/LoginBanner';
@@ -80,6 +80,44 @@ export default function RunsheetPage() {
             clearTimeout(progTimer);
         };
     }, [id]);
+
+    // ── Phase 3: Automatic Access ──
+    useEffect(() => {
+        if (!id || id === 'fallback' || !user?.email || !runsheet) return;
+
+        const grantViewerAccess = async () => {
+            try {
+                const userRsRef = doc(db, `users/${user.email}/runsheets`, id);
+                const rsUserRef = doc(db, `runsheets/${id}/users`, user.email);
+
+                const [userSnap, rsUserSnap] = await Promise.all([
+                    getDoc(userRsRef),
+                    getDoc(rsUserRef)
+                ]);
+
+                // If user doesn't have the runsheet in their list, or doesn't have a role assigned
+                if (!userSnap.exists() || !rsUserSnap.exists()) {
+                    const batch = writeBatch(db);
+                    batch.set(userRsRef, { id });
+                    
+                    // Only assign 'viewer' if they don't have ANY role yet
+                    if (!rsUserSnap.exists()) {
+                        batch.set(rsUserRef, {
+                            id: user.email,
+                            email: user.email,
+                            role: 'viewer',
+                            addedAt: new Date().toISOString()
+                        });
+                    }
+                    await batch.commit();
+                }
+            } catch (err) {
+                console.error("Error granting viewer access:", err);
+            }
+        };
+
+        grantViewerAccess();
+    }, [id, user, runsheet]);
 
     // Phase 1 loading — show minimal spinner only until metadata arrives
     if (metaLoading) {

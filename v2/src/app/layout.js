@@ -1,4 +1,5 @@
 import { AuthContextProvider } from "../context/AuthContext";
+import { DashboardContextProvider } from "../context/DashboardContext";
 import "./globals.css";
 import { Manrope } from 'next/font/google';
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,9 +40,11 @@ export default function RootLayout({ children }) {
       </head>
       <body className="font-manrope">
         <AuthContextProvider>
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
+          <DashboardContextProvider>
+            <TooltipProvider>
+              {children}
+            </TooltipProvider>
+          </DashboardContextProvider>
         </AuthContextProvider>
         <script dangerouslySetInnerHTML={{
           __html: `

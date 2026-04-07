@@ -24,23 +24,28 @@ const GroupDialog = dynamic(() => import('./GroupDialog'), { ssr: false });
 const ShareGroupDialog = dynamic(() => import('./ShareGroupDialog'), { ssr: false });
 
 
+import { useDashboard } from '../../context/DashboardContext';
+
 export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const { user, logOut } = useAuth();
     const router = useRouter();
-    const [runsheets, setRunsheets] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [isSyncing, setIsSyncing] = useState(false);
+    const { 
+        runsheets, setRunsheets, 
+        groups, setGroups, 
+        loading, setLoading, 
+        isSyncing, setIsSyncing, 
+        activeFilter, setActiveFilter,
+        refresh
+    } = useDashboard();
+
     const [theme, setTheme] = useState('dark');
 
-    // Tab/Filter State — driven by URL via initialFilter prop
-    const [activeFilter, setActiveFilter] = useState(initialFilter); // 'upcoming' | 'past' | 'archive' | groupId
-    const [groups, setGroups] = useState([]); // Array of { id, name } derived from runsheets
-
+    // Sync initialFilter prop to context once on mount or if prop changes
     useEffect(() => {
         if (initialFilter && initialFilter !== activeFilter) {
             setActiveFilter(initialFilter);
         }
-    }, [initialFilter]);
+    }, [initialFilter, activeFilter, setActiveFilter]);
 
     // Sort order
     const [sortOrder, setSortOrder] = useState('asc');
@@ -58,9 +63,10 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         setSortOrder(isDesc ? 'desc' : 'asc');
     }, [activeFilter]);
 
-    // Navigate to filter: update state + push URL so browser Back works correctly
+    // Navigate to filter: only push URL, don't update state manually here to prevent double hits
     const navigateToFilter = (filter) => {
-        setActiveFilter(filter);
+        if (filter === activeFilter) return;
+        
         if (filter === 'upcoming') router.replace('/upcoming');
         else if (filter === 'past') router.replace('/past');
         else if (filter === 'archive') router.replace('/archive');
@@ -85,90 +91,6 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
     };
 
-    const fetchRunsheets = async () => {
-        if (!user || !user.email) return;
-
-        // Instant load from cache (stale-while-revalidate)
-        const cacheKey = `runsheetsCache_${user.email}`;
-        const cachedStr = localStorage.getItem(cacheKey);
-        let hasCache = false;
-
-        if (cachedStr) {
-            try {
-                const cachedData = JSON.parse(cachedStr);
-                if (Array.isArray(cachedData) && cachedData.length > 0) {
-                    setRunsheets(cachedData);
-                    setLoading(false);
-                    hasCache = true;
-                }
-            } catch (e) {
-                console.error('Failed to parse runsheets cache', e);
-            }
-        }
-
-        if (!hasCache) {
-            setLoading(true);
-        }
-
-        try {
-            const userRunsheetsRef = collection(db, `users/${user.email}/runsheets`);
-            const snapshot = await getDocs(query(userRunsheetsRef));
-
-            // Fetch runsheet doc + role doc concurrently per entry
-            const withRoles = (await Promise.all(
-                snapshot.docs.map(async (userDoc) => {
-                    try {
-                        const [runsheetSnap, userRoleSnap] = await Promise.all([
-                            getDoc(doc(db, 'runsheets', userDoc.id)),
-                            getDoc(doc(db, `runsheets/${userDoc.id}/users`, user.email)),
-                        ]);
-                        if (!runsheetSnap.exists()) return null;
-                        const data = runsheetSnap.data();
-                        const role = userRoleSnap.exists() ? userRoleSnap.data().role : null;
-                        return { id: runsheetSnap.id, ...data, category: data.category || 'active', isEditor: role === 'editor' || role === 'owner' };
-                    } catch (e) {
-                        console.error('Error fetching runsheet', userDoc.id, e);
-                        return null;
-                    }
-                })
-            )).filter(Boolean);
-
-            const uniqueGroupIds = [...new Set(withRoles.map(r => r.groupId).filter(Boolean))];
-            const groupData = await Promise.all(uniqueGroupIds.map(async (gid) => {
-                const groupSnap = await getDoc(doc(db, 'groups', gid));
-                return groupSnap.exists() ? { id: gid, name: groupSnap.data().name } : null;
-            }));
-            const validGroups = groupData.filter(Boolean);
-            setGroups(validGroups);
-
-            withRoles.sort((a, b) => new Date(a.date) - new Date(b.date));
-            setRunsheets(withRoles);
-
-            // Update cache silently
-            localStorage.setItem(cacheKey, JSON.stringify(withRoles));
-            localStorage.setItem(`groupsCache_${user.email}`, JSON.stringify(validGroups));
-
-        } catch (error) {
-            console.error('Error fetching runsheets:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (user?.email) {
-            const groupsCache = localStorage.getItem(`groupsCache_${user.email}`);
-            if (groupsCache) {
-                try {
-                    setGroups(JSON.parse(groupsCache));
-                } catch (e) {
-                    console.error('Failed to parse groups cache', e);
-                }
-            }
-            fetchRunsheets();
-        }
-    }, [user]);
-
     const handleCreateOrUpdate = async (formData) => {
         try {
             if (!user?.email) return;
@@ -177,7 +99,16 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                 const runsheetRef = doc(db, 'runsheets', metadataDialog.data.id);
                 await updateDoc(runsheetRef, { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
             } else {
-                const newRunsheet = { name: formData.name, date: formData.date, time: formData.time, orderCount: 0, lastUpdated: moment().format(), category: 'active' };
+                const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
+                const newRunsheet = { 
+                    name: formData.name, 
+                    date: formData.date, 
+                    time: formData.time, 
+                    orderCount: 0, 
+                    lastUpdated: moment().format(), 
+                    category: 'active',
+                    groupId: isGroup ? activeFilter : null
+                };
                 const docRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
                 await setDoc(doc(db, `users/${user.email}/runsheets`, docRef.id), { id: docRef.id });
                 await setDoc(doc(db, `runsheets/${docRef.id}/users`, user.email), {
@@ -187,13 +118,14 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                 });
             }
             setMetadataDialog({ open: false, data: null });
-            await fetchRunsheets();
+            await refresh();
         } catch (err) {
             console.error("Error saving runsheet", err);
         } finally {
             setIsSyncing(false);
         }
     };
+
 
     const handleCreateGroup = async (name) => {
         try {
@@ -202,6 +134,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                 createdBy: user.email,
                 createdAt: moment().format()
             });
+            await refresh();
             return groupRef.id;
         } catch (err) {
             console.error("Error creating group", err);
@@ -215,7 +148,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         try {
             setIsSyncing(true);
             await updateDoc(doc(db, 'runsheets', runsheetId), { groupId });
-            await fetchRunsheets();
+            await refresh();
         } catch (err) {
             console.error("Error setting group", err);
         } finally {
@@ -227,7 +160,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         try {
             setIsSyncing(true);
             await updateDoc(doc(db, 'runsheets', runsheetId), { groupId: null });
-            await fetchRunsheets();
+            await refresh();
         } catch (err) {
             console.error("Error removing from group", err);
         } finally {
@@ -253,7 +186,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             const batch = writeBatch(db);
             items.forEach((item) => { batch.set(doc(collection(db, `runsheets/${newDocRef.id}/programme`)), item); });
             await batch.commit();
-            await fetchRunsheets();
+            await refresh();
         } catch (err) {
             console.error("Error duplicating runsheet", err);
         } finally {
@@ -321,12 +254,18 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
         if (searched.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center py-24 px-8 page-enter">
+                <div className="flex flex-col items-center justify-center py-24 px-8 page-enter text-center">
                     <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-5">
-                        <span className="material-symbols-outlined text-3xl text-muted-foreground">event_busy</span>
+                        <span className={`material-symbols-outlined text-3xl text-muted-foreground ${isSyncing ? 'animate-spin' : ''}`}>
+                            {isSyncing ? 'sync' : 'event_busy'}
+                        </span>
                     </div>
-                    <p className="text-base font-semibold text-foreground">No runsheets found</p>
-                    <p className="text-sm text-muted-foreground mt-1">Create a new runsheet to get started.</p>
+                    <p className="text-base font-semibold text-foreground">
+                        {isSyncing ? 'Loading runsheet group...' : 'No runsheets found'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {isSyncing ? 'We are checking for the latest updates in this group.' : 'Create a new runsheet to get started.'}
+                    </p>
                 </div>
             );
         }
@@ -619,9 +558,15 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             <div className="flex-1 flex flex-col h-screen overflow-y-auto relative w-full scrollbar-thin">
                 {/* Sync Progress Bar */}
                 {isSyncing && (
-                    <div className="fixed top-0 left-0 right-0 z-[100] h-1 bg-primary/20 overflow-hidden">
-                        <div className="h-full bg-primary animate-indeterminate-progress w-full origin-left"></div>
-                    </div>
+                    <>
+                        <div className="fixed top-0 left-0 right-0 z-[100] h-1 bg-primary/20 overflow-hidden">
+                            <div className="h-full bg-primary animate-indeterminate-progress w-full origin-left"></div>
+                        </div>
+                        <div className="fixed top-3 right-4 z-[100] flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/80 backdrop-blur-md border border-border/50 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Reloading groups...</span>
+                        </div>
+                    </>
                 )}
                 <div className="w-full max-w-5xl mx-auto pb-28 md:pb-12 relative">
 
