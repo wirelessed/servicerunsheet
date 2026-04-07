@@ -226,6 +226,14 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         quickUpdateItem(itemId, updates);
     };
 
+    const handleBackToDashboard = () => {
+        if (runsheet?.groupId) {
+            router.replace(`/group/${runsheet.groupId}`);
+        } else {
+            router.replace('/upcoming');
+        }
+    };
+
     const handleMetadataUpdate = async (formData) => {
         await updateDoc(doc(db, 'runsheets', runsheet.id), { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
         setIsMetadataDialogOpen(false);
@@ -341,7 +349,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         <header className="md:hidden sticky top-0 z-50 bg-background border-b border-border/30 px-3 pt-3 pb-2">
             <div className="flex items-center justify-between">
                 <button
-                    onClick={() => router.back()}
+                    onClick={handleBackToDashboard}
                     className="flex size-10 items-center justify-center rounded-xl bg-muted hover:bg-muted/80 text-foreground transition-all active:scale-95"
                 >
                     <ArrowBackIcon style={{ fontSize: 20 }} />
@@ -627,7 +635,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             <div className="flex flex-col gap-1 px-3">
                 {/* Back */}
                 <button
-                    onClick={() => router.back()}
+                    onClick={handleBackToDashboard}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all mb-1"
                 >
                     <ArrowBackIcon style={{ fontSize: 14 }} />

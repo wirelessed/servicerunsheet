@@ -1,9 +1,10 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LoginBanner from '../../../components/LoginBanner';
 import moment from 'moment';
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 
 export default function SharePage() {
     const params = useParams();
+    const router = useRouter();
     const { user } = useAuth();
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
@@ -18,6 +20,14 @@ export default function SharePage() {
     const [loading, setLoading] = useState(true);
     const [timings, setTimings] = useState({});
     const [enrolled, setEnrolled] = useState(false);
+
+    const handleBackToDashboard = () => {
+        if (runsheet?.groupId) {
+            router.replace(`/group/${runsheet.groupId}`);
+        } else {
+            router.replace('/upcoming');
+        }
+    };
 
     useEffect(() => {
         let currentId = params?.id;
@@ -92,7 +102,7 @@ export default function SharePage() {
         }, 3000);
 
         return () => clearTimeout(timer);
-    }, [id]);
+    }, [id, user]);
 
     if (loading) {
         return (
@@ -115,7 +125,20 @@ export default function SharePage() {
     return (
         <div className="flex flex-col min-h-screen bg-muted/30">
             {!user && <LoginBanner message="Log in to save this runsheet" />}
-            <div className="container mx-auto px-4 mt-12 mb-20 max-w-4xl">
+            
+            {user && (
+                <div className="container mx-auto px-4 mt-6 max-w-4xl">
+                    <button
+                        onClick={handleBackToDashboard}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    >
+                        <ArrowBackIcon style={{ fontSize: 14 }} />
+                        Dashboard
+                    </button>
+                </div>
+            )}
+
+            <div className="container mx-auto px-4 mt-8 mb-20 max-w-4xl">
                 {/* Enrolled badge */}
                 {enrolled && (
                     <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold">
