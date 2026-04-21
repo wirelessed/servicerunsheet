@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import moment from 'moment';
 import dynamic from 'next/dynamic';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+
 
 const RunsheetMetadataDialog = dynamic(() => import('./RunsheetMetadataDialog'), { ssr: false });
 const ConfirmationDialog = dynamic(() => import('../ConfirmationDialog'), { ssr: false });
@@ -376,6 +378,22 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                     <DropdownMenuItem onClick={() => duplicateRunsheet(runsheet)}>
                                                         <span className="material-symbols-outlined text-base mr-2">content_copy</span>
                                                         Duplicate
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => {
+                                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                        navigator.clipboard.writeText(`${origin}/runsheet/${runsheet.id}`);
+                                                    }}>
+                                                        <span className="material-symbols-outlined text-base mr-2">link</span>
+                                                        Copy Link
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => {
+                                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                        const shareUrl = `${origin}/runsheet/${runsheet.id}`;
+                                                        const text = `Check out this runsheet: ${runsheet.name}`;
+                                                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
+                                                    }}>
+                                                        <WhatsAppIcon className="text-base mr-2" style={{ fontSize: '1rem' }} />
+                                                        Share Link to Whatsapp
                                                     </DropdownMenuItem>
                                                     {runsheet.isEditor && (
                                                         <>

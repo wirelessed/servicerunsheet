@@ -38,6 +38,7 @@ const hasEditAccess = (role) => role === 'editor' || role === 'owner';
 const ROLE_LABELS = {
     owner: 'Owner',
     editor: 'Editor',
+    ops: 'Ops',
     viewer: 'Viewer',
 };
 
@@ -145,8 +146,8 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         }
     };
 
-    // Sort: owners first, then editors, then viewers
-    const roleOrder = { owner: 0, editor: 1, viewer: 2 };
+    // Sort: owners first, then editors, then ops, then viewers
+    const roleOrder = { owner: 0, editor: 1, ops: 2, viewer: 3 };
     let displayUsers = [...users].sort((a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3));
 
     // Viewers should not see other viewers or editors, only owners and themselves
@@ -246,8 +247,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                             Share by Email Address
                         </h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Viewers will see this runsheet in their list.
-                            Editors can modify the programme and details.
+                            Viewers will see this runsheet in their list. Editors can modify the programme and details. Ops users can log transition timings but cannot edit the runsheet item details.
                         </p>
                     </div>
 
@@ -307,9 +307,11 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                                                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg
                                                     ${isOwner
                                                         ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                                        : hasEditAccess(member.role)
+                                                        : member.role === 'editor'
                                                             ? 'bg-primary/10 text-primary'
-                                                            : 'bg-muted text-muted-foreground'
+                                                            : member.role === 'ops'
+                                                                ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                                                                : 'bg-muted text-muted-foreground'
                                                     }`}
                                                 >
                                                     {ROLE_LABELS[member.role] ?? member.role}
@@ -320,9 +322,11 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                                                     <DropdownMenuTrigger asChild>
                                                         <button
                                                             className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border transition-colors
-                                                                ${hasEditAccess(member.role)
+                                                                ${member.role === 'editor'
                                                                     ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'
-                                                                    : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                                                                    : member.role === 'ops'
+                                                                        ? 'bg-violet-500/10 text-violet-600 border-violet-500/20 hover:bg-violet-500/20 dark:text-violet-400'
+                                                                        : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
                                                                 }`}
                                                         >
                                                             {ROLE_LABELS[member.role] ?? member.role} ▾
@@ -334,6 +338,12 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                                                             className={member.role === 'editor' ? 'font-bold' : ''}
                                                         >
                                                             Editor
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleChangeRole(member.email, 'ops')}
+                                                            className={member.role === 'ops' ? 'font-bold' : ''}
+                                                        >
+                                                            Ops
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => handleChangeRole(member.email, 'viewer')}

@@ -52,9 +52,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const [now, setNow] = useState(moment());
     const [clock, setClock] = useState(moment());
     const [isEditor, setIsEditor] = useState(false);
+    const [userRole, setUserRole] = useState(null); // 'owner' | 'editor' | 'ops' | 'viewer' | null
 
     // Guests (unauthenticated) are always read-only
     const effectiveIsEditor = isAuthenticated && isEditor;
+    const isOps = isAuthenticated && userRole === 'ops';
 
     // UI States
     const [mode, setMode] = useState('view'); // 'view', 'edit', 'ops'
@@ -109,14 +111,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     useEffect(() => {
         const checkPermissions = async () => {
-            if (!user?.email) { setIsEditor(false); return; }
+            if (!user?.email) { setIsEditor(false); setUserRole(null); return; }
             try {
                 const userRef = doc(db, `runsheets/${runsheet.id}/users`, user.email);
                 const userSnap = await getDoc(userRef);
                 const role = userSnap.exists() ? userSnap.data().role : null;
+                setUserRole(role);
                 // owner and editor both count as having edit access
                 if (role === 'editor' || role === 'owner') {
                     setIsEditor(true);
+                } else if (role === 'ops') {
+                    setIsEditor(false);
+                    setMode('ops'); // auto-enter ops mode for ops users
                 } else {
                     setIsEditor(false);
                     setMode('view');
@@ -124,6 +130,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             } catch (error) {
                 console.error("Error checking permissions:", error);
                 setIsEditor(false);
+                setUserRole(null);
             }
         };
         checkPermissions();
@@ -355,11 +362,30 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         advanced
                     </button>
                 </>
+            ) : isOps ? (
+                <>
+                    {['view', 'ops'].map((m) => (
+                        <button
+                            key={m}
+                            onClick={() => setMode(m)}
+                            className={`
+                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200
+                                ${mode === m
+                                    ? 'bg-card text-primary shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                }
+                            `}
+                        >
+                            {m}
+                        </button>
+                    ))}
+                </>
             ) : (
                 <div className="px-4 py-1.5 text-[11px] font-bold uppercase text-muted-foreground tracking-wider">View Only</div>
             )}
         </div>
     );
+
 
     const renderAdvancedContent = () => (
         <main className="flex-1 flex flex-col pt-2 relative px-0 page-enter overflow-hidden">
@@ -481,6 +507,14 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                     <span className={`text-[9px] font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>{timing.amPm}</span>
                                                                 </div>
                                                             )}
+
+                                                            {mode === 'ops' && hasBeenLogged && origDuration !== duration ? (
+                                                                <div className="flex items-baseline gap-1 transition-colors text-primary">
+                                                                    <span className={`text-xl font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>–{currentEndTime.format("h:mm")}</span>
+                                                                    <span className={`text-[9px] font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>{timing.amPm}</span>
+                                                                </div>
+                                                            ) : (<></>)}
+
                                                             <div className={`mt-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums flex flex-col items-end gap-0.5 ${isHighlighted ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                                                                 {mode === 'ops' && hasBeenLogged && origDuration !== duration ? (
                                                                     <>
@@ -500,7 +534,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                     if (mode === 'edit') { setCurrentItem(item); setIsItemDialogOpen(true); }
                                                                 }}
                                                                 className={`
-                                                                    rounded-xl p-4 border transition-all duration-200 relative overflow-hidden
+                                                                    rounded-xl p-4 border transition-all duration-200 relative overflow-hidden h-full
                                                                     ${mode === 'edit' ? 'cursor-pointer hover:shadow-md hover:border-primary/20' : 'cursor-default'}
                                                                     ${snapshot.isDragging ? 'shadow-lg rotate-1 scale-[1.02]' : ''}
                                                                     ${isHighlighted
@@ -560,7 +594,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                         </div>
                                                                     )}
 
-                                                                    {mode === 'ops' && hasBeenLogged && currentEndTime && (
+                                                                    {/* {mode === 'ops' && hasBeenLogged && currentEndTime && (
                                                                         <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-medium relative z-10 gap-2">
                                                                             <span className="text-muted-foreground whitespace-nowrap">End Time</span>
                                                                             <div className="flex flex-wrap items-center justify-end gap-1.5 text-right">
@@ -576,7 +610,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                                 )}
                                                                             </div>
                                                                         </div>
-                                                                    )}
+                                                                    )} */}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -792,42 +826,8 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         <div className="flex flex-col mb-3">
                             <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Current Time</span>
                             <div className="text-2xl font-mono font-bold text-foreground leading-none tracking-tight mt-1">
-                                {clock.format("HH:mm:ss")}
+                                {clock.format("h:mm:ss A")}
                             </div>
-                        </div>
-                        <div className="flex rounded-lg overflow-hidden border border-primary/30">
-                            <Button
-                                onClick={() => {
-                                    const activeItem = items.find(item => isItemActive(item));
-                                    if (activeItem) handleLogTransition(activeItem.id);
-                                    else handleLogTransition(items[items.length - 1]?.id);
-                                }}
-                                className="flex-1 shadow-sm active:scale-95 transition-all rounded-none"
-                                size="sm"
-                            >
-                                <UpdateIcon className="mr-2 h-4 w-4" />
-                                Log Transition
-                            </Button>
-                            <div className="w-px bg-primary/20" />
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button size="sm" className="rounded-none px-2 shadow-sm active:scale-95 transition-all">
-                                        <span className="material-symbols-outlined text-[18px]">arrow_drop_down</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52">
-                                    <DropdownMenuItem onClick={() => {
-                                        const activeItem = items.find(item => isItemActive(item)) || items[items.length - 1];
-                                        if (!activeItem) return;
-                                        const now = moment();
-                                        setLogMissedTime(now.format('HH:mm'));
-                                        setLogMissedDialog({ open: true, itemId: activeItem.id, itemLabel: activeItem.text || 'item' });
-                                    }}>
-                                        <span className="material-symbols-outlined text-base mr-2">history</span>
-                                        Log Missed Transition
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
                     </div>
                 )}
@@ -959,7 +959,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">Current Time</span>
                             <div className="text-3xl font-mono font-bold text-foreground leading-none tracking-tight">
-                                {clock.format("HH:mm:ss")}
+                                {clock.format("h:mm:ss A")}
                             </div>
                         </div>
                     </div>

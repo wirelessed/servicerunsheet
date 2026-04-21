@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 /**
  * ShareGroupDialog
@@ -67,6 +68,17 @@ export default function ShareGroupDialog({ open, onClose, group }) {
                                 {copied ? 'Copied!' : 'Copy'}
                             </Button>
                         </div>
+                    <Button
+                        onClick={() => {
+                            const text = `Check out this runsheet group: ${group?.name}`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
+                        }}
+                        variant="outline"
+                        className="w-full rounded-xl gap-2 bg-muted border text-emerald-700 hover:bg-muted/80 border-emerald-700/20 dark:bg-transparent dark:text-[#25D366] dark:border-[#25D366]/30 dark:hover:bg-[#25D366]/10"
+                    >
+                        <WhatsAppIcon className="h-4 w-4" />
+                        Share Group to Whatsapp
+                    </Button>
                     </div>
             </DialogContent>
         </Dialog>
