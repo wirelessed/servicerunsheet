@@ -246,8 +246,16 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         if (!timing || !timing.obj) return;
 
         const startTime = timing.obj;
+        // Map current time to startTime's date to ignore runsheet day differences
+        let currentAdjusted = startTime.clone().hours(currentMoment.hours()).minutes(currentMoment.minutes()).seconds(currentMoment.seconds());
+        
+        // If the logged time looks like it's from the "next day" (e.g., passed midnight)
+        if (currentAdjusted.isBefore(startTime) && startTime.diff(currentAdjusted, 'hours') > 12) {
+            currentAdjusted.add(1, 'day');
+        }
+
         // Use floor so that 8:00:59 → 0 min diff → clamp to 1; but 8:01:00 → 1 min
-        const diffMinutes = Math.max(1, Math.floor(currentMoment.diff(startTime, 'minutes', true)));
+        const diffMinutes = Math.max(1, Math.floor(currentAdjusted.diff(startTime, 'minutes', true)));
 
         const prevDuration = parseInt(itemToUpdate.duration) || 0;
         const prevOriginal = itemToUpdate.originalDuration;
@@ -275,10 +283,16 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
         const startTime = timing.obj;
         const loggedMoment = moment(timeString, 'HH:mm');
-        // Adjust day if before start (past midnight scenario)
-        if (loggedMoment.isBefore(startTime)) loggedMoment.add(1, 'day');
+        
+        // Map logged time to startTime's date to ignore runsheet day differences
+        let loggedAdjusted = startTime.clone().hours(loggedMoment.hours()).minutes(loggedMoment.minutes()).seconds(0);
+        
+        // If the logged time looks like it's from the "next day" (e.g., passed midnight)
+        if (loggedAdjusted.isBefore(startTime) && startTime.diff(loggedAdjusted, 'hours') > 12) {
+            loggedAdjusted.add(1, 'day');
+        }
 
-        const diffMinutes = Math.max(1, Math.floor(loggedMoment.diff(startTime, 'minutes', true)));
+        const diffMinutes = Math.max(1, Math.floor(loggedAdjusted.diff(startTime, 'minutes', true)));
 
         const prevDuration = parseInt(itemToUpdate.duration) || 0;
         const prevOriginal = itemToUpdate.originalDuration;
