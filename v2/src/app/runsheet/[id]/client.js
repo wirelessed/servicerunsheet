@@ -46,9 +46,10 @@ export default function RunsheetPage() {
                 // Only show not-found after first successful resolution (doc deleted)
                 setNotFound(true);
             } else {
+                // Give Firestore generous time to connect on cold starts / slow networks
                 notFoundTimer = setTimeout(() => {
                     setNotFound(true);
-                }, 1000);
+                }, 5000);
             }
             if (!metaSnapshotFired) {
                 metaSnapshotFired = true;
@@ -68,9 +69,11 @@ export default function RunsheetPage() {
             }
         });
 
-        // Failsafe timeouts
-        const metaTimer = setTimeout(() => setMetaLoading(false), 5000);
-        const progTimer = setTimeout(() => setProgrammeLoading(false), 8000);
+        // Failsafe timeouts — must be longer than the notFoundTimer (5s)
+        const metaTimer = setTimeout(() => {
+            setMetaLoading(false);
+        }, 8000);
+        const progTimer = setTimeout(() => setProgrammeLoading(false), 10000);
 
         return () => {
             unsubRunsheet();
@@ -119,8 +122,8 @@ export default function RunsheetPage() {
         grantViewerAccess();
     }, [id, user, runsheet]);
 
-    // Phase 1 loading — show minimal spinner only until metadata arrives
-    if (metaLoading) {
+    // Show spinner while loading OR while waiting for the first snapshot to arrive
+    if (metaLoading || (!runsheet && !notFound)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
                 <div className="w-10 h-10 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
@@ -129,7 +132,7 @@ export default function RunsheetPage() {
         );
     }
 
-    if (notFound || !runsheet) {
+    if (notFound) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">

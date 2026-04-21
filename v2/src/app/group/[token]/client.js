@@ -114,7 +114,15 @@ function PublicGroupView({ id, authLoading }) {
                 const rsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
                 const rsSnap = await getDocs(rsQuery);
                 const rsData = rsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                rsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+                rsData.sort((a, b) => {
+                    const diff = new Date(a.date) - new Date(b.date);
+                    if (diff === 0) {
+                        const timeA = a.time || "";
+                        const timeB = b.time || "";
+                        return timeA.localeCompare(timeB);
+                    }
+                    return diff;
+                });
                 setRunsheets(rsData);
                 localStorage.setItem(cacheKeyRunsheets, JSON.stringify(rsData));
             } catch (err) {

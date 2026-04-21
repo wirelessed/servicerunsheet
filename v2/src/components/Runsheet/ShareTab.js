@@ -14,6 +14,15 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import NotesIcon from '@mui/icons-material/Notes';
+import moment from "moment";
 import { db } from '../../lib/firebase';
 import { doc, setDoc, deleteDoc, onSnapshot, collection, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
@@ -32,7 +41,7 @@ const ROLE_LABELS = {
     viewer: 'Viewer',
 };
 
-export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
+export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet, programme, timings }) {
     const { user } = useAuth();
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const shareUrl = `${origin}/runsheet/${runsheetId}`;
@@ -44,6 +53,8 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
     const [isLoading, setIsLoading] = useState(false);
     const [removeConfirm, setRemoveConfirm] = useState({ open: false, email: null });
 
+    const [plainTextDialog, setPlainTextDialog] = useState(false);
+    const [plainTextContent, setPlainTextContent] = useState('');
     // Whether the current user can manage editors (must be editor or owner)
     const canManage = hasEditAccess(currentUserRole);
 
@@ -143,6 +154,39 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
         displayUsers = displayUsers.filter(u => u.role === 'owner' || u.email === user?.email);
     }
 
+    const handleSharePlainText = () => {
+        let text = `${runsheetName}\n`;
+        if (runsheet?.date) {
+            text += `${moment(runsheet.date).format('D MMMM YYYY (ddd)')}\n`;
+        }
+        
+        if (programme && timings) {
+            let itemsText = [];
+            programme.forEach(item => {
+                const timeStrInfo = timings[item.id];
+                const itemTitle = item.text || item.title || item.name || '';
+                let line = '';
+                if (timeStrInfo) {
+                    const timeStr = `${timeStrInfo.start.replace(':', '.')}${timeStrInfo.amPm.toLowerCase()}`;
+                    const durationStr = item.duration ? `(${item.duration}min)` : '';
+                    line = `${timeStr} - ${itemTitle} ${durationStr}`.trim();
+                } else {
+                    const durationStr = item.duration ? `(${item.duration}min)` : '';
+                    line = `${itemTitle} ${durationStr}`.trim();
+                }
+                itemsText.push(line);
+            });
+            text += '\n' + itemsText.join('\n') + '\n';
+        }
+
+        const updatedTime = runsheet?.lastUpdated || new Date().toISOString();
+        text += `\n[Info last updated at ${moment(updatedTime).format('DD/MM/YY hh:mm a')}]`;
+        text += `\n${shareUrl}`;
+        
+        setPlainTextContent(text);
+        setPlainTextDialog(true);
+    };
+
     return (
         <>
             <div className="flex flex-col gap-6 px-5 md:px-0 py-5 max-w-xl">
@@ -182,6 +226,14 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
                     >
                         <PrintIcon className="h-4 w-4" />
                         Export as PDF
+                    </Button>
+                    <Button
+                        onClick={handleSharePlainText}
+                        variant="outline"
+                        className="w-full rounded-xl gap-2 bg-muted border text-foreground hover:bg-muted/80 border-border dark:bg-transparent dark:text-primary dark:border-primary/30 dark:hover:bg-primary/10"
+                    >
+                        <NotesIcon className="h-4 w-4" />
+                        Share as Plain Text
                     </Button>
                 </div>
 
@@ -323,6 +375,33 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor }) {
                 confirmText="Remove"
                 confirmStyle="destructive"
             />
+
+            <Dialog open={plainTextDialog} onOpenChange={setPlainTextDialog}>
+                <DialogContent className="sm:max-w-[425px] md:max-w-[600px] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Share as Plain Text</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-2">
+                        <Textarea
+                            readOnly
+                            value={plainTextContent}
+                            className="h-[50vh] resize-none font-mono text-xs rounded-xl"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setPlainTextDialog(false)} className="rounded-xl">
+                            Close
+                        </Button>
+                        <Button onClick={() => {
+                            navigator.clipboard.writeText(plainTextContent);
+                            setPlainTextDialog(false);
+                        }} className="rounded-xl">
+                            <ContentCopyIcon className="h-4 w-4 mr-2" />
+                            Copy to Clipboard
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

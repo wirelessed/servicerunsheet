@@ -100,7 +100,15 @@ export const DashboardContextProvider = ({ children }) => {
             const validGroups = groupData.filter(Boolean);
             
             setGroups(validGroups);
-            withRoles.sort((a, b) => new Date(a.date) - new Date(b.date));
+            withRoles.sort((a, b) => {
+                const diff = new Date(a.date) - new Date(b.date);
+                if (diff === 0) {
+                    const timeA = a.time || "";
+                    const timeB = b.time || "";
+                    return timeA.localeCompare(timeB);
+                }
+                return diff;
+            });
             setRunsheets(withRoles);
             
             localStorage.setItem(cacheKey, JSON.stringify(withRoles));

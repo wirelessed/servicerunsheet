@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -19,7 +19,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 import moment from 'moment';
-import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, getDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import ItemDialog from './ItemDialog';
@@ -34,6 +34,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -64,6 +65,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const [currentItem, setCurrentItem] = useState(null);
     const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false);
     const [deleteItemDialog, setDeleteItemDialog] = useState({ open: false, itemId: null });
+    // Ops: log missed transition dialog
+    const [logMissedDialog, setLogMissedDialog] = useState({ open: false, itemId: null, itemLabel: '' });
+    const [logMissedTime, setLogMissedTime] = useState('');
+    // Ops: toast
+    const [opsToast, setOpsToast] = useState(null); // { message, onUndo }
+    const opsToastTimerRef = useRef(null);
 
     const calculateTimings = useCallback((programmeItems, startTimeStr) => {
         const dateStr = runsheet.date ? runsheet.date.split('T')[0] : moment().format('YYYY-MM-DD');
@@ -199,15 +206,32 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const quickUpdateItem = async (itemId, updates) => {
-        const updatedItems = items.map(item => item.id === itemId ? { ...item, ...updates } : item);
+        // For local state: strip null values so fields are removed from the object entirely
+        const localUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([, v]) => v !== null)
+        );
+        const updatedItems = items.map(item =>
+            item.id === itemId
+                ? Object.fromEntries(Object.entries({ ...item, ...updates }).filter(([, v]) => v !== null))
+                : item
+        );
         setItems(updatedItems);
         calculateTimings(updatedItems, runsheet.time);
-        try { await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, itemId), updates); } catch (error) { console.error("Error updating item:", error); }
+        // For Firestore: convert null values to deleteField() to actually remove them
+        const firestoreUpdates = Object.fromEntries(
+            Object.entries(updates).map(([k, v]) => [k, v === null ? deleteField() : v])
+        );
+        try { await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, itemId), firestoreUpdates); } catch (error) { console.error("Error updating item:", error); }
+    };
+
+    const showOpsToast = (message, onUndo) => {
+        if (opsToastTimerRef.current) clearTimeout(opsToastTimerRef.current);
+        setOpsToast({ message, onUndo });
+        opsToastTimerRef.current = setTimeout(() => setOpsToast(null), 5000);
     };
 
     const handleLogTransition = (itemId) => {
         const currentMoment = moment();
-
         const itemToUpdate = items.find(item => item.id === itemId);
         if (!itemToUpdate) return;
 
@@ -215,15 +239,54 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         if (!timing || !timing.obj) return;
 
         const startTime = timing.obj;
-        // Calculate new duration (minutes)
-        const diffMinutes = Math.max(1, Math.round(currentMoment.diff(startTime, 'minutes', true)));
+        // Use floor so that 8:00:59 → 0 min diff → clamp to 1; but 8:01:00 → 1 min
+        const diffMinutes = Math.max(1, Math.floor(currentMoment.diff(startTime, 'minutes', true)));
 
+        const prevDuration = parseInt(itemToUpdate.duration) || 0;
+        const prevOriginal = itemToUpdate.originalDuration;
         const updates = { duration: diffMinutes };
         if (itemToUpdate.originalDuration === undefined) {
-            updates.originalDuration = parseInt(itemToUpdate.duration) || 0;
+            updates.originalDuration = prevDuration;
         }
 
         quickUpdateItem(itemId, updates);
+
+        showOpsToast(`Logged end time for "${itemToUpdate.text || 'item'}"`, () => {
+            const undoUpdates = { duration: prevDuration };
+            if (prevOriginal === undefined) undoUpdates.originalDuration = null;
+            quickUpdateItem(itemId, undoUpdates);
+        });
+    };
+
+    const handleLogTransitionAt = (itemId, timeString) => {
+        // timeString is HH:mm from the input
+        const itemToUpdate = items.find(item => item.id === itemId);
+        if (!itemToUpdate) return;
+
+        const timing = timings[itemId];
+        if (!timing || !timing.obj) return;
+
+        const startTime = timing.obj;
+        const loggedMoment = moment(timeString, 'HH:mm');
+        // Adjust day if before start (past midnight scenario)
+        if (loggedMoment.isBefore(startTime)) loggedMoment.add(1, 'day');
+
+        const diffMinutes = Math.max(1, Math.floor(loggedMoment.diff(startTime, 'minutes', true)));
+
+        const prevDuration = parseInt(itemToUpdate.duration) || 0;
+        const prevOriginal = itemToUpdate.originalDuration;
+        const updates = { duration: diffMinutes };
+        if (itemToUpdate.originalDuration === undefined) {
+            updates.originalDuration = prevDuration;
+        }
+
+        quickUpdateItem(itemId, updates);
+
+        showOpsToast(`Logged missed transition for "${itemToUpdate.text || 'item'}" at ${timeString}`, () => {
+            const undoUpdates = { duration: prevDuration };
+            if (prevOriginal === undefined) undoUpdates.originalDuration = null;
+            quickUpdateItem(itemId, undoUpdates);
+        });
     };
 
     const handleBackToDashboard = () => {
@@ -305,7 +368,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 <span className="material-symbols-outlined text-[16px] shrink-0 text-primary/60">info</span>
                 <span>You&rsquo;re using <span className="font-semibold text-foreground">Advanced Mode</span> — still in beta, so you might spot a bug or two! <span className="hidden sm:inline">Double-click any cell to edit, hit <kbd className="px-1 py-0.5 rounded bg-background border border-border text-[11px] font-mono">Enter</kbd> to save, and drag rows by the handle on the left to reorder.</span></span>
             </div>
-            
+
             <AdvancedGrid
                 items={items}
                 timings={timings}
@@ -320,27 +383,27 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 setDeleteItemDialog={setDeleteItemDialog}
             />
 
-                <div className="p-8 flex justify-center">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full shadow-sm bg-background border-dashed hover:border-primary hover:text-primary transition-colors pr-4 py-5"
-                        onClick={async () => {
-                            // add a blank row immediately
-                            const tempId = `temp-${Date.now()}`;
-                            const newNode = { id: tempId, text: '', remarks: '', duration: 0, location: '' };
-                            const newItems = [...items, newNode];
-                            setItems(newItems);
-                            calculateTimings(newItems, runsheet.time);
+            <div className="p-8 flex justify-center">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full shadow-sm bg-background border-dashed hover:border-primary hover:text-primary transition-colors pr-4 py-5"
+                    onClick={async () => {
+                        // add a blank row immediately
+                        const tempId = `temp-${Date.now()}`;
+                        const newNode = { id: tempId, text: '', remarks: '', duration: 0, location: '' };
+                        const newItems = [...items, newNode];
+                        setItems(newItems);
+                        calculateTimings(newItems, runsheet.time);
 
-                            const { id, ...nodeData } = newNode;
-                            const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), { ...nodeData, orderCount: items.length });
-                            setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i));
-                        }}
-                    >
-                        <AddIcon className="mr-1 text-[16px]" /> Add new item
-                    </Button>
-                </div>
+                        const { id, ...nodeData } = newNode;
+                        const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), { ...nodeData, orderCount: items.length });
+                        setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i));
+                    }}
+                >
+                    <AddIcon className="mr-1 text-[16px]" /> Add new item
+                </Button>
+            </div>
         </main>
     );
 
@@ -390,10 +453,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                                 const duration = parseInt(item.duration) || 0;
                                 const origDuration = item.originalDuration !== undefined ? parseInt(item.originalDuration) : duration;
+                                // Only show diffs for items the user has explicitly logged
+                                const hasBeenLogged = item.originalDuration !== undefined && item.originalDuration !== null;
+                                const itemDiffMinutes = hasBeenLogged ? duration - origDuration : 0;
 
                                 const currentEndTime = timing.obj ? timing.obj.clone().add(duration, 'minutes') : null;
-                                const origEndTime = origTiming.obj ? origTiming.obj.clone().add(origDuration, 'minutes') : null;
-                                const endDiffMinutes = (currentEndTime && origEndTime) ? currentEndTime.diff(origEndTime, 'minutes') : 0;
 
                                 return (
                                     <div key={item.id}>
@@ -418,10 +482,10 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                 </div>
                                                             )}
                                                             <div className={`mt-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums flex flex-col items-end gap-0.5 ${isHighlighted ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                                                {mode === 'ops' && origDuration !== duration ? (
+                                                                {mode === 'ops' && hasBeenLogged && origDuration !== duration ? (
                                                                     <>
                                                                         <del className="text-[10px] opacity-70 leading-none">{origDuration} min</del>
-                                                                        <span>{duration} min</span>
+                                                                        <span className={itemDiffMinutes > 0 ? 'text-amber-500' : 'text-emerald-500'}>{duration} min <br /><span className="opacity-70">({itemDiffMinutes > 0 ? '+' : ''}{itemDiffMinutes}m)</span></span>
                                                                     </>
                                                                 ) : (
                                                                     <span>{duration} min</span>
@@ -496,20 +560,19 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                         </div>
                                                                     )}
 
-                                                                    {/* Explicit End Time for Ops Mode */}
-                                                                    {mode === 'ops' && currentEndTime && (
+                                                                    {mode === 'ops' && hasBeenLogged && currentEndTime && (
                                                                         <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-medium relative z-10 gap-2">
                                                                             <span className="text-muted-foreground whitespace-nowrap">End Time</span>
                                                                             <div className="flex flex-wrap items-center justify-end gap-1.5 text-right">
-                                                                                {(origEndTime && origEndTime.format("h:mm") !== currentEndTime.format("h:mm")) ? (
+                                                                                {hasBeenLogged && itemDiffMinutes !== 0 ? (
                                                                                     <>
-                                                                                        <del className="text-muted-foreground/60">{origEndTime.format("h:mm")}</del>
-                                                                                        <span className={endDiffMinutes > 0 ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"}>
-                                                                                            {currentEndTime.format("h:mm")} ({endDiffMinutes > 0 ? '+' : ''}{endDiffMinutes}m)
+                                                                                        <del className="text-muted-foreground/60">{timing.obj ? timing.obj.clone().add(origDuration, 'minutes').format('h:mm A') : ''}</del>
+                                                                                        <span className={itemDiffMinutes > 0 ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"}>
+                                                                                            {currentEndTime.format("h:mm A")} ({itemDiffMinutes > 0 ? '+' : ''}{itemDiffMinutes}m)
                                                                                         </span>
                                                                                     </>
                                                                                 ) : (
-                                                                                    <span className="text-muted-foreground font-bold">{currentEndTime.format("h:mm")}</span>
+                                                                                    <span className="text-muted-foreground font-bold">{currentEndTime.format("h:mm A")}</span>
                                                                                 )}
                                                                             </div>
                                                                         </div>
@@ -534,13 +597,51 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                             <AddIcon className="text-[18px] group-hover:scale-110 transition-transform" />
                                                         </button>
                                                     ) : (
-                                                        <button
-                                                            onClick={() => handleLogTransition(item.id)}
-                                                            className="w-full h-9 flex items-center justify-center rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-200 group active:scale-[0.98] text-xs font-semibold gap-1.5"
-                                                        >
-                                                            <UpdateIcon className="text-[16px]" />
-                                                            Log End Time for {item.text}
-                                                        </button>
+                                                        <div className="w-full h-9 flex rounded-xl border-2 border-dashed border-border overflow-hidden hover:border-primary hover:bg-primary/5 transition-all duration-200 group">
+                                                            <button
+                                                                onClick={() => handleLogTransition(item.id)}
+                                                                className="flex-1 flex items-center justify-center text-muted-foreground hover:text-primary text-xs font-semibold gap-1.5 active:scale-[0.98]"
+                                                            >
+                                                                <UpdateIcon className="text-[16px]" />
+                                                                Log End Time
+                                                            </button>
+                                                            <div className="w-px bg-border/60 group-hover:bg-primary/20 transition-colors" />
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <button className="w-8 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors">
+                                                                        <span className="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+                                                                    </button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-52">
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        const now = moment();
+                                                                        setLogMissedTime(now.format('HH:mm'));
+                                                                        setLogMissedDialog({ open: true, itemId: item.id, itemLabel: item.text || 'item' });
+                                                                    }}>
+                                                                        <span className="material-symbols-outlined text-base mr-2">history</span>
+                                                                        Log Missed Transition
+                                                                    </DropdownMenuItem>
+                                                                    {item.originalDuration !== undefined && (
+                                                                        <>
+                                                                            <DropdownMenuSeparator />
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => {
+                                                                                    const orig = parseInt(item.originalDuration);
+                                                                                    quickUpdateItem(item.id, { duration: orig, originalDuration: null });
+                                                                                    showOpsToast(`Reset log for "${item.text || 'item'}"`, () => {
+                                                                                        quickUpdateItem(item.id, { duration: parseInt(item.duration), originalDuration: item.originalDuration });
+                                                                                    });
+                                                                                }}
+                                                                                className="text-muted-foreground"
+                                                                            >
+                                                                                <span className="material-symbols-outlined text-base mr-2">restart_alt</span>
+                                                                                Reset Log
+                                                                            </DropdownMenuItem>
+                                                                        </>
+                                                                    )}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -694,14 +795,40 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                 {clock.format("HH:mm:ss")}
                             </div>
                         </div>
-                        <Button
-                            onClick={handleLogTransition}
-                            className="w-full shadow-sm active:scale-95 transition-all"
-                            size="sm"
-                        >
-                            <UpdateIcon className="mr-2 h-4 w-4" />
-                            Log Transition
-                        </Button>
+                        <div className="flex rounded-lg overflow-hidden border border-primary/30">
+                            <Button
+                                onClick={() => {
+                                    const activeItem = items.find(item => isItemActive(item));
+                                    if (activeItem) handleLogTransition(activeItem.id);
+                                    else handleLogTransition(items[items.length - 1]?.id);
+                                }}
+                                className="flex-1 shadow-sm active:scale-95 transition-all rounded-none"
+                                size="sm"
+                            >
+                                <UpdateIcon className="mr-2 h-4 w-4" />
+                                Log Transition
+                            </Button>
+                            <div className="w-px bg-primary/20" />
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button size="sm" className="rounded-none px-2 shadow-sm active:scale-95 transition-all">
+                                        <span className="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                    <DropdownMenuItem onClick={() => {
+                                        const activeItem = items.find(item => isItemActive(item)) || items[items.length - 1];
+                                        if (!activeItem) return;
+                                        const now = moment();
+                                        setLogMissedTime(now.format('HH:mm'));
+                                        setLogMissedDialog({ open: true, itemId: activeItem.id, itemLabel: activeItem.text || 'item' });
+                                    }}>
+                                        <span className="material-symbols-outlined text-base mr-2">history</span>
+                                        Log Missed Transition
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                 )}
             </div>
@@ -727,7 +854,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                 <div className="flex items-start justify-between gap-3">
                                     <h1 className="text-[26px] leading-snug font-extrabold tracking-tight text-foreground line-clamp-2">{runsheet.name}</h1>
                                     {effectiveIsEditor && (
-                                        <button 
+                                        <button
                                             onClick={() => setIsMetadataDialogOpen(true)}
                                             className="mt-1 shrink-0 flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                                         >
@@ -815,6 +942,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                 runsheetId={runsheet.id}
                                 runsheetName={runsheet.name}
                                 isEditor={effectiveIsEditor}
+                                runsheet={runsheet}
+                                programme={items}
+                                timings={timings}
                             />
                         </div>
                     ) : null}
@@ -915,6 +1045,54 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 confirmText="Delete"
                 confirmStyle="destructive"
             />
+
+            {/* Log Missed Transition dialog */}
+            {logMissedDialog.open && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setLogMissedDialog({ open: false, itemId: null, itemLabel: '' })} />
+                    <div className="relative bg-card border border-border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+                        <h2 className="text-base font-bold mb-1">Log Missed Transition</h2>
+                        <p className="text-sm text-muted-foreground mb-4">Set the actual end time for <span className="font-semibold text-foreground">&ldquo;{logMissedDialog.itemLabel}&rdquo;</span>.</p>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Time</label>
+                        <input
+                            type="time"
+                            value={logMissedTime}
+                            onChange={e => setLogMissedTime(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 mb-5"
+                        />
+                        <div className="flex gap-2">
+                            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setLogMissedDialog({ open: false, itemId: null, itemLabel: '' })}>Cancel</Button>
+                            <Button className="flex-1 rounded-xl" onClick={() => {
+                                if (logMissedDialog.itemId && logMissedTime) {
+                                    handleLogTransitionAt(logMissedDialog.itemId, logMissedTime);
+                                }
+                                setLogMissedDialog({ open: false, itemId: null, itemLabel: '' });
+                            }}>Save</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Ops toast */}
+            {opsToast && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-2xl bg-foreground text-background shadow-2xl text-sm font-medium animate-in slide-in-from-bottom-4 duration-200 whitespace-nowrap">
+                    <span className="material-symbols-outlined text-[18px] text-background/70">check_circle</span>
+                    <span className="truncate max-w-[220px]">{opsToast.message}</span>
+                    <button
+                        onClick={() => {
+                            opsToast.onUndo();
+                            if (opsToastTimerRef.current) clearTimeout(opsToastTimerRef.current);
+                            setOpsToast(null);
+                        }}
+                        className="ml-1 underline underline-offset-2 font-bold opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                        Undo
+                    </button>
+                    <button onClick={() => { if (opsToastTimerRef.current) clearTimeout(opsToastTimerRef.current); setOpsToast(null); }} className="opacity-50 hover:opacity-100 transition-opacity">
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

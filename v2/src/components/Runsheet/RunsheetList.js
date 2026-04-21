@@ -242,7 +242,13 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         searched.sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
-            return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+            const diff = dateA - dateB;
+            if (diff === 0) {
+                const timeA = a.time || "";
+                const timeB = b.time || "";
+                return sortOrder === 'asc' ? timeA.localeCompare(timeB) : timeB.localeCompare(timeA);
+            }
+            return sortOrder === 'asc' ? diff : -diff;
         });
 
         const grouped = groupRunsheets(searched);
@@ -544,6 +550,34 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                             <DropdownMenuContent align="start" side="top" className="w-52">
                                 <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user.email}</DropdownMenuItem>
                                 <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={async () => {
+                                        try {
+                                            // Clear localStorage caches
+                                            Object.keys(localStorage).forEach(key => {
+                                                if (key.startsWith('runsheetsCache_') || key.startsWith('groupsCache_') || key.startsWith('public_group')) {
+                                                    localStorage.removeItem(key);
+                                                }
+                                            });
+                                            // Clear Firestore IndexedDB persistence
+                                            const dbs = await window.indexedDB.databases();
+                                            for (const dbInfo of dbs) {
+                                                if (dbInfo.name && dbInfo.name.startsWith('firebaseLocalStorage')) {
+                                                    window.indexedDB.deleteDatabase(dbInfo.name);
+                                                }
+                                            }
+                                            window.location.reload();
+                                        } catch (e) {
+                                            console.error('Error clearing cache:', e);
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    className="cursor-pointer"
+                                >
+                                    <span className="material-symbols-outlined text-base mr-2">cached</span>
+                                    Clear Cache
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={logOut} className="text-destructive focus:text-destructive">
                                     <span className="material-symbols-outlined text-base mr-2">logout</span>
                                     Log Out
@@ -595,6 +629,32 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                             <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
                                                 <span className="material-symbols-outlined text-base mr-2">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
                                                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                onClick={async () => {
+                                                    try {
+                                                        Object.keys(localStorage).forEach(key => {
+                                                            if (key.startsWith('runsheetsCache_') || key.startsWith('groupsCache_') || key.startsWith('public_group')) {
+                                                                localStorage.removeItem(key);
+                                                            }
+                                                        });
+                                                        const dbs = await window.indexedDB.databases();
+                                                        for (const dbInfo of dbs) {
+                                                            if (dbInfo.name && dbInfo.name.startsWith('firebaseLocalStorage')) {
+                                                                window.indexedDB.deleteDatabase(dbInfo.name);
+                                                            }
+                                                        }
+                                                        window.location.reload();
+                                                    } catch (e) {
+                                                        console.error('Error clearing cache:', e);
+                                                        window.location.reload();
+                                                    }
+                                                }}
+                                                className="cursor-pointer"
+                                            >
+                                                <span className="material-symbols-outlined text-base mr-2">cached</span>
+                                                Clear Cache
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={logOut} className="text-destructive focus:text-destructive cursor-pointer">
