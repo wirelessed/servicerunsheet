@@ -248,7 +248,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         const startTime = timing.obj;
         // Map current time to startTime's date to ignore runsheet day differences
         let currentAdjusted = startTime.clone().hours(currentMoment.hours()).minutes(currentMoment.minutes()).seconds(currentMoment.seconds());
-        
+
         // If the logged time looks like it's from the "next day" (e.g., passed midnight)
         if (currentAdjusted.isBefore(startTime) && startTime.diff(currentAdjusted, 'hours') > 12) {
             currentAdjusted.add(1, 'day');
@@ -283,10 +283,10 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
         const startTime = timing.obj;
         const loggedMoment = moment(timeString, 'HH:mm');
-        
+
         // Map logged time to startTime's date to ignore runsheet day differences
         let loggedAdjusted = startTime.clone().hours(loggedMoment.hours()).minutes(loggedMoment.minutes()).seconds(0);
-        
+
         // If the logged time looks like it's from the "next day" (e.g., passed midnight)
         if (loggedAdjusted.isBefore(startTime) && startTime.diff(loggedAdjusted, 'hours') > 12) {
             loggedAdjusted.add(1, 'day');
@@ -525,7 +525,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                             {mode === 'ops' && hasBeenLogged && origDuration !== duration ? (
                                                                 <div className="flex items-baseline gap-1 transition-colors text-primary">
                                                                     <span className={`text-xl font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>–{currentEndTime.format("h:mm")}</span>
-                                                                    <span className={`text-[9px] font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>{timing.amPm}</span>
+                                                                    <span className={`text-[9px] font-bold uppercase ${isHighlighted ? 'text-primary/70' : 'text-primary/70'}`}>{currentEndTime.format("A")}</span>
                                                                 </div>
                                                             ) : (<></>)}
 
