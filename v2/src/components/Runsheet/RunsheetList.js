@@ -24,7 +24,7 @@ import { useRouter } from 'next/navigation';
 
 const GroupDialog = dynamic(() => import('./GroupDialog'), { ssr: false });
 const ShareGroupDialog = dynamic(() => import('./ShareGroupDialog'), { ssr: false });
-
+const WhatsNewDialog = dynamic(() => import('./WhatsNewDialog'), { ssr: false });
 
 import { useDashboard } from '../../context/DashboardContext';
 
@@ -58,6 +58,17 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [deleteDialog, setDeleteDialog] = useState({ open: false, runsheetId: null });
     const [groupDialog, setGroupDialog] = useState({ open: false, runsheet: null });
     const [shareGroupDialog, setShareGroupDialog] = useState({ open: false, group: null });
+    const [whatsNewDialog, setWhatsNewDialog] = useState(false);
+
+    useEffect(() => {
+        if (user && !loading) {
+            const hasSeenWhatsNew = localStorage.getItem('hasSeenWhatsNew_v2');
+            if (!hasSeenWhatsNew) {
+                setWhatsNewDialog(true);
+                localStorage.setItem('hasSeenWhatsNew_v2', 'true');
+            }
+        }
+    }, [user, loading]);
 
     // Update default sort order when filter changes
     useEffect(() => {
@@ -879,6 +890,11 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         open={shareGroupDialog.open}
                         onClose={() => setShareGroupDialog({ open: false, group: null })}
                         group={shareGroupDialog.group}
+                    />
+
+                    <WhatsNewDialog
+                        open={whatsNewDialog}
+                        onClose={() => setWhatsNewDialog(false)}
                     />
                 </div>
             </div>
