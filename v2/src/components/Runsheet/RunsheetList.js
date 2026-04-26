@@ -34,7 +34,6 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const {
         runsheets, setRunsheets,
         groups, setGroups,
-        loading, setLoading,
         isSyncing, setIsSyncing,
         activeFilter, setActiveFilter,
         refresh,
@@ -115,14 +114,14 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     };
 
     useEffect(() => {
-        if (user && !loading) {
+        if (user) {
             const hasSeenWhatsNew = localStorage.getItem('hasSeenWhatsNew_v2');
             if (!hasSeenWhatsNew) {
                 setWhatsNewDialog(true);
                 localStorage.setItem('hasSeenWhatsNew_v2', 'true');
             }
         }
-    }, [user, loading]);
+    }, [user]);
 
     // Update default sort order when filter changes
     useEffect(() => {
@@ -681,7 +680,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         </div>
                         <div className="fixed top-3 right-4 z-[100] flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/80 backdrop-blur-md border border-border/50 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Reloading groups...</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Refreshing data...</span>
                         </div>
                     </>
                 )}
@@ -902,26 +901,17 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
                     {/* Main Content */}
                     <main className="flex-1 flex flex-col mt-2 md:pl-8 md:pr-8">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center mt-24 gap-4 page-enter">
-                                <div className="relative">
-                                    <div className="w-10 h-10 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
-                                </div>
-                                <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading runsheets...</p>
-                            </div>
-                        ) : (
-                            <div className="w-full flex-1 flex flex-col">
-                                {showSearch && searchQuery.trim()
-                                    ? renderRunsheetList(runsheets)
-                                    : activeFilter === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
-                                        : activeFilter === 'past' ? renderRunsheetList(pastRunsheets)
-                                            : activeFilter === 'archive' ? renderRunsheetList(archivedRunsheets)
-                                                : renderRunsheetList(groupRunsheetsList)
-                                }
-                            </div>
-                        )}
+                        <div className="w-full flex-1 flex flex-col">
+                            {showSearch && searchQuery.trim()
+                                ? renderRunsheetList(runsheets)
+                                : activeFilter === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
+                                    : activeFilter === 'past' ? renderRunsheetList(pastRunsheets)
+                                        : activeFilter === 'archive' ? renderRunsheetList(archivedRunsheets)
+                                            : renderRunsheetList(groupRunsheetsList)
+                            }
+                        </div>
                         {/* Share Group button — shown at bottom when viewing a group the user owns */}
-                        {!loading && activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive' && (() => {
+                        {activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive' && (() => {
                             const activeGroup = groups.find(g => g.id === activeFilter);
                             if (!activeGroup) return null;
                             return (

@@ -13,7 +13,6 @@ export const DashboardContextProvider = ({ children }) => {
     const { user } = useAuth();
     const [runsheets, setRunsheets] = useState([]);
     const [groups, setGroups] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeFilter, setActiveFilter] = useState('upcoming');
     const enrolledGroupsRef = useRef(new Set());
@@ -47,11 +46,7 @@ export const DashboardContextProvider = ({ children }) => {
             } catch (e) {}
         }
 
-        if (!hasCache) setLoading(true);
-        else {
-            setLoading(false);
-            setIsSyncing(true);
-        }
+        setIsSyncing(true);
 
         try {
             const userRunsheetsRef = collection(db, `users/${user.email}/runsheets`);
@@ -97,7 +92,6 @@ export const DashboardContextProvider = ({ children }) => {
         } catch (error) {
             console.error('Context fetch error:', error);
         } finally {
-            setLoading(false);
             setIsSyncing(false);
         }
     }, [user]);
@@ -175,7 +169,6 @@ export const DashboardContextProvider = ({ children }) => {
         } else {
             setRunsheets([]);
             setGroups([]);
-            setLoading(true);
             enrolledGroupsRef.current.clear();
         }
     }, [user, fetchRunsheets]);
@@ -184,7 +177,6 @@ export const DashboardContextProvider = ({ children }) => {
         <DashboardContext.Provider value={{
             runsheets, setRunsheets,
             groups, setGroups,
-            loading, setLoading,
             isSyncing, setIsSyncing,
             activeFilter, setActiveFilter,
             refresh: fetchRunsheets,

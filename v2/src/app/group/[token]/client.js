@@ -55,25 +55,35 @@ export default function GroupPageClient() {
         resolveToken();
     }, [params, id]);
 
+    // ── AUTH LOADING ──
+    if (authLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
+                <div className="w-12 h-12 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
+                <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading...</p>
+            </div>
+        );
+    }
+
     // ── LOGGED-IN: render the full dashboard filtered to this group ──
-    if (!authLoading && user) {
+    if (user) {
         // Use a fallback or current id instantly to prevent "blank screen"
         const currentId = id || params?.token;
         return <RunsheetList initialFilter={currentId} />;
     }
 
     // ── LOGGED-OUT: public group listing ──
-    return <PublicGroupView id={id} authLoading={authLoading} />;
+    return <PublicGroupView id={id} />;
 }
 
-function PublicGroupView({ id, authLoading }) {
+function PublicGroupView({ id }) {
     const [group, setGroup] = useState(null);
     const [runsheets, setRunsheets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [shareGroupDialog, setShareGroupDialog] = useState(false);
 
     useEffect(() => {
-        if (!id || id === 'fallback' || id === '[token]' || authLoading) return;
+        if (!id || id === 'fallback' || id === '[token]') return;
 
         const cacheKeyGroup = `public_group_${id}`;
         const cacheKeyRunsheets = `public_group_runsheets_${id}`;
@@ -137,9 +147,9 @@ function PublicGroupView({ id, authLoading }) {
         };
 
         fetchData();
-    }, [id, authLoading]);
+    }, [id]);
 
-    if (authLoading || loading) {
+    if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen gap-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>

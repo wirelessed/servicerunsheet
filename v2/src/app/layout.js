@@ -11,7 +11,7 @@ const manrope = Manrope({
 });
 
 export const metadata = {
-  title: "RunsheetPro v2",
+  title: "RunsheetPro v4",
   description: "Modern Runsheet Application",
 };
 
