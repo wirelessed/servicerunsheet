@@ -399,11 +399,53 @@ ol.list-node ol.list-node ol.list-node {
 
 /* ── Indeterminate progress bar ── */
 @keyframes indeterminate-progress {
-  0% { transform: translateX(-100%) scaleX(0.2); }
-  50% { transform: translateX(0%) scaleX(0.5); }
-  100% { transform: translateX(100%) scaleX(0.2); }
+  0% {
+    transform: translateX(-100%) scaleX(0.2);
+  }
+
+  50% {
+    transform: translateX(0%) scaleX(0.5);
+  }
+
+  100% {
+    transform: translateX(100%) scaleX(0.2);
+  }
 }
 
 .animate-indeterminate-progress {
   animation: indeterminate-progress 1.5s infinite linear;
+}
+
+/* Landing page mesh gradient */
+.landing-bg {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 0% 0%, oklch(0.55 0.22 264 / 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, oklch(0.60 0.20 290 / 0.09) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, oklch(0.65 0.18 230 / 0.06) 0%, transparent 55%);
+}
+
+.dark .landing-bg {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 0% 0%, oklch(0.55 0.22 264 / 0.20) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, oklch(0.60 0.20 290 / 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, oklch(0.65 0.18 230 / 0.12) 0%, transparent 55%);
+}
+
+/* Hero section — strong saturated gradient band */
+.hero-gradient {
+  background:
+    linear-gradient(180deg,
+      oklch(0.55 0.22 264 / 0.18) 0%,
+      oklch(0.60 0.20 290 / 0.14) 40%,
+      transparent 100%),
+    radial-gradient(ellipse 90% 80% at 50% 0%, oklch(0.55 0.22 264 / 0.22) 0%, transparent 70%);
+}
+
+.dark .hero-gradient {
+  background:
+    linear-gradient(180deg,
+      oklch(0.55 0.22 264 / 0.35) 0%,
+      oklch(0.60 0.20 290 / 0.25) 40%,
+      transparent 100%),
+    radial-gradient(ellipse 90% 80% at 50% 0%, oklch(0.55 0.22 264 / 0.40) 0%, transparent 70%);
 }
