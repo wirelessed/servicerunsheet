@@ -31,13 +31,14 @@ import { useDashboard } from '../../context/DashboardContext';
 export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const { user, logOut } = useAuth();
     const router = useRouter();
-    const { 
-        runsheets, setRunsheets, 
-        groups, setGroups, 
-        loading, setLoading, 
-        isSyncing, setIsSyncing, 
+    const {
+        runsheets, setRunsheets,
+        groups, setGroups,
+        loading, setLoading,
+        isSyncing, setIsSyncing,
         activeFilter, setActiveFilter,
-        refresh
+        refresh,
+        enrollInGroup
     } = useDashboard();
 
     const [theme, setTheme] = useState('dark');
@@ -48,6 +49,13 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             setActiveFilter(initialFilter);
         }
     }, [initialFilter, activeFilter, setActiveFilter]);
+
+    // Auto-enroll in group when switching to a group filter
+    useEffect(() => {
+        if (activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter)) {
+            enrollInGroup(activeFilter);
+        }
+    }, [activeFilter, enrollInGroup]);
 
     // Sort order
     const [sortOrder, setSortOrder] = useState('asc');
@@ -79,7 +87,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     // Navigate to filter: only push URL, don't update state manually here to prevent double hits
     const navigateToFilter = (filter) => {
         if (filter === activeFilter) return;
-        
+
         if (filter === 'upcoming') router.replace('/upcoming');
         else if (filter === 'past') router.replace('/past');
         else if (filter === 'archive') router.replace('/archive');
@@ -113,12 +121,12 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                 await updateDoc(runsheetRef, { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
             } else {
                 const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
-                const newRunsheet = { 
-                    name: formData.name, 
-                    date: formData.date, 
-                    time: formData.time, 
-                    orderCount: 0, 
-                    lastUpdated: moment().format(), 
+                const newRunsheet = {
+                    name: formData.name,
+                    date: formData.date,
+                    time: formData.time,
+                    orderCount: 0,
+                    lastUpdated: moment().format(),
                     category: 'active',
                     groupId: isGroup ? activeFilter : null
                 };
@@ -280,10 +288,10 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         </span>
                     </div>
                     <p className="text-base font-semibold text-foreground">
-                        {isSyncing ? 'Loading runsheet group...' : 'No runsheets found'}
+                        {isSyncing ? 'Loading runsheets...' : 'No runsheets found'}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                        {isSyncing ? 'We are checking for the latest updates in this group.' : 'Create a new runsheet to get started.'}
+                        {isSyncing ? '' : 'Create a new runsheet to get started.'}
                     </p>
                 </div>
             );

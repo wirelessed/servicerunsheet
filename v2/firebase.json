@@ -8,6 +8,13 @@
     ],
     "cleanUrls": true,
     "trailingSlash": false,
+    "redirects": [
+      {
+        "source": "/services/:runsheetId/:title/Programme",
+        "destination": "/runsheet/:runsheetId",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "/runsheet/*/print",

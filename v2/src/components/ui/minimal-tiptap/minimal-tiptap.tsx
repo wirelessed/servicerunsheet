@@ -31,9 +31,9 @@ export interface MinimalTiptapProps extends Omit<
 const Toolbar = ({ editor }: { editor: Editor }) => (
   <div className="border-border flex h-12 shrink-0 overflow-x-auto border-b p-2">
     <div className="flex w-max items-center gap-px">
-      <SectionOne editor={editor} activeLevels={[1, 2, 3, 4, 5, 6]} />
-
-      <Separator orientation="vertical" className="mx-2" />
+      {/* <SectionOne editor={editor} activeLevels={[1, 2, 3, 4, 5, 6]} /> */}
+      {/* 
+      <Separator orientation="vertical" className="mx-2" /> */}
 
       <SectionTwo
         editor={editor}
@@ -48,42 +48,15 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
         mainActionCount={3}
       />
 
-      <div className="hidden sm:flex items-center gap-px">
-        <SectionThree editor={editor} />
+      <SectionThree editor={editor} />
 
-        <Separator orientation="vertical" className="mx-2" />
+      <SectionFour
+        editor={editor}
+        activeActions={["orderedList", "bulletList"]}
+        mainActionCount={0}
+      />
 
-        <SectionFour
-          editor={editor}
-          activeActions={["orderedList", "bulletList"]}
-          mainActionCount={0}
-        />
-
-        <Separator orientation="vertical" className="mx-2" />
-
-        <LinkEditPopover editor={editor} />
-      </div>
-
-      <div className="flex sm:hidden items-center gap-px">
-        <Popover>
-          <PopoverTrigger asChild>
-            <ToolbarButton tooltip="More options" aria-label="More options">
-              <PlusIcon className="size-5" />
-            </ToolbarButton>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-auto flex items-center gap-1 p-1">
-            <SectionThree editor={editor} />
-            <Separator orientation="vertical" className="mx-1 h-6" />
-            <SectionFour
-              editor={editor}
-              activeActions={["orderedList", "bulletList"]}
-              mainActionCount={0}
-            />
-            <Separator orientation="vertical" className="mx-1 h-6" />
-            <LinkEditPopover editor={editor} />
-          </PopoverContent>
-        </Popover>
-      </div>
+      <LinkEditPopover editor={editor} />
     </div>
   </div>
 )

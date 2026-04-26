@@ -8,6 +8,9 @@ import LoginBanner from '../../../components/LoginBanner';
 import RunsheetList from '../../../components/Runsheet/RunsheetList';
 import Link from 'next/link';
 import moment from 'moment';
+import dynamic from 'next/dynamic';
+
+const ShareGroupDialog = dynamic(() => import('../../../components/Runsheet/ShareGroupDialog'), { ssr: false });
 
 export default function GroupPageClient() {
     const params = useParams();
@@ -67,6 +70,7 @@ function PublicGroupView({ id, authLoading }) {
     const [group, setGroup] = useState(null);
     const [runsheets, setRunsheets] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [shareGroupDialog, setShareGroupDialog] = useState(false);
 
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[token]' || authLoading) return;
@@ -225,6 +229,16 @@ function PublicGroupView({ id, authLoading }) {
                 </div>
             </div>
 
+            <div className="flex justify-center mb-8">
+                <button
+                    onClick={() => setShareGroupDialog(true)}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-border bg-background text-foreground font-bold hover:bg-muted transition-all active:scale-[0.98] shadow-sm"
+                >
+                    <span className="material-symbols-outlined text-lg">share</span>
+                    Share Group
+                </button>
+            </div>
+
             {/* Footer */}
             <footer className="mt-auto py-8 text-center border-t border-border/10">
                 <Link href="/" className="inline-flex items-center gap-1.5 text-muted-foreground/40 hover:text-primary/60 transition-colors group">
@@ -232,6 +246,14 @@ function PublicGroupView({ id, authLoading }) {
                     <span className="text-[13px] font-black tracking-tighter">RunsheetPro</span>
                 </Link>
             </footer>
+
+            {group && (
+                <ShareGroupDialog
+                    open={shareGroupDialog}
+                    onClose={() => setShareGroupDialog(false)}
+                    group={group}
+                />
+            )}
         </div>
     );
 }

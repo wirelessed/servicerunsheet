@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { collection, query, getDocs, doc, getDoc, writeBatch, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
@@ -16,11 +16,12 @@ export const DashboardContextProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeFilter, setActiveFilter] = useState('upcoming');
+    const enrolledGroupsRef = useRef(new Set());
 
-    const fetchRunsheets = useCallback(async (forcedFilter) => {
+    // ── Main data fetch: runs ONCE per user session, not on filter change ──
+    const fetchRunsheets = useCallback(async () => {
         if (!user || !user.email) return;
 
-        const currentFilter = forcedFilter || activeFilter;
         const cacheKey = `runsheetsCache_${user.email}`;
         const groupsCacheKey = `groupsCache_${user.email}`;
         const cachedStr = localStorage.getItem(cacheKey);
@@ -57,26 +58,6 @@ export const DashboardContextProvider = ({ children }) => {
             const userSnap = await getDocs(query(userRunsheetsRef));
             const userRsIds = new Set(userSnap.docs.map(doc => doc.id));
 
-            // Automatic group viewer access
-            const isGroupFilter = currentFilter && !['upcoming', 'past', 'archive'].includes(currentFilter);
-            if (isGroupFilter) {
-                const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', currentFilter));
-                const groupRsSnap = await getDocs(groupRsQuery);
-                const batch = writeBatch(db);
-                let needsCommit = false;
-
-                for (const rsDoc of groupRsSnap.docs) {
-                    if (!userRsIds.has(rsDoc.id)) {
-                        const rsId = rsDoc.id;
-                        batch.set(doc(db, `runsheets/${rsId}/users`, user.email), { id: user.email, email: user.email, role: 'viewer' });
-                        batch.set(doc(db, `users/${user.email}/runsheets`, rsId), { id: rsId });
-                        userRsIds.add(rsId);
-                        needsCommit = true;
-                    }
-                }
-                if (needsCommit) await batch.commit();
-            }
-
             const withRoles = (await Promise.all(
                 Array.from(userRsIds).map(async (rsId) => {
                     try {
@@ -98,7 +79,7 @@ export const DashboardContextProvider = ({ children }) => {
                 return groupSnap.exists() ? { id: gid, name: groupSnap.data().name } : null;
             }));
             const validGroups = groupData.filter(Boolean);
-            
+
             setGroups(validGroups);
             withRoles.sort((a, b) => {
                 const diff = new Date(a.date) - new Date(b.date);
@@ -110,7 +91,7 @@ export const DashboardContextProvider = ({ children }) => {
                 return diff;
             });
             setRunsheets(withRoles);
-            
+
             localStorage.setItem(cacheKey, JSON.stringify(withRoles));
             localStorage.setItem(`groupsCache_${user.email}`, JSON.stringify(validGroups));
         } catch (error) {
@@ -119,14 +100,83 @@ export const DashboardContextProvider = ({ children }) => {
             setLoading(false);
             setIsSyncing(false);
         }
-    }, [user, activeFilter]);
+    }, [user]);
 
+    // ── Lightweight group enrollment: runs only once per group per session ──
+    const enrollInGroup = useCallback(async (groupId) => {
+        if (!user?.email || !groupId) return;
+        if (enrolledGroupsRef.current.has(groupId)) return; // Already enrolled this session
+        enrolledGroupsRef.current.add(groupId);
+
+        try {
+            const userRunsheetsRef = collection(db, `users/${user.email}/runsheets`);
+            const userSnap = await getDocs(query(userRunsheetsRef));
+            const userRsIds = new Set(userSnap.docs.map(d => d.id));
+
+            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
+            const groupRsSnap = await getDocs(groupRsQuery);
+
+            const batch = writeBatch(db);
+            let needsCommit = false;
+            const newRunsheets = [];
+
+            for (const rsDoc of groupRsSnap.docs) {
+                if (!userRsIds.has(rsDoc.id)) {
+                    const rsId = rsDoc.id;
+                    batch.set(doc(db, `runsheets/${rsId}/users`, user.email), { id: user.email, email: user.email, role: 'viewer' });
+                    batch.set(doc(db, `users/${user.email}/runsheets`, rsId), { id: rsId });
+                    needsCommit = true;
+
+                    const data = rsDoc.data();
+                    newRunsheets.push({
+                        id: rsDoc.id, ...data,
+                        category: data.category || 'active',
+                        isEditor: false
+                    });
+                }
+            }
+
+            if (needsCommit) {
+                await batch.commit();
+                // Append new runsheets to state without a full refetch
+                setRunsheets(prev => {
+                    const existingIds = new Set(prev.map(r => r.id));
+                    const toAdd = newRunsheets.filter(r => !existingIds.has(r.id));
+                    if (toAdd.length === 0) return prev;
+                    const merged = [...prev, ...toAdd];
+                    merged.sort((a, b) => {
+                        const diff = new Date(a.date) - new Date(b.date);
+                        if (diff === 0) return (a.time || "").localeCompare(b.time || "");
+                        return diff;
+                    });
+                    // Update localStorage cache too
+                    const cacheKey = `runsheetsCache_${user.email}`;
+                    localStorage.setItem(cacheKey, JSON.stringify(merged));
+                    return merged;
+                });
+
+                // Check if the group itself is new and needs to be added to groups list
+                setGroups(prev => {
+                    if (prev.some(g => g.id === groupId)) return prev;
+                    const groupSnap = groupRsSnap.docs[0]?.data();
+                    // We'll fetch the group name properly
+                    return prev; // Will be picked up on next full refresh
+                });
+            }
+        } catch (err) {
+            console.error('Error enrolling in group:', err);
+        }
+    }, [user]);
+
+    // Initial fetch — only when user changes, NOT when filter changes
     useEffect(() => {
         if (user?.email) {
             fetchRunsheets();
         } else {
             setRunsheets([]);
             setGroups([]);
+            setLoading(true);
+            enrolledGroupsRef.current.clear();
         }
     }, [user, fetchRunsheets]);
 
@@ -137,7 +187,8 @@ export const DashboardContextProvider = ({ children }) => {
             loading, setLoading,
             isSyncing, setIsSyncing,
             activeFilter, setActiveFilter,
-            refresh: fetchRunsheets
+            refresh: fetchRunsheets,
+            enrollInGroup
         }}>
             {children}
         </DashboardContext.Provider>
