@@ -170,7 +170,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             let insertIndex = items.length;
             if (currentItem && typeof currentItem.insertAtIndex === 'number') insertIndex = currentItem.insertAtIndex;
             const tempId = `temp-${Date.now()}`;
-            const newNode = { id: tempId, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' };
+            const newNode = { id: tempId, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] };
             const newItems = [...items];
             newItems.splice(insertIndex, 0, newNode);
             setItems(newItems);
@@ -194,13 +194,13 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const handleEditItem = async (data) => {
         if (!currentItem || !currentItem.id) return;
         const updatedItems = items.map(item =>
-            item.id === currentItem.id ? { ...item, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' } : item
+            item.id === currentItem.id ? { ...item, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] } : item
         );
         setItems(updatedItems);
         calculateTimings(updatedItems, runsheet.time);
         setIsItemDialogOpen(false);
         setCurrentItem(null);
-        await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id), { text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '' });
+        await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id), { text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] });
     };
 
     const handleDeleteItem = async () => {
@@ -577,6 +577,34 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                             <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'}`}>
                                                                                 {item.text}
                                                                             </h3>
+                                                                            {/* Links */}
+                                                                            {Array.isArray(item.links) && item.links.length > 0 && (
+                                                                                <div className="flex flex-col gap-1 mt-1.5">
+                                                                                    {item.links.map((link, li) => (
+                                                                                        link.url ? (
+                                                                                            <a
+                                                                                                key={li}
+                                                                                                href={link.url}
+                                                                                                target="_blank"
+                                                                                                rel="noopener noreferrer"
+                                                                                                onClick={e => e.stopPropagation()}
+                                                                                                className="inline-flex items-center gap-1.5 min-h-[25px] text-primary text-sm font-medium transition-colors hover:opacity-80"
+                                                                                            >
+                                                                                                <span>{link.emoji}</span>
+                                                                                                <span>{link.name || link.url}</span>
+                                                                                            </a>
+                                                                                        ) : link.name ? (
+                                                                                            <span
+                                                                                                key={li}
+                                                                                                className="inline-flex items-center gap-1.5 min-h-[25px] text-primary text-sm font-medium"
+                                                                                            >
+                                                                                                <span>{link.emoji}</span>
+                                                                                                <span>{link.name}</span>
+                                                                                            </span>
+                                                                                        ) : null
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
                                                                             {item.location && (
                                                                                 <div className="flex items-center gap-1 mt-1.5">
                                                                                     <LocationOnIcon style={{ fontSize: 14 }} className="text-primary/70" />

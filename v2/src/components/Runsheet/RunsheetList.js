@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, orderBy, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
@@ -67,6 +67,52 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [groupDialog, setGroupDialog] = useState({ open: false, runsheet: null });
     const [shareGroupDialog, setShareGroupDialog] = useState({ open: false, group: null });
     const [whatsNewDialog, setWhatsNewDialog] = useState(false);
+    const [renameGroupDialog, setRenameGroupDialog] = useState({ open: false, groupId: null, currentName: '' });
+    const [archiveGroupDialog, setArchiveGroupDialog] = useState({ open: false, groupId: null });
+    const [renameGroupInput, setRenameGroupInput] = useState('');
+    const [groupActionLoading, setGroupActionLoading] = useState(false);
+
+    const handleRenameGroup = async () => {
+        if (!renameGroupDialog.groupId || !renameGroupInput.trim()) return;
+        try {
+            setGroupActionLoading(true);
+            await updateDoc(doc(db, 'groups', renameGroupDialog.groupId), { name: renameGroupInput.trim() });
+            await refresh();
+            setRenameGroupDialog({ open: false, groupId: null, currentName: '' });
+        } catch (err) {
+            console.error('Error renaming group', err);
+        } finally {
+            setGroupActionLoading(false);
+        }
+    };
+
+    const handleArchiveGroup = async () => {
+        if (!archiveGroupDialog.groupId) return;
+        try {
+            setGroupActionLoading(true);
+            const groupId = archiveGroupDialog.groupId;
+
+            // Archive all runsheets in the group
+            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
+            const groupRsSnap = await getDocs(groupRsQuery);
+            const batch = writeBatch(db);
+            groupRsSnap.docs.forEach(rsDoc => {
+                batch.update(rsDoc.ref, { category: 'archive' });
+            });
+
+            // Mark the group as archived/hidden
+            batch.update(doc(db, 'groups', groupId), { archived: true });
+            await batch.commit();
+
+            await refresh();
+            setArchiveGroupDialog({ open: false, groupId: null });
+            navigateToFilter('archive');
+        } catch (err) {
+            console.error('Error archiving group', err);
+        } finally {
+            setGroupActionLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (user && !loading) {
@@ -754,13 +800,47 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         />
                                     </div>
                                 ) : (
-                                    <div className="animate-in fade-in slide-in-from-left-2 duration-200">
+                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
                                         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
                                             {activeFilter === 'upcoming' ? 'Upcoming' :
                                                 activeFilter === 'past' ? 'Past' :
                                                     activeFilter === 'archive' ? 'Archive' :
                                                         groups.find(g => g.id === activeFilter)?.name || 'Group'}
                                         </h1>
+                                        {/* Inline group edit button — only shown when viewing a group */}
+                                        {activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter) && (() => {
+                                            const activeGroup = groups.find(g => g.id === activeFilter);
+                                            if (!activeGroup) return null;
+                                            return (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all" title="Manage group">
+                                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="start" className="w-44">
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer"
+                                                            onClick={() => {
+                                                                setRenameGroupInput(activeGroup.name);
+                                                                setRenameGroupDialog({ open: true, groupId: activeGroup.id, currentName: activeGroup.name });
+                                                            }}
+                                                        >
+                                                            <span className="material-symbols-outlined text-base mr-2">drive_file_rename_outline</span>
+                                                            Rename Group
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer text-destructive focus:text-destructive"
+                                                            onClick={() => setArchiveGroupDialog({ open: true, groupId: activeGroup.id })}
+                                                        >
+                                                            <span className="material-symbols-outlined text-base mr-2">inventory_2</span>
+                                                            Archive Group
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                             </div>
@@ -904,6 +984,68 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         open={whatsNewDialog}
                         onClose={() => setWhatsNewDialog(false)}
                     />
+
+                    {/* Rename Group Modal */}
+                    {renameGroupDialog.open && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setRenameGroupDialog({ open: false, groupId: null, currentName: '' })}>
+                            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                                <h2 className="text-xl font-extrabold tracking-tight mb-1">Rename Group</h2>
+                                <p className="text-sm text-muted-foreground mb-4">Enter a new name for this group.</p>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={renameGroupInput}
+                                    onChange={e => setRenameGroupInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleRenameGroup()}
+                                    className="w-full h-11 px-3 rounded-xl border border-border bg-muted/40 text-foreground font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                                    placeholder="Group name"
+                                />
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setRenameGroupDialog({ open: false, groupId: null, currentName: '' })}
+                                        className="flex-1 h-10 rounded-xl border border-border text-foreground font-bold text-sm hover:bg-muted transition-all active:scale-[0.98]"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleRenameGroup}
+                                        disabled={groupActionLoading || !renameGroupInput.trim()}
+                                        className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        {groupActionLoading ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Archive Group Confirmation */}
+                    {archiveGroupDialog.open && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setArchiveGroupDialog({ open: false, groupId: null })}>
+                            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-destructive/10 mb-4">
+                                    <span className="material-symbols-outlined text-2xl text-destructive">inventory_2</span>
+                                </div>
+                                <h2 className="text-xl font-extrabold tracking-tight mb-2">Archive Group?</h2>
+                                <p className="text-sm text-muted-foreground mb-6">All runsheets in this group will be archived and the group name will be hidden for all users. Are you sure?</p>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        onClick={handleArchiveGroup}
+                                        disabled={groupActionLoading}
+                                        className="w-full h-11 rounded-xl bg-destructive text-destructive-foreground font-bold text-sm hover:bg-destructive/90 transition-all active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        {groupActionLoading ? 'Archiving...' : 'Archive Group'}
+                                    </button>
+                                    <button
+                                        onClick={() => setArchiveGroupDialog({ open: false, groupId: null })}
+                                        className="w-full h-11 rounded-xl border border-border text-foreground font-semibold text-sm hover:bg-muted transition-all active:scale-[0.98]"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

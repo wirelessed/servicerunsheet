@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -11,27 +11,112 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { EmojiPicker } from "frimousse";
 import dynamic from 'next/dynamic';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const MinimalTiptapEditor = dynamic(
     () => import('@/components/ui/minimal-tiptap/minimal-tiptap').then(mod => mod.MinimalTiptapEditor),
     { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded-md w-full" /> }
 );
 
+function EmojiPickerPopover({ value, onChange }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-muted/40 text-xl hover:bg-muted transition-colors shrink-0"
+                    title="Pick emoji"
+                >
+                    {value || <span className="text-muted-foreground text-sm">😀</span>}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-fit p-0 border-border shadow-xl rounded-2xl overflow-hidden" align="start" side="bottom">
+                <EmojiPicker.Root
+                    className="isolate flex h-[320px] w-[300px] flex-col bg-background"
+                    onEmojiSelect={({ emoji }) => {
+                        onChange(emoji);
+                        setOpen(false);
+                    }}
+                >
+                    <EmojiPicker.Search
+                        className="z-10 mx-2 mt-2 h-9 appearance-none rounded-lg bg-muted/60 border border-border/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Search emoji..."
+                    />
+                    <EmojiPicker.Viewport className="relative flex-1 outline-hidden overflow-y-auto">
+                        <EmojiPicker.Loading className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+                            Loading…
+                        </EmojiPicker.Loading>
+                        <EmojiPicker.Empty className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+                            No emoji found.
+                        </EmojiPicker.Empty>
+                        <EmojiPicker.List
+                            className="select-none pb-1.5"
+                            components={{
+                                CategoryHeader: ({ category, ...props }) => (
+                                    <div className="bg-background px-3 pt-3 pb-1.5 font-bold text-muted-foreground text-[10px] uppercase tracking-widest" {...props}>
+                                        {category.label}
+                                    </div>
+                                ),
+                                Row: ({ children, ...props }) => (
+                                    <div className="scroll-my-1.5 px-1.5" {...props}>{children}</div>
+                                ),
+                                Emoji: ({ emoji, ...props }) => (
+                                    <button
+                                        className="flex size-8 items-center justify-center rounded-lg text-lg data-[active]:bg-primary/10 transition-colors"
+                                        {...props}
+                                    >
+                                        {emoji.emoji}
+                                    </button>
+                                ),
+                            }}
+                        />
+                    </EmojiPicker.Viewport>
+                </EmojiPicker.Root>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+const DEFAULT_LINK = () => ({ emoji: '🔗', name: '', url: '' });
 
 export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
-    const [data, setData] = useState({ text: '', remarks: '', duration: '', location: '' });
+    const [data, setData] = useState({ text: '', remarks: '', duration: '', location: '', links: [] });
 
     useEffect(() => {
         if (initialData) {
-            setData({ text: initialData.text || '', remarks: initialData.remarks || '', duration: initialData.duration || '', location: initialData.location || '' });
+            setData({
+                text: initialData.text || '',
+                remarks: initialData.remarks || '',
+                duration: initialData.duration || '',
+                location: initialData.location || '',
+                links: Array.isArray(initialData.links) ? initialData.links : [],
+            });
         } else {
-            setData({ text: '', remarks: '', duration: '', location: '' });
+            setData({ text: '', remarks: '', duration: '', location: '', links: [] });
         }
     }, [initialData, open]);
 
     const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.value });
-    const handleSubmit = () => { if (onSubmit) onSubmit(data); };
+
+    const handleLinkChange = (index, field, value) => {
+        const updated = data.links.map((link, i) => i === index ? { ...link, [field]: value } : link);
+        setData({ ...data, links: updated });
+    };
+
+    const handleAddLink = () => setData({ ...data, links: [...data.links, DEFAULT_LINK()] });
+
+    const handleRemoveLink = (index) => {
+        setData({ ...data, links: data.links.filter((_, i) => i !== index) });
+    };
+
+    const handleSubmit = () => {
+        // Strip empty links before submitting
+        const cleanedLinks = data.links.filter(l => l.name.trim() || l.url.trim());
+        if (onSubmit) onSubmit({ ...data, links: cleanedLinks });
+    };
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -110,6 +195,49 @@ export default function ItemDialog({ open, onClose, onSubmit, initialData }) {
                                     editorClassName="focus:outline-hidden touch-auto select-text"
                                 />
                             </div>
+                        </div>
+
+                        {/* ── Links Section ── */}
+                        <div className="grid gap-3">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Links or other metadata</Label>
+
+                            {data.links.map((link, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <EmojiPickerPopover
+                                        value={link.emoji}
+                                        onChange={(emoji) => handleLinkChange(index, 'emoji', emoji)}
+                                    />
+                                    <Input
+                                        placeholder="Name e.g. Slides"
+                                        value={link.name}
+                                        onChange={(e) => handleLinkChange(index, 'name', e.target.value)}
+                                        className="rounded-xl h-10 flex-[2] min-w-0"
+                                    />
+                                    <Input
+                                        placeholder="https://"
+                                        value={link.url}
+                                        onChange={(e) => handleLinkChange(index, 'url', e.target.value)}
+                                        className="rounded-xl h-10 flex-[3] min-w-0"
+                                        type="url"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveLink(index)}
+                                        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">remove</span>
+                                    </button>
+                                </div>
+                            ))}
+
+                            <button
+                                type="button"
+                                onClick={handleAddLink}
+                                className="flex items-center gap-2 text-xs font-bold text-primary hover:text-primary/80 transition-colors w-fit"
+                            >
+                                <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary text-base font-bold leading-none">+</span>
+                                Add link
+                            </button>
                         </div>
                     </div>
                 </div>
