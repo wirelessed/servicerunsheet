@@ -432,17 +432,18 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                         <span className="material-symbols-outlined text-lg">more_vert</span>
                                                     </button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuContent align="end" className="w-64">
                                                     {runsheet.isEditor && (
                                                         <DropdownMenuItem onClick={() => setMetadataDialog({ open: true, data: runsheet })}>
                                                             <span className="material-symbols-outlined text-base mr-2">edit</span>
-                                                            Edit Details
+                                                            Edit/Rename
                                                         </DropdownMenuItem>
                                                     )}
                                                     <DropdownMenuItem onClick={() => duplicateRunsheet(runsheet)}>
                                                         <span className="material-symbols-outlined text-base mr-2">content_copy</span>
                                                         Duplicate
                                                     </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
                                                     <DropdownMenuItem onClick={() => {
                                                         const origin = typeof window !== 'undefined' ? window.location.origin : '';
                                                         navigator.clipboard.writeText(`${origin}/runsheet/${runsheet.id}`);
