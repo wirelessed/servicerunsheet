@@ -540,10 +540,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                             ) : (<></>)}
 
                                                             <div className={`mt-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums flex flex-col items-end gap-0.5 ${isHighlighted ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                                                {mode === 'ops' && hasBeenLogged && origDuration !== duration ? (
+                                                                {(mode === 'ops' || mode === 'view') && hasBeenLogged && origDuration !== duration ? (
                                                                     <>
                                                                         <del className="text-[10px] opacity-70 leading-none">{origDuration} min</del>
-                                                                        <span className={itemDiffMinutes > 0 ? 'text-amber-500' : 'text-emerald-500'}>{duration} min <br /><span className="opacity-70">({itemDiffMinutes > 0 ? '+' : ''}{itemDiffMinutes}m)</span></span>
+                                                                        <span className={itemDiffMinutes > 0 ? 'text-amber-500' : 'text-emerald-500'}>
+                                                                            {duration} min 
+                                                                            {mode === 'ops' && (
+                                                                                <>
+                                                                                    <br />
+                                                                                    <span className="opacity-70">({itemDiffMinutes > 0 ? '+' : ''}{itemDiffMinutes}m)</span>
+                                                                                </>
+                                                                            )}
+                                                                        </span>
                                                                     </>
                                                                 ) : (
                                                                     <span>{duration} min</span>
