@@ -11,6 +11,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArticleIcon from '@mui/icons-material/Description';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import ShareIcon from '@mui/icons-material/Share';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CalendarViewDayIcon from '@mui/icons-material/CalendarViewDay';
 import dynamic from 'next/dynamic';
 
@@ -353,10 +354,10 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             key={m}
                             onClick={() => setMode(m)}
                             className={`
-                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200
+                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
                                 ${mode === m
-                                    ? 'bg-card text-primary shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                    ? 'border-primary/30 bg-primary/10 text-primary shadow-sm dark:bg-primary/15 dark:border-primary/40'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5'
                                 }
                             `}
                         >
@@ -366,10 +367,10 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     <button
                         onClick={() => setMode('advanced')}
                         className={`
-                            hidden md:block px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200
+                            hidden md:block px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
                             ${mode === 'advanced'
-                                ? 'bg-card text-primary shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
+                                ? 'border-primary/30 bg-primary/10 text-primary shadow-sm dark:bg-primary/15 dark:border-primary/40'
+                                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5'
                             }
                         `}
                     >
@@ -383,10 +384,10 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             key={m}
                             onClick={() => setMode(m)}
                             className={`
-                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200
+                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
                                 ${mode === m
-                                    ? 'bg-card text-primary shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                    ? 'border-primary/30 bg-primary/10 text-primary shadow-sm dark:bg-primary/15 dark:border-primary/40'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5'
                                 }
                             `}
                         >
@@ -504,6 +505,8 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                 }
                                 extraPadding = Math.min(extraPadding, 300); // cap at 300px
 
+                                const hasSubContent = item.location || (Array.isArray(item.links) && item.links.length > 0) || item.remarks;
+
                                 const currentEndTime = timing.obj ? timing.obj.clone().add(duration, 'minutes') : null;
 
                                 return (
@@ -582,12 +585,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                 <div className={`flex-1 flex flex-col ${mode === 'edit' ? 'mt-4' : ''}`}>
                                                                     <div className="flex items-start justify-between mb-1 relative z-10">
                                                                         <div className="min-w-0 flex-1">
-                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'}`}>
+                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'} ${hasSubContent ? 'mb-2' : ''}`}>
                                                                                 {item.text}
                                                                             </h3>
+                                                                            {item.location && (
+                                                                                <div className="flex items-center gap-1.5 mt-1.5 min-h-[25px]">
+                                                                                    <LocationOnIcon style={{ fontSize: 14 }} className="text-muted-foreground" />
+                                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{item.location}</span>
+                                                                                </div>
+                                                                            )}
                                                                             {/* Links */}
                                                                             {Array.isArray(item.links) && item.links.length > 0 && (
-                                                                                <div className="flex flex-col gap-1 mt-1.5">
+                                                                                <div className="flex flex-col gap-2 mt-2">
                                                                                     {item.links.map((link, li) => (
                                                                                         link.url ? (
                                                                                             <a
@@ -596,34 +605,31 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                                                 target="_blank"
                                                                                                 rel="noopener noreferrer"
                                                                                                 onClick={e => e.stopPropagation()}
-                                                                                                className="inline-flex items-center gap-1.5 min-h-[25px] text-primary text-sm font-medium transition-colors hover:opacity-80"
+                                                                                                className="flex items-center justify-between gap-3 min-h-[28px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold uppercase tracking-wider text-primary/70 transition-colors hover:bg-primary/5 hover:border-primary/50 hover:text-primary w-full"
                                                                                             >
-                                                                                                <span>{link.emoji}</span>
-                                                                                                <span>{link.name || link.url}</span>
+                                                                                                <div className="flex items-center gap-1.5">
+                                                                                                    <span className="text-sm">{link.emoji}</span>
+                                                                                                    <span>{link.name || link.url}</span>
+                                                                                                </div>
+                                                                                                <OpenInNewIcon style={{ fontSize: 14 }} className="opacity-70" />
                                                                                             </a>
                                                                                         ) : link.name ? (
                                                                                             <span
                                                                                                 key={li}
-                                                                                                className="inline-flex items-center gap-1.5 min-h-[25px] text-primary text-sm font-medium"
+                                                                                                className="flex items-center gap-1.5 min-h-[28px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold uppercase tracking-wider text-primary/70 w-full"
                                                                                             >
-                                                                                                <span>{link.emoji}</span>
+                                                                                                <span className="text-sm">{link.emoji}</span>
                                                                                                 <span>{link.name}</span>
                                                                                             </span>
                                                                                         ) : null
                                                                                     ))}
                                                                                 </div>
                                                                             )}
-                                                                            {item.location && (
-                                                                                <div className="flex items-center gap-1 mt-1.5">
-                                                                                    <LocationOnIcon style={{ fontSize: 14 }} className="text-primary/70" />
-                                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">{item.location}</span>
-                                                                                </div>
-                                                                            )}
                                                                         </div>
                                                                         {mode === 'edit' && (
                                                                             <button
                                                                                 onClick={(e) => { e.stopPropagation(); setDeleteItemDialog({ open: true, itemId: item.id }); }}
-                                                                                className="text-muted-foreground/40 hover:text-destructive transition-colors p-1 rounded-lg hover:bg-destructive/10"
+                                                                                className="text-muted-foreground/40 hover:text-destructive transition-colors pb-1 px-1 pt-0 rounded-lg hover:bg-destructive/10"
                                                                             >
                                                                                 <DeleteIcon style={{ fontSize: 18 }} />
                                                                             </button>
@@ -749,7 +755,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                         const endDiffMinutes = origEndTime ? currentEndTime.diff(origEndTime, 'minutes') : 0;
 
                                         return (
-                                            <div className="flex flex-col w-full mt-4 mb-8 z-10 relative items-center justify-center gap-2">
+                                            <div className="flex flex-col w-full mt-4 mb-8 pb-8 z-10 relative items-center justify-center gap-2">
                                                 <div className="px-4 py-2 rounded-full bg-muted/50 border border-border/50 shadow-sm flex items-center gap-2">
                                                     <div className="w-2 h-2 rounded-full bg-primary/40"></div>
                                                     <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">End Time:</span>
