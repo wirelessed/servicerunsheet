@@ -497,6 +497,13 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                 const hasBeenLogged = item.originalDuration !== undefined && item.originalDuration !== null;
                                 const itemDiffMinutes = hasBeenLogged ? duration - origDuration : 0;
 
+                                // Calculate visual representation for item height
+                                let extraPadding = 0;
+                                if (duration > 10) {
+                                    extraPadding = Math.floor((duration - 10) / 5) * 10;
+                                }
+                                extraPadding = Math.min(extraPadding, 300); // cap at 300px
+
                                 const currentEndTime = timing.obj ? timing.obj.clone().add(duration, 'minutes') : null;
 
                                 return (
@@ -547,6 +554,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                 onClick={() => {
                                                                     if (mode === 'edit') { setCurrentItem(item); setIsItemDialogOpen(true); }
                                                                 }}
+                                                                style={{ paddingBottom: `calc(1rem + ${extraPadding}px)` }}
                                                                 className={`
                                                                     rounded-xl p-4 border transition-all duration-200 relative overflow-hidden h-full
                                                                     ${mode === 'edit' ? 'cursor-pointer hover:shadow-md hover:border-primary/20' : 'cursor-default'}

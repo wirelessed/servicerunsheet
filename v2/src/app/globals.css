@@ -60,6 +60,29 @@
   --shadow-xl: 0 20px 40px -8px oklch(0.00 0 0 / 0.15), 0 8px 16px -6px oklch(0.00 0 0 / 0.10);
   --shadow-2xl: 0 28px 56px -12px oklch(0.00 0 0 / 0.25);
 
+  /* ── Editor Auto-Changing Colors ── */
+  --mt-accent-bold-blue: #05c;
+  --mt-accent-bold-teal: #206a83;
+  --mt-accent-bold-green: #216e4e;
+  --mt-accent-bold-orange: #a54800;
+  --mt-accent-bold-red: #ae2e24;
+  --mt-accent-bold-purple: #5e4db2;
+
+  --mt-accent-gray: #758195;
+  --mt-accent-blue: #1d7afc;
+  --mt-accent-teal: #2898bd;
+  --mt-accent-green: #22a06b;
+  --mt-accent-orange: #fea362;
+  --mt-accent-red: #c9372c;
+  --mt-accent-purple: #8270db;
+
+  --mt-accent-blue-subtler: #cce0ff;
+  --mt-accent-teal-subtler: #c6edfb;
+  --mt-accent-green-subtler: #baf3db;
+  --mt-accent-yellow-subtler: #f8e6a0;
+  --mt-accent-red-subtler: #ffd5d2;
+  --mt-accent-purple-subtler: #dfd8fd;
+
   /* ── Spacing base ── */
   --spacing: 0.25rem;
 }
@@ -110,6 +133,29 @@
   --shadow-lg: 0 12px 24px -4px oklch(0.00 0 0 / 0.35), 0 4px 8px -4px oklch(0.00 0 0 / 0.20);
   --shadow-xl: 0 20px 40px -8px oklch(0.00 0 0 / 0.40), 0 8px 16px -6px oklch(0.00 0 0 / 0.25);
   --shadow-2xl: 0 28px 56px -12px oklch(0.00 0 0 / 0.50);
+
+  /* ── Editor Auto-Changing Colors ── */
+  --mt-accent-bold-blue: #85b8ff;
+  --mt-accent-bold-teal: #9dd9ee;
+  --mt-accent-bold-green: #7ee2b8;
+  --mt-accent-bold-orange: #fec195;
+  --mt-accent-bold-red: #fd9891;
+  --mt-accent-bold-purple: #b8acf6;
+
+  --mt-accent-gray: #738496;
+  --mt-accent-blue: #388bff;
+  --mt-accent-teal: #42b2d7;
+  --mt-accent-green: #2abb7f;
+  --mt-accent-orange: #a54800;
+  --mt-accent-red: #e2483d;
+  --mt-accent-purple: #8f7ee7;
+
+  --mt-accent-blue-subtler: #09326c;
+  --mt-accent-teal-subtler: #164555;
+  --mt-accent-green-subtler: #164b35;
+  --mt-accent-yellow-subtler: #533f04;
+  --mt-accent-red-subtler: #5d1f1a;
+  --mt-accent-purple-subtler: #352c63;
 }
 
 @theme inline {

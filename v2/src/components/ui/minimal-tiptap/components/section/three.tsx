@@ -32,41 +32,15 @@ interface ColorPalette {
 const COLORS: ColorPalette[] = [
   {
     label: "Palette 1",
-    inverse: "hsl(var(--background))",
+    inverse: "var(--background)",
     colors: [
-      { cssVar: "hsl(var(--foreground))", label: "Default" },
-      { cssVar: "var(--mt-accent-bold-blue)", label: "Bold blue" },
-      { cssVar: "var(--mt-accent-bold-teal)", label: "Bold teal" },
-      { cssVar: "var(--mt-accent-bold-green)", label: "Bold green" },
-      { cssVar: "var(--mt-accent-bold-orange)", label: "Bold orange" },
-      { cssVar: "var(--mt-accent-bold-red)", label: "Bold red" },
-      { cssVar: "var(--mt-accent-bold-purple)", label: "Bold purple" },
-    ],
-  },
-  {
-    label: "Palette 2",
-    inverse: "hsl(var(--background))",
-    colors: [
-      { cssVar: "var(--mt-accent-gray)", label: "Gray" },
-      { cssVar: "var(--mt-accent-blue)", label: "Blue" },
-      { cssVar: "var(--mt-accent-teal)", label: "Teal" },
-      { cssVar: "var(--mt-accent-green)", label: "Green" },
-      { cssVar: "var(--mt-accent-orange)", label: "Orange" },
-      { cssVar: "var(--mt-accent-red)", label: "Red" },
-      { cssVar: "var(--mt-accent-purple)", label: "Purple" },
-    ],
-  },
-  {
-    label: "Palette 3",
-    inverse: "hsl(var(--foreground))",
-    colors: [
-      { cssVar: "hsl(var(--background))", label: "White", darkLabel: "Black" },
-      { cssVar: "var(--mt-accent-blue-subtler)", label: "Blue subtle" },
-      { cssVar: "var(--mt-accent-teal-subtler)", label: "Teal subtle" },
-      { cssVar: "var(--mt-accent-green-subtler)", label: "Green subtle" },
-      { cssVar: "var(--mt-accent-yellow-subtler)", label: "Yellow subtle" },
-      { cssVar: "var(--mt-accent-red-subtler)", label: "Red subtle" },
-      { cssVar: "var(--mt-accent-purple-subtler)", label: "Purple subtle" },
+      { cssVar: "var(--foreground)", label: "Default" },
+      { cssVar: "var(--mt-accent-bold-blue)", label: "Blue" },
+      { cssVar: "var(--mt-accent-bold-teal)", label: "Teal" },
+      { cssVar: "var(--mt-accent-bold-green)", label: "Green" },
+      { cssVar: "var(--mt-accent-bold-orange)", label: "Orange" },
+      { cssVar: "var(--mt-accent-bold-red)", label: "Red" },
+      { cssVar: "var(--mt-accent-bold-purple)", label: "Purple" },
     ],
   },
 ]
@@ -149,7 +123,7 @@ export const SectionThree: React.FC<SectionThreeProps> = ({
   variant,
 }) => {
   const color =
-    editor.getAttributes("textStyle")?.color || "hsl(var(--foreground))"
+    editor.getAttributes("textStyle")?.color || "var(--foreground)"
   const [selectedColor, setSelectedColor] = React.useState(color)
 
   const handleColorChange = React.useCallback(
