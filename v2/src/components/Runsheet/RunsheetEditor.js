@@ -501,9 +501,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                 // Calculate visual representation for item height
                                 let extraPadding = 0;
                                 if (duration > 10) {
-                                    extraPadding = Math.floor((duration - 10) / 5) * 10;
+                                    extraPadding = Math.floor((duration - 10) / 5) * 5;
                                 }
-                                extraPadding = Math.min(extraPadding, 300); // cap at 300px
+                                extraPadding = Math.min(extraPadding, 200); // cap at 200px
 
                                 const hasSubContent = item.location || (Array.isArray(item.links) && item.links.length > 0) || item.remarks;
 
@@ -646,7 +646,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                                                                     {item.remarks && (
                                                                         <div
-                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
+                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] [&_p:empty]:after:content-['\\00a0'] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
                                                                             dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
                                                                         />
                                                                     )}
