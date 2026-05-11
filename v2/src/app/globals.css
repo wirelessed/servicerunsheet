@@ -495,3 +495,8 @@ ol.list-node ol.list-node ol.list-node {
       transparent 100%),
     radial-gradient(ellipse 90% 80% at 50% 0%, oklch(0.55 0.22 264 / 0.40) 0%, transparent 70%);
 }
+
+/* Fix for TipTap empty paragraphs collapsing in view mode */
+.prose p:empty::before {
+  content: "\00a0";
+}

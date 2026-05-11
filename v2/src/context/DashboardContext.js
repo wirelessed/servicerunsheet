@@ -63,7 +63,7 @@ export const DashboardContextProvider = ({ children }) => {
                         if (!runsheetSnap.exists()) return null;
                         const data = runsheetSnap.data();
                         const role = userRoleSnap.exists() ? userRoleSnap.data().role : null;
-                        return { id: runsheetSnap.id, ...data, category: data.category || 'active', isEditor: role === 'editor' || role === 'owner' };
+                        return { id: runsheetSnap.id, ...data, category: data.category || 'active', role: role, isEditor: role === 'editor' || role === 'owner' };
                     } catch (e) { return null; }
                 })
             )).filter(Boolean);

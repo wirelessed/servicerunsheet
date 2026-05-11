@@ -110,7 +110,7 @@
 .minimal-tiptap-editor .ProseMirror .block-node:not(:last-child),
 .minimal-tiptap-editor .ProseMirror .list-node:not(:last-child),
 .minimal-tiptap-editor .ProseMirror .text-node:not(:last-child) {
-  @apply mb-2.5;
+  @apply mb-1;
 }
 
 .minimal-tiptap-editor .ProseMirror ol,

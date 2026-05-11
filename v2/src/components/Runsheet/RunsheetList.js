@@ -70,6 +70,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [archiveGroupDialog, setArchiveGroupDialog] = useState({ open: false, groupId: null });
     const [renameGroupInput, setRenameGroupInput] = useState('');
     const [groupActionLoading, setGroupActionLoading] = useState(false);
+    const [duplicateDialog, setDuplicateDialog] = useState({ open: false, runsheet: null, copyCollaborators: false });
 
     const handleRenameGroup = async () => {
         if (!renameGroupDialog.groupId || !renameGroupInput.trim()) return;
@@ -234,7 +235,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         }
     };
 
-    const duplicateRunsheet = async (runsheet) => {
+    const duplicateRunsheet = async (runsheet, copyCollaborators = false) => {
         try {
             setIsSyncing(true);
             const q = query(collection(db, `runsheets/${runsheet.id}/programme`), orderBy('orderCount', 'asc'));
@@ -242,14 +243,28 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             const items = snapshot.docs.map(doc => doc.data());
             const newRunsheet = { ...runsheet, name: `Copy of ${runsheet.name}`, category: 'active', lastUpdated: moment().format() };
             delete newRunsheet.id;
+            delete newRunsheet.role;
+            delete newRunsheet.isEditor;
             const newDocRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
             await setDoc(doc(db, `users/${user.email}/runsheets`, newDocRef.id), { id: newDocRef.id });
-            await setDoc(doc(db, `runsheets/${newDocRef.id}/users`, user.email), {
+            const batch = writeBatch(db);
+            // Always make the duplicating user the owner
+            batch.set(doc(db, `runsheets/${newDocRef.id}/users`, user.email), {
                 id: user.email,
                 role: 'owner',
                 email: user.email
             });
-            const batch = writeBatch(db);
+            // Optionally copy collaborators (owners only)
+            if (copyCollaborators && runsheet.role === 'owner') {
+                const usersSnap = await getDocs(collection(db, `runsheets/${runsheet.id}/users`));
+                usersSnap.docs.forEach(userDoc => {
+                    if (userDoc.id !== user.email) {
+                        const userData = userDoc.data();
+                        batch.set(doc(db, `runsheets/${newDocRef.id}/users`, userDoc.id), userData);
+                        batch.set(doc(db, `users/${userDoc.id}/runsheets`, newDocRef.id), { id: newDocRef.id });
+                    }
+                });
+            }
             items.forEach((item) => { batch.set(doc(collection(db, `runsheets/${newDocRef.id}/programme`)), item); });
             await batch.commit();
             await refresh();
@@ -257,6 +272,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             console.error("Error duplicating runsheet", err);
         } finally {
             setIsSyncing(false);
+            setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false });
         }
     };
 
@@ -390,7 +406,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                     <h3 className="text-[15px] font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                                                         {runsheet.name}
                                                     </h3>
-                                                    <div className="flex items-center gap-2 mt-1 flex-wrap overflow-hidden">
+                                                    <div className="flex items-center gap-1 mt-1 flex-wrap overflow-hidden">
                                                         {runsheet.groupId && (
                                                             <button
                                                                 onClick={(e) => {
@@ -407,9 +423,9 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                                                             Last updated {moment(runsheet.lastUpdated).fromNow()}
                                                         </span>
-                                                        {!runsheet.isEditor && (
+                                                        {!runsheet.isOwner && (
                                                             <div className="flex items-center text-muted-foreground ml-0.5" title="Shared with me">
-                                                                <span className="material-symbols-outlined text-[18px]">folder_shared</span>
+                                                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>people_alt</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -439,7 +455,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                             Edit/Rename
                                                         </DropdownMenuItem>
                                                     )}
-                                                    <DropdownMenuItem onClick={() => duplicateRunsheet(runsheet)}>
+                                                    <DropdownMenuItem onClick={() => setDuplicateDialog({ open: true, runsheet, copyCollaborators: false })}>
                                                         <span className="material-symbols-outlined text-base mr-2">content_copy</span>
                                                         Duplicate
                                                     </DropdownMenuItem>
@@ -457,7 +473,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                         const text = `Check out this runsheet: ${runsheet.name}`;
                                                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
                                                     }}>
-                                                        <WhatsAppIcon className="text-base mr-2" style={{ fontSize: '1rem' }} />
+                                                        <WhatsAppIcon className="mr-2" style={{ fontSize: '24px' }} />
                                                         Share Link to Whatsapp
                                                     </DropdownMenuItem>
                                                     {runsheet.isEditor && (
@@ -470,7 +486,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                             {runsheet.groupId && (
                                                                 <DropdownMenuItem onClick={() => handleRemoveFromGroup(runsheet.id)}>
                                                                     <span className="material-symbols-outlined text-base mr-2">folder_off</span>
-                                                                    Remove from Group
+                                                                    Remove from group
                                                                 </DropdownMenuItem>
                                                             )}
                                                             <DropdownMenuSeparator />
@@ -955,6 +971,50 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         confirmStyle="destructive"
                         isLoading={isSyncing}
                     />
+
+                    {/* Duplicate Runsheet Dialog */}
+                    {duplicateDialog.open && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false })} />
+                            <div className="relative bg-card border border-border rounded-2xl shadow-xl p-6 mx-4 w-full max-w-sm flex flex-col gap-4">
+                                <h2 className="text-base font-bold text-foreground">Duplicate Runsheet</h2>
+
+                                {duplicateDialog.runsheet?.role === 'owner' ? (
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="mt-0.5 shrink-0">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 accent-primary rounded"
+                                                checked={duplicateDialog.copyCollaborators}
+                                                onChange={(e) => setDuplicateDialog(d => ({ ...d, copyCollaborators: e.target.checked }))}
+                                            />
+                                        </div>
+                                        <span className="text-sm text-foreground">Copy existing editors and viewers to the new duplicated runsheet.</span>
+                                    </label>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        As you are not the owner of the original runsheet, the editors and viewers will not have access to the new duplicated runsheet until you share with them.
+                                    </p>
+                                )}
+
+                                <div className="flex gap-2 justify-end mt-2">
+                                    <button
+                                        onClick={() => setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false })}
+                                        className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => duplicateRunsheet(duplicateDialog.runsheet, duplicateDialog.copyCollaborators)}
+                                        disabled={isSyncing}
+                                        className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+                                    >
+                                        {isSyncing ? 'Duplicating…' : 'Create Duplicate'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <GroupDialog
                         open={groupDialog.open}

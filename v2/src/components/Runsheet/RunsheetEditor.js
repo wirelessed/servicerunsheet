@@ -459,7 +459,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     <ArrowBackIcon style={{ fontSize: 20 }} />
                 </button>
 
-                {renderModePills()}
+                {activeTab === 'runsheet' && renderModePills()}
 
                 <div className="size-10" />
             </div>
@@ -544,7 +544,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                     <>
                                                                         <del className="text-[10px] opacity-70 leading-none">{origDuration} min</del>
                                                                         <span className={itemDiffMinutes > 0 ? 'text-amber-500' : 'text-emerald-500'}>
-                                                                            {duration} min 
+                                                                            {duration} min
                                                                             {mode === 'ops' && (
                                                                                 <>
                                                                                     <br />
@@ -616,7 +616,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                                                 className="flex items-center justify-between gap-3 min-h-[28px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold uppercase tracking-wider text-primary/70 transition-colors hover:bg-primary/5 hover:border-primary/50 hover:text-primary w-full"
                                                                                             >
                                                                                                 <div className="flex items-center gap-1.5">
-                                                                                                    <span className="text-sm">{link.emoji}</span>
+                                                                                                    <span className="text-sm dark:brightness-[1.2] dark:saturate-[1.1]">{link.emoji}</span>
                                                                                                     <span>{link.name || link.url}</span>
                                                                                                 </div>
                                                                                                 <OpenInNewIcon style={{ fontSize: 14 }} className="opacity-70" />
@@ -626,7 +626,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                                                 key={li}
                                                                                                 className="flex items-center gap-1.5 min-h-[28px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold uppercase tracking-wider text-primary/70 w-full"
                                                                                             >
-                                                                                                <span className="text-sm">{link.emoji}</span>
+                                                                                                <span className="text-sm dark:brightness-[1.2] dark:saturate-[1.1]">{link.emoji}</span>
                                                                                                 <span>{link.name}</span>
                                                                                             </span>
                                                                                         ) : null
@@ -646,7 +646,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                                                                     {item.remarks && (
                                                                         <div
-                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] [&_p:empty]:after:content-['\\00a0'] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
+                                                                            className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
                                                                             dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
                                                                         />
                                                                     )}
@@ -942,7 +942,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             {/* Desktop header */}
                             <div className="hidden md:block mb-6 page-enter">
                                 <div className="flex justify-center mb-6">
-                                    {renderModePills()}
+                                    {activeTab === 'runsheet' && renderModePills()}
                                 </div>
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex flex-col">
@@ -997,7 +997,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             )}
                         </>
                     ) : activeTab === 'notes' ? (
-                        <div className="page-enter px-4 md:px-0 mt-4 md:mt-0">
+                        <div className="page-enter px-4 md:px-0 mt-4 md:mt-0 pb-28">
                             <NotesTab runsheet={runsheet} isEditor={effectiveIsEditor} mode={mode} />
                         </div>
                     ) : activeTab === 'share' ? (

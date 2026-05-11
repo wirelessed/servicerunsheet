@@ -160,7 +160,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         if (runsheet?.date) {
             text += `${moment(runsheet.date).format('D MMMM YYYY (ddd)')}\n`;
         }
-        
+
         if (programme && timings) {
             let itemsText = [];
             programme.forEach(item => {
@@ -183,7 +183,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         const updatedTime = runsheet?.lastUpdated || new Date().toISOString();
         text += `\n[Info last updated at ${moment(updatedTime).format('DD/MM/YY hh:mm a')}]`;
         text += `\n${shareUrl}`;
-        
+
         setPlainTextContent(text);
         setPlainTextDialog(true);
     };
@@ -272,7 +272,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                     )}
 
                     {/* Users list */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 pb-24">
                         {displayUsers.length === 0 ? (
                             <div className="text-center text-sm text-muted-foreground py-6 bg-muted/30 rounded-xl">
                                 No people added yet
@@ -335,19 +335,19 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem
                                                             onClick={() => handleChangeRole(member.email, 'editor')}
-                                                            className={member.role === 'editor' ? 'font-bold' : ''}
+                                                            className={member.role === 'editor' ? 'font-bold text-primary' : ''}
                                                         >
                                                             Editor
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => handleChangeRole(member.email, 'ops')}
-                                                            className={member.role === 'ops' ? 'font-bold' : ''}
+                                                            className={member.role === 'ops' ? 'font-bold text-primary' : ''}
                                                         >
                                                             Ops
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => handleChangeRole(member.email, 'viewer')}
-                                                            className={member.role === 'viewer' ? 'font-bold' : ''}
+                                                            className={member.role === 'viewer' ? 'font-bold text-primary' : ''}
                                                         >
                                                             Viewer
                                                         </DropdownMenuItem>
