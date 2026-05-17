@@ -952,7 +952,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     // ── Desktop Sidebar ──
     const renderDesktopSidebar = () => (
-        <aside className="hidden md:flex flex-col w-[120px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0 z-20">
+        <aside className="hidden md:flex flex-col w-[100px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0 z-20">
             <div className="flex flex-col gap-1 px-3">
                 {/* Back (Only visible on md screens, hidden on lg since it moves to the left pane) */}
                 <div className="flex lg:hidden items-center justify-center mb-1">
