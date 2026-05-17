@@ -23,6 +23,7 @@ import moment from 'moment';
 import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, getDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { useDashboard } from '../../context/DashboardContext';
 import ItemDialog from './ItemDialog';
 import ShareTab from './ShareTab';
 import RunsheetMetadataDialog from './RunsheetMetadataDialog';
@@ -45,6 +46,7 @@ const AdvancedGrid = dynamic(() => import('./AdvancedGrid'), { ssr: false, loadi
 
 export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false, isAuthenticated = true }) {
     const { user } = useAuth();
+    const { runsheets, groups, activeFilter } = useDashboard();
     const router = useRouter();
     const [items, setItems] = useState(initialProgramme);
     const [timings, setTimings] = useState({});
@@ -62,6 +64,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     // UI States
     const [mode, setMode] = useState('view'); // 'view', 'edit', 'ops'
     const [activeTab, setActiveTab] = useState('runsheet'); // 'runsheet', 'notes', 'share'
+    const [isListSidebarOpen, setIsListSidebarOpen] = useState(true);
 
     // Dialogs
     const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
@@ -828,56 +831,168 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         </main>
     );
 
+    // ── Runsheet List Sidebar ──
+    const renderRunsheetListSidebar = () => {
+        let groupName = 'Runsheets';
+        let groupRunsheets = [];
+
+        if (activeFilter === 'upcoming') {
+            groupName = 'Upcoming';
+            groupRunsheets = runsheets?.filter(r =>
+                !moment(r.date).isBefore(moment(), 'day') &&
+                r.category !== 'archive'
+            ) || [];
+        } else if (activeFilter === 'past') {
+            groupName = 'Past';
+            groupRunsheets = runsheets?.filter(r =>
+                moment(r.date).isBefore(moment(), 'day') &&
+                r.category !== 'archive'
+            ) || [];
+        } else {
+            const currentGroup = groups?.find(g => g.id === runsheet.groupId);
+            groupName = currentGroup ? currentGroup.name : 'Runsheets';
+
+            const currentIsPast = moment(runsheet.date).isBefore(moment(), 'day');
+
+            groupRunsheets = runsheets?.filter(r =>
+                r.groupId === runsheet.groupId &&
+                r.category !== 'archive'
+            ) || [];
+
+            if (!currentIsPast && !runsheet.groupId) {
+                groupRunsheets = groupRunsheets.filter(r => !moment(r.date).isBefore(moment(), 'day'));
+            }
+        }
+
+        const grouped = {};
+        groupRunsheets.forEach(rs => {
+            const groupKey = moment(rs.date).format('MMMM YYYY');
+            if (!grouped[groupKey]) grouped[groupKey] = [];
+            grouped[groupKey].push(rs);
+        });
+        const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
+
+        return (
+            <aside className={`hidden lg:flex flex-col border-r border-border bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${isListSidebarOpen ? 'w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[72px]'}`}>
+                {/* Back and Toggle Header */}
+                <div className={`flex mb-4 px-3 ${isListSidebarOpen ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
+                    {isListSidebarOpen ? (
+                        <button
+                            onClick={handleBackToDashboard}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                        >
+                            <ArrowBackIcon style={{ fontSize: 14 }} />
+                            Dashboard
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleBackToDashboard}
+                            className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                            title="Back to Dashboard"
+                        >
+                            <ArrowBackIcon style={{ fontSize: 18 }} />
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setIsListSidebarOpen(!isListSidebarOpen)}
+                        className={`flex items-center justify-center rounded-xl transition-all ${isListSidebarOpen ? 'w-8 h-8 bg-primary/10 text-primary' : 'w-10 h-10 text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        title="Toggle Runsheet List"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">view_sidebar</span>
+                    </button>
+                </div>
+
+                {isListSidebarOpen && (
+                    <div className="flex-1 flex flex-col overflow-hidden mt-1">
+                        <div className="px-5 mb-2 mt-2">
+                            <h2 className="text-lg font-extrabold tracking-tight text-foreground">{groupName}</h2>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-3 pb-6 space-y-4 scrollbar-thin">
+                            {sortedKeys.map(monthKey => (
+                                <div key={monthKey} className="space-y-1.5">
+                                    <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] px-3 pt-2 pb-1">{monthKey}</h2>
+                                    {grouped[monthKey].map(rs => {
+                                        const dateObj = moment(rs.date);
+                                        const niceDate = dateObj.format('D');
+                                        const dayName = dateObj.format('ddd');
+                                        const isToday = dateObj.isSame(moment(), 'day');
+                                        const isActive = rs.id === runsheet.id;
+
+                                        return (
+                                            <button
+                                                key={rs.id}
+                                                onClick={() => router.push(`/runsheet/${rs.id}`)}
+                                                className={`w-full text-left p-2 rounded-2xl transition-all flex items-start gap-3 group active:scale-[0.98] ${isActive ? 'bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
+                                            >
+                                                <div className={`flex flex-col items-center justify-center w-[42px] h-[42px] rounded-lg shrink-0 transition-colors ${isActive ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' : isToday ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                                                    <span className="text-[8px] font-bold uppercase tracking-wide leading-none">{dayName}</span>
+                                                    <span className="text-[15px] font-extrabold leading-none mt-[2px]">{niceDate}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0 flex items-center min-h-[42px]">
+                                                    <h3 className={`text-[12px] font-bold leading-snug line-clamp-2 transition-colors ${isActive ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>
+                                                        {rs.name}
+                                                    </h3>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                            {groupRunsheets.length === 0 && (
+                                <div className="text-center text-xs text-muted-foreground mt-4 px-4">
+                                    No other runsheets found.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </aside>
+        );
+    };
+
     // ── Desktop Sidebar ──
     const renderDesktopSidebar = () => (
-        <aside className="hidden md:flex flex-col w-[260px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0">
+        <aside className="hidden md:flex flex-col w-[120px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0 z-20">
             <div className="flex flex-col gap-1 px-3">
-                {/* Back */}
-                <button
-                    onClick={handleBackToDashboard}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all mb-1"
-                >
-                    <ArrowBackIcon style={{ fontSize: 14 }} />
-                    Dashboard
-                </button>
-
-                {/* Runsheet info */}
-                <div className="px-3 py-3 mb-2">
-                    <h1 className="text-base font-extrabold tracking-tight text-foreground leading-snug line-clamp-2" title={runsheet.name}>{runsheet.name}</h1>
-                    <div className="flex items-center gap-1.5 mt-2 text-muted-foreground">
-                        <CalendarTodayIcon style={{ fontSize: 13 }} />
-                        <span className="text-xs font-medium">{moment(runsheet.date).format("ddd, MMM D, YYYY")}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-md">{items.length} items</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                            {totalHours > 0 ? `${totalHours}h ${totalMins} min` : `${totalMins} min`}
-                        </span>
-                    </div>
+                {/* Back (Only visible on md screens, hidden on lg since it moves to the left pane) */}
+                <div className="flex lg:hidden items-center justify-center mb-1">
+                    <button
+                        onClick={handleBackToDashboard}
+                        className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                        title="Back to Dashboard"
+                    >
+                        <ArrowBackIcon style={{ fontSize: 18 }} />
+                    </button>
                 </div>
 
                 {/* Nav */}
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-6 mt-2 px-2">
                     <button
                         onClick={() => setActiveTab('runsheet')}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'runsheet' ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'runsheet' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <CalendarViewDayIcon style={{ fontSize: 20 }} />
-                        Runsheet
+                        <div className={`px-6 py-1.5 rounded-xl transition-colors ${activeTab === 'runsheet' ? 'bg-primary/10' : ''}`}>
+                            <CalendarViewDayIcon className={activeTab === 'runsheet' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
+                        </div>
+                        <span className="text-[11px] font-bold">Runsheet</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('notes')}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'notes' ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'notes' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <ArticleIcon style={{ fontSize: 20 }} />
-                        Notes
+                        <div className={`px-6 py-1.5 rounded-xl transition-colors ${activeTab === 'notes' ? 'bg-primary/10' : ''}`}>
+                            <ArticleIcon className={activeTab === 'notes' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
+                        </div>
+                        <span className="text-[11px] font-bold">Notes</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('share')}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'share' ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'share' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <ShareIcon style={{ fontSize: 20 }} />
-                        Share
+                        <div className={`px-6 py-1.5 rounded-xl transition-colors ${activeTab === 'share' ? 'bg-primary/10' : ''}`}>
+                            <ShareIcon className={activeTab === 'share' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
+                        </div>
+                        <span className="text-[11px] font-bold">Share</span>
                     </button>
                 </div>
             </div>
@@ -902,6 +1017,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     return (
         <div className="relative flex h-full min-h-screen w-full flex-row overflow-hidden bg-background text-foreground">
 
+            {renderRunsheetListSidebar()}
             {renderDesktopSidebar()}
 
             <div className={`flex-1 flex flex-col h-screen relative w-full scrollbar-thin ${mode === 'advanced' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
@@ -950,10 +1066,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                         <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium mt-1">
                                             <CalendarTodayIcon style={{ fontSize: 14 }} />
                                             {moment(runsheet.date).format("dddd, MMMM Do YYYY")}
-                                            <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
-                                            {runsheet.time} Start
+
                                             <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
                                             {items.length} items
+                                            <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
+                                            {totalHours > 0 ? `${totalHours}h ${totalMins} min` : `${totalMins} min`}
                                         </div>
                                     </div>
                                     {effectiveIsEditor && (
