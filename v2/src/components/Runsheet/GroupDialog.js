@@ -21,29 +21,24 @@ import { Label } from "@/components/ui/label";
  *   onCreateGroup - (name: string) => Promise<string>            (returns new groupId)
  *   currentGroupId - string | null
  */
-export default function GroupDialog({ open, onClose, existingGroups = [], onSetGroup, onCreateGroup, currentGroupId }) {
+export default function GroupDialog({ open, onClose, existingGroups = [], onSetGroup, onCreateGroup, currentGroupId, isLoading }) {
     const [mode, setMode] = useState('pick'); // 'pick' | 'create'
     const [newGroupName, setNewGroupName] = useState('');
-    const [saving, setSaving] = useState(false);
+
 
     const handleClose = () => {
         setMode('pick');
         setNewGroupName('');
-        setSaving(false);
         onClose();
     };
 
     const handlePick = (group) => {
-        setSaving(true);
         onSetGroup(group.id, group.name);
-        handleClose();
     };
 
     const handleCreate = async () => {
         if (!newGroupName.trim()) return;
-        setSaving(true);
         const name = newGroupName.trim();
-        handleClose();
         // Run in background
         const newId = await onCreateGroup(name);
         onSetGroup(newId, name);
@@ -70,7 +65,7 @@ export default function GroupDialog({ open, onClose, existingGroups = [], onSetG
                                     <button
                                         key={group.id}
                                         onClick={() => handlePick(group)}
-                                        disabled={saving}
+                                        disabled={isLoading}
                                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border/60 bg-card hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
                                     >
                                         <span className="material-symbols-outlined text-[18px] text-muted-foreground group-hover:text-primary transition-colors">folder</span>
@@ -100,7 +95,7 @@ export default function GroupDialog({ open, onClose, existingGroups = [], onSetG
                                 value={newGroupName}
                                 onChange={(e) => setNewGroupName(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                                autoFocus
+                                disabled={isLoading}
                                 className="rounded-xl h-11 text-base"
                             />
                         </div>
@@ -108,9 +103,9 @@ export default function GroupDialog({ open, onClose, existingGroups = [], onSetG
                             <Button variant="ghost" onClick={() => setMode('pick')} className="rounded-xl">
                                 Back
                             </Button>
-                            <Button onClick={handleCreate} disabled={!newGroupName.trim() || saving} className="rounded-xl flex-1">
-                                <span className="material-symbols-outlined text-sm mr-1.5">create_new_folder</span>
-                                Create & Add
+                            <Button onClick={handleCreate} disabled={!newGroupName.trim() || isLoading} className="rounded-xl flex-1">
+                                <span className="material-symbols-outlined text-sm mr-1.5">{isLoading ? 'sync' : 'create_new_folder'}</span>
+                                {isLoading ? 'Creating...' : 'Create & Add'}
                             </Button>
                         </DialogFooter>
                     </div>

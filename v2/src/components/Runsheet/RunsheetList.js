@@ -60,9 +60,13 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [sortOrder, setSortOrder] = useState('asc');
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isActionLoading, setIsActionLoading] = useState(false);
 
     const [metadataDialog, setMetadataDialog] = useState({ open: false, data: null });
+    const [duplicateDialog, setDuplicateDialog] = useState({ open: false, runsheet: null, copyCollaborators: false });
     const [deleteDialog, setDeleteDialog] = useState({ open: false, runsheetId: null });
+    const [archiveDialog, setArchiveDialog] = useState({ open: false, runsheet: null });
+    const [removeFromGroupDialog, setRemoveFromGroupDialog] = useState({ open: false, runsheet: null });
     const [groupDialog, setGroupDialog] = useState({ open: false, runsheet: null });
     const [shareGroupDialog, setShareGroupDialog] = useState({ open: false, group: null });
     const [whatsNewDialog, setWhatsNewDialog] = useState(false);
@@ -70,14 +74,14 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [archiveGroupDialog, setArchiveGroupDialog] = useState({ open: false, groupId: null });
     const [renameGroupInput, setRenameGroupInput] = useState('');
     const [groupActionLoading, setGroupActionLoading] = useState(false);
-    const [duplicateDialog, setDuplicateDialog] = useState({ open: false, runsheet: null, copyCollaborators: false });
 
     const handleRenameGroup = async () => {
         if (!renameGroupDialog.groupId || !renameGroupInput.trim()) return;
         try {
             setGroupActionLoading(true);
             await updateDoc(doc(db, 'groups', renameGroupDialog.groupId), { name: renameGroupInput.trim() });
-            await refresh();
+            setGroups(prev => prev.map(g => g.id === renameGroupDialog.groupId ? { ...g, name: renameGroupInput.trim() } : g));
+            refresh();
             setRenameGroupDialog({ open: false, groupId: null, currentName: '' });
         } catch (err) {
             console.error('Error renaming group', err);
@@ -104,7 +108,11 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             batch.update(doc(db, 'groups', groupId), { archived: true });
             await batch.commit();
 
-            await refresh();
+            const updatedRunsheetIds = groupRsSnap.docs.map(doc => doc.id);
+            setRunsheets(prev => prev.map(r => updatedRunsheetIds.includes(r.id) ? { ...r, category: 'archive' } : r));
+            setGroups(prev => prev.filter(g => g.id !== groupId));
+
+            refresh();
             setArchiveGroupDialog({ open: false, groupId: null });
             navigateToFilter('archive');
         } catch (err) {
@@ -161,10 +169,11 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const handleCreateOrUpdate = async (formData) => {
         try {
             if (!user?.email) return;
-            setIsSyncing(true);
+            setIsActionLoading(true);
             if (metadataDialog.data) {
                 const runsheetRef = doc(db, 'runsheets', metadataDialog.data.id);
                 await updateDoc(runsheetRef, { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
+                setRunsheets(prev => prev.map(r => r.id === metadataDialog.data.id ? { ...r, name: formData.name, date: formData.date, time: formData.time } : r));
             } else {
                 const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
                 const newRunsheet = {
@@ -183,13 +192,14 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     role: 'owner',
                     email: user.email
                 });
+                setRunsheets(prev => [...prev, { id: docRef.id, ...newRunsheet, role: 'owner', isEditor: true }]);
             }
-            setMetadataDialog({ open: false, data: null });
-            await refresh();
+            refresh();
         } catch (err) {
             console.error("Error saving runsheet", err);
         } finally {
-            setIsSyncing(false);
+            setIsActionLoading(false);
+            setMetadataDialog({ open: false, data: null });
         }
     };
 
@@ -201,7 +211,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                 createdBy: user.email,
                 createdAt: moment().format()
             });
-            await refresh();
+            setGroups(prev => [...prev, { id: groupRef.id, name }]);
+            refresh();
             return groupRef.id;
         } catch (err) {
             console.error("Error creating group", err);
@@ -213,31 +224,36 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
     const handleSetGroup = async (runsheetId, groupId) => {
         try {
-            setIsSyncing(true);
+            setIsActionLoading(true);
             await updateDoc(doc(db, 'runsheets', runsheetId), { groupId });
-            await refresh();
+            setRunsheets(prev => prev.map(r => r.id === runsheetId ? { ...r, groupId } : r));
+            refresh();
         } catch (err) {
             console.error("Error setting group", err);
         } finally {
-            setIsSyncing(false);
+            setIsActionLoading(false);
+            setGroupDialog({ open: false, runsheet: null });
         }
     };
 
-    const handleRemoveFromGroup = async (runsheetId) => {
+    const handleRemoveFromGroup = async () => {
+        if (!removeFromGroupDialog.runsheet) return;
         try {
-            setIsSyncing(true);
-            await updateDoc(doc(db, 'runsheets', runsheetId), { groupId: null });
-            await refresh();
+            setIsActionLoading(true);
+            await updateDoc(doc(db, 'runsheets', removeFromGroupDialog.runsheet.id), { groupId: null });
+            setRunsheets(prev => prev.map(r => r.id === removeFromGroupDialog.runsheet.id ? { ...r, groupId: null } : r));
+            refresh();
         } catch (err) {
             console.error("Error removing from group", err);
         } finally {
-            setIsSyncing(false);
+            setIsActionLoading(false);
+            setRemoveFromGroupDialog({ open: false, runsheet: null });
         }
     };
 
     const duplicateRunsheet = async (runsheet, copyCollaborators = false) => {
         try {
-            setIsSyncing(true);
+            setIsActionLoading(true);
             const q = query(collection(db, `runsheets/${runsheet.id}/programme`), orderBy('orderCount', 'asc'));
             const snapshot = await getDocs(q);
             const items = snapshot.docs.map(doc => doc.data());
@@ -267,11 +283,12 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             }
             items.forEach((item) => { batch.set(doc(collection(db, `runsheets/${newDocRef.id}/programme`)), item); });
             await batch.commit();
-            await refresh();
+            setRunsheets(prev => [...prev, { ...newRunsheet, id: newDocRef.id, role: 'owner', isEditor: true }]);
+            refresh();
         } catch (err) {
             console.error("Error duplicating runsheet", err);
         } finally {
-            setIsSyncing(false);
+            setIsActionLoading(false);
             setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false });
         }
     };
@@ -279,31 +296,32 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const handleDelete = async () => {
         if (!deleteDialog.runsheetId) return;
         try {
-            setIsSyncing(true);
+            setIsActionLoading(true);
             await deleteDoc(doc(db, 'runsheets', deleteDialog.runsheetId));
             setRunsheets(prev => prev.filter(r => r.id !== deleteDialog.runsheetId));
-            setDeleteDialog({ open: false, runsheetId: null });
+            refresh();
         } catch (err) {
             console.error('Error deleting runsheet', err);
         } finally {
-            setIsSyncing(false);
+            setIsActionLoading(false);
+            setDeleteDialog({ open: false, runsheetId: null });
         }
     };
 
-    // Bug 1: Archive / Unarchive
-    const handleArchiveToggle = async (runsheet) => {
+    const handleArchiveToggle = async () => {
+        if (!archiveDialog.runsheet) return;
+        const runsheet = archiveDialog.runsheet;
         const newCategory = runsheet.category === 'archive' ? 'active' : 'archive';
-        // Optimistic update
-        setRunsheets(prev => prev.map(r => r.id === runsheet.id ? { ...r, category: newCategory } : r));
         try {
-            setIsSyncing(true);
+            setIsActionLoading(true);
             await updateDoc(doc(db, 'runsheets', runsheet.id), { category: newCategory });
+            setRunsheets(prev => prev.map(r => r.id === runsheet.id ? { ...r, category: newCategory } : r));
+            refresh();
         } catch (err) {
             console.error('Error updating category', err);
-            // Rollback on failure
-            setRunsheets(prev => prev.map(r => r.id === runsheet.id ? { ...r, category: runsheet.category } : r));
         } finally {
-            setIsSyncing(false);
+            setIsActionLoading(false);
+            setArchiveDialog({ open: false, runsheet: null });
         }
     };
 
@@ -484,14 +502,14 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                                 {runsheet.groupId ? 'Move to another group' : 'Add to Group'}
                                                             </DropdownMenuItem>
                                                             {runsheet.groupId && (
-                                                                <DropdownMenuItem onClick={() => handleRemoveFromGroup(runsheet.id)}>
+                                                                <DropdownMenuItem onClick={() => setRemoveFromGroupDialog({ open: true, runsheet })}>
                                                                     <span className="material-symbols-outlined text-base mr-2">folder_off</span>
-                                                                    Remove from group
+                                                                    Remove from Group
                                                                 </DropdownMenuItem>
                                                             )}
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem onClick={() => handleArchiveToggle(runsheet)}>
-                                                                <span className="material-symbols-outlined text-base mr-2">{runsheet.category === 'archive' ? 'unarchive' : 'archive'}</span>
+                                                            <DropdownMenuItem onClick={() => setArchiveDialog({ open: true, runsheet })}>
+                                                                <span className="material-symbols-outlined text-base mr-2">{runsheet.category === 'archive' ? 'unarchive' : 'inventory_2'}</span>
                                                                 {runsheet.category === 'archive' ? 'Unarchive' : 'Archive'}
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
@@ -707,7 +725,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     <header className="sticky top-0 z-50 bg-background border-b border-border/30 md:pl-8 md:pr-8">
                         <div className="px-4 md:px-0 pt-4 pb-2">
                             {/* Top bar */}
-                            <div className="flex items-center justify-between mb-4 relative">
+                            {!showSearch && (
+                                <div className="flex items-center justify-between mb-4 relative">
                                 {/* Mobile: Hamburger menu */}
                                 <div className="md:hidden">
                                     <DropdownMenu>
@@ -801,18 +820,25 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         <span className="material-symbols-outlined text-[20px]">search</span>
                                     </button>
                                 </div>
-                            </div>
+                                </div>
+                            )}
 
                             {/* Title or Search */}
                             <div className="min-h-[48px] flex items-center">
                                 {showSearch ? (
-                                    <div className="w-full animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="w-full flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <button 
+                                            onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                                            className="flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-muted text-foreground transition-all active:scale-95"
+                                        >
+                                            <span className="material-symbols-outlined text-[24px]">arrow_back</span>
+                                        </button>
                                         <Input
                                             autoFocus
                                             placeholder="Search runsheets..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full bg-muted/60 border-transparent focus:border-primary rounded-xl h-11 text-base"
+                                            className="w-full bg-muted/60 border-transparent focus:border-primary rounded-xl h-12 text-base"
                                         />
                                     </div>
                                 ) : (
@@ -863,7 +889,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         </div>
 
                         {/* Tab Pills — Mobile only */}
-                        <div className="md:hidden px-4 pb-3 overflow-x-auto scrollbar-hide">
+                        {!showSearch && (
+                            <div className="md:hidden px-4 pb-3 overflow-x-auto scrollbar-hide">
                             <div className="flex items-center gap-1.5 w-max">
                                 <button
                                     onClick={() => navigateToFilter('upcoming')}
@@ -913,14 +940,20 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     </button>
                                 ))}
                             </div>
-                        </div>
+                            </div>
+                        )}
                     </header>
 
                     {/* Main Content */}
                     <main className="flex-1 flex flex-col mt-2 md:pl-8 md:pr-8">
                         <div className="w-full flex-1 flex flex-col">
-                            {showSearch && searchQuery.trim()
-                                ? renderRunsheetList(runsheets)
+                            {showSearch 
+                                ? (searchQuery.trim() ? renderRunsheetList(runsheets) : (
+                                    <div className="flex flex-col items-center justify-center h-full pt-20 md:pt-32 text-muted-foreground/50">
+                                        <span className="material-symbols-outlined text-5xl mb-4 opacity-40">search</span>
+                                        <p className="text-sm font-medium">Type to search runsheets</p>
+                                    </div>
+                                ))
                                 : activeFilter === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
                                     : activeFilter === 'past' ? renderRunsheetList(pastRunsheets)
                                         : activeFilter === 'archive' ? renderRunsheetList(archivedRunsheets)
@@ -928,7 +961,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                             }
                         </div>
                         {/* Share Group button — shown at bottom when viewing a group the user owns */}
-                        {activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive' && (() => {
+                        {!showSearch && activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive' && (() => {
                             const activeGroup = groups.find(g => g.id === activeFilter);
                             if (!activeGroup) return null;
                             return (
@@ -946,24 +979,40 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     </main>
 
                     {/* FAB */}
-                    <button
-                        onClick={() => setMetadataDialog({ open: true, data: null })}
-                        className="fixed bottom-6 right-6 md:bottom-10 md:right-10 h-14 w-14 rounded-2xl bg-primary shadow-xl shadow-primary/25 flex items-center justify-center text-primary-foreground hover:scale-105 hover:shadow-2xl hover:shadow-primary/30 active:scale-95 transition-all duration-300 z-50 float-animation group"
-                    >
-                        <span className="material-symbols-outlined text-[28px] group-hover:rotate-90 transition-transform duration-300">add</span>
-                    </button>
+                    {!showSearch && (
+                        <button
+                            onClick={() => setMetadataDialog({ open: true, data: null })}
+                            className="fixed bottom-6 right-6 md:bottom-10 md:right-10 h-14 w-14 rounded-2xl bg-primary shadow-xl shadow-primary/25 flex items-center justify-center text-primary-foreground hover:scale-105 hover:shadow-2xl hover:shadow-primary/30 active:scale-95 transition-all duration-300 z-50 float-animation group"
+                        >
+                            <span className="material-symbols-outlined text-[28px] group-hover:rotate-90 transition-transform duration-300">add</span>
+                        </button>
+                    )}
 
                     {/* Dialogs */}
                     <RunsheetMetadataDialog
                         open={metadataDialog.open}
-                        onClose={() => setMetadataDialog({ open: false, data: null })}
+                        onClose={() => !isActionLoading && setMetadataDialog({ open: false, data: null })}
                         onSubmit={handleCreateOrUpdate}
                         initialData={metadataDialog.data}
+                        isLoading={isActionLoading}
+                    />
+
+                    <ConfirmationDialog
+                        open={archiveDialog.open}
+                        onClose={() => !isActionLoading && setArchiveDialog({ open: false, runsheet: null })}
+                        onConfirm={handleArchiveToggle}
+                        title={archiveDialog.runsheet?.category === 'archive' ? 'Unarchive Runsheet' : 'Archive Runsheet'}
+                        message={archiveDialog.runsheet?.category === 'archive'
+                            ? `Are you sure you want to unarchive "${archiveDialog.runsheet?.name}"? It will be moved back to your active lists.`
+                            : `Are you sure you want to archive "${archiveDialog.runsheet?.name}"? It will be hidden from the main view.`}
+                        confirmText={archiveDialog.runsheet?.category === 'archive' ? 'Unarchive' : 'Archive'}
+                        confirmStyle="default"
+                        isLoading={isActionLoading}
                     />
 
                     <ConfirmationDialog
                         open={deleteDialog.open}
-                        onClose={() => setDeleteDialog({ open: false, runsheetId: null })}
+                        onClose={() => !isActionLoading && setDeleteDialog({ open: false, runsheetId: null })}
                         onConfirm={handleDelete}
                         title="Delete Runsheet"
                         message="Are you sure you want to delete this runsheet? This action cannot be undone."
@@ -1006,10 +1055,10 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     </button>
                                     <button
                                         onClick={() => duplicateRunsheet(duplicateDialog.runsheet, duplicateDialog.copyCollaborators)}
-                                        disabled={isSyncing}
+                                        disabled={isActionLoading}
                                         className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
                                     >
-                                        {isSyncing ? 'Duplicating…' : 'Create Duplicate'}
+                                        {isActionLoading ? 'Duplicating…' : 'Create Duplicate'}
                                     </button>
                                 </div>
                             </div>
@@ -1018,11 +1067,23 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
                     <GroupDialog
                         open={groupDialog.open}
-                        onClose={() => setGroupDialog({ open: false, runsheet: null })}
+                        onClose={() => !isSyncing && setGroupDialog({ open: false, runsheet: null })}
                         existingGroups={groups}
                         onSetGroup={(groupId) => handleSetGroup(groupDialog.runsheet?.id, groupId)}
                         onCreateGroup={handleCreateGroup}
                         currentGroupId={groupDialog.runsheet?.groupId}
+                        isLoading={isSyncing}
+                    />
+
+                    <ConfirmationDialog
+                        open={removeFromGroupDialog.open}
+                        onClose={() => !isSyncing && setRemoveFromGroupDialog({ open: false, runsheet: null })}
+                        onConfirm={handleRemoveFromGroup}
+                        title="Remove from Group"
+                        message={`Are you sure you want to remove "${removeFromGroupDialog.runsheet?.name}" from its group?`}
+                        confirmText="Remove"
+                        confirmStyle="default"
+                        isLoading={isSyncing}
                     />
 
                     <ShareGroupDialog
@@ -1038,7 +1099,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
                     {/* Rename Group Modal */}
                     {renameGroupDialog.open && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setRenameGroupDialog({ open: false, groupId: null, currentName: '' })}>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => !groupActionLoading && setRenameGroupDialog({ open: false, groupId: null, currentName: '' })}>
                             <div className="bg-background rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
                                 <h2 className="text-xl font-extrabold tracking-tight mb-1">Rename Group</h2>
                                 <p className="text-sm text-muted-foreground mb-4">Enter a new name for this group.</p>
@@ -1048,13 +1109,15 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     value={renameGroupInput}
                                     onChange={e => setRenameGroupInput(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleRenameGroup()}
+                                    disabled={groupActionLoading}
                                     className="w-full h-11 px-3 rounded-xl border border-border bg-muted/40 text-foreground font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-primary mb-4"
                                     placeholder="Group name"
                                 />
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => setRenameGroupDialog({ open: false, groupId: null, currentName: '' })}
-                                        className="flex-1 h-10 rounded-xl border border-border text-foreground font-bold text-sm hover:bg-muted transition-all active:scale-[0.98]"
+                                        disabled={groupActionLoading}
+                                        className="flex-1 h-10 rounded-xl border border-border text-foreground font-bold text-sm hover:bg-muted transition-all active:scale-[0.98] disabled:opacity-50"
                                     >
                                         Cancel
                                     </button>
