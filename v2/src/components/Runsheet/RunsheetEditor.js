@@ -877,7 +877,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
 
         return (
-            <aside className={`hidden lg:flex flex-col border-r border-border bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${isListSidebarOpen ? 'w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[72px]'}`}>
+            <aside className={`hidden lg:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${isListSidebarOpen ? 'w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[72px]'}`}>
                 {/* Back and Toggle Header */}
                 <div className={`flex mb-4 px-3 ${isListSidebarOpen ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
                     {isListSidebarOpen ? (
@@ -926,7 +926,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                             <button
                                                 key={rs.id}
                                                 onClick={() => router.push(`/runsheet/${rs.id}`)}
-                                                className={`w-full text-left p-2 rounded-2xl transition-all flex items-start gap-3 group active:scale-[0.98] ${isActive ? 'bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
+                                                className={`w-full text-left p-2 rounded-2xl transition-all flex items-start gap-3 group active:scale-[0.98] ${isActive ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
                                             >
                                                 <div className={`flex flex-col items-center justify-center w-[42px] h-[42px] rounded-lg shrink-0 transition-colors ${isActive ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' : isToday ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>
                                                     <span className="text-[8px] font-bold uppercase tracking-wide leading-none">{dayName}</span>

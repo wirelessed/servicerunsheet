@@ -222,11 +222,23 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
 
 
+    const checkGroupEmptyAfterAction = (updatedRunsheets) => {
+        const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
+        if (isGroup) {
+            const remaining = updatedRunsheets.filter(r => r.groupId === activeFilter && r.category !== 'archive');
+            if (remaining.length === 0) {
+                navigateToFilter('upcoming');
+            }
+        }
+    };
+
     const handleSetGroup = async (runsheetId, groupId) => {
         try {
             setIsActionLoading(true);
             await updateDoc(doc(db, 'runsheets', runsheetId), { groupId });
-            setRunsheets(prev => prev.map(r => r.id === runsheetId ? { ...r, groupId } : r));
+            const updated = runsheets.map(r => r.id === runsheetId ? { ...r, groupId } : r);
+            setRunsheets(updated);
+            checkGroupEmptyAfterAction(updated);
             refresh();
         } catch (err) {
             console.error("Error setting group", err);
@@ -241,7 +253,9 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         try {
             setIsActionLoading(true);
             await updateDoc(doc(db, 'runsheets', removeFromGroupDialog.runsheet.id), { groupId: null });
-            setRunsheets(prev => prev.map(r => r.id === removeFromGroupDialog.runsheet.id ? { ...r, groupId: null } : r));
+            const updated = runsheets.map(r => r.id === removeFromGroupDialog.runsheet.id ? { ...r, groupId: null } : r);
+            setRunsheets(updated);
+            checkGroupEmptyAfterAction(updated);
             refresh();
         } catch (err) {
             console.error("Error removing from group", err);
@@ -298,7 +312,9 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         try {
             setIsActionLoading(true);
             await deleteDoc(doc(db, 'runsheets', deleteDialog.runsheetId));
-            setRunsheets(prev => prev.filter(r => r.id !== deleteDialog.runsheetId));
+            const updated = runsheets.filter(r => r.id !== deleteDialog.runsheetId);
+            setRunsheets(updated);
+            checkGroupEmptyAfterAction(updated);
             refresh();
         } catch (err) {
             console.error('Error deleting runsheet', err);
@@ -315,7 +331,9 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         try {
             setIsActionLoading(true);
             await updateDoc(doc(db, 'runsheets', runsheet.id), { category: newCategory });
-            setRunsheets(prev => prev.map(r => r.id === runsheet.id ? { ...r, category: newCategory } : r));
+            const updated = runsheets.map(r => r.id === runsheet.id ? { ...r, category: newCategory } : r);
+            setRunsheets(updated);
+            checkGroupEmptyAfterAction(updated);
             refresh();
         } catch (err) {
             console.error('Error updating category', err);
@@ -904,26 +922,61 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                 >
                                     upcoming
                                 </button>
-                                {groups.map(group => (
-                                    <button
-                                        key={group.id}
-                                        onClick={() => navigateToFilter(group.id)}
-                                        className={`
-                                            px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
-                                            ${activeFilter === group.id
-                                                ? 'bg-primary border-primary text-primary-foreground shadow-sm'
-                                                : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
-                                            }
-                                        `}
-                                    >
-                                        {group.name}
-                                        {tabCounts[group.id] > 0 && (
-                                            <span className={`ml-1.5 ${activeFilter === group.id ? 'text-primary-foreground/70' : 'text-muted-foreground/50'}`}>
-                                                {tabCounts[group.id]}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
+                                {groups.length >= 4 ? (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                className={`
+                                                    px-4 py-2 max-h-[34.5px] rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border flex items-center gap-1
+                                                    ${activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter)
+                                                        ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                                        : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
+                                                    }
+                                                `}
+                                            >
+                                                GROUPS
+                                                <span className="material-symbols-outlined text-[14px]">expand_more</span>
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="start" className="w-48">
+                                            {groups.map(group => (
+                                                <DropdownMenuItem
+                                                    key={group.id}
+                                                    onClick={() => navigateToFilter(group.id)}
+                                                    className="cursor-pointer flex items-center justify-between py-3"
+                                                >
+                                                    <span className={`truncate ${activeFilter === group.id ? 'font-bold text-primary' : ''}`}>{group.name}</span>
+                                                    {tabCounts[group.id] > 0 && (
+                                                        <span className="ml-2 text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">
+                                                            {tabCounts[group.id]}
+                                                        </span>
+                                                    )}
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                ) : (
+                                    groups.map(group => (
+                                        <button
+                                            key={group.id}
+                                            onClick={() => navigateToFilter(group.id)}
+                                            className={`
+                                                px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
+                                                ${activeFilter === group.id
+                                                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                                    : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
+                                                }
+                                            `}
+                                        >
+                                            {group.name}
+                                            {tabCounts[group.id] > 0 && (
+                                                <span className={`ml-1.5 ${activeFilter === group.id ? 'text-primary-foreground/70' : 'text-muted-foreground/50'}`}>
+                                                    {tabCounts[group.id]}
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))
+                                )}
                                 {['past', 'archive'].map((tab) => (
                                     <button
                                         key={tab}
