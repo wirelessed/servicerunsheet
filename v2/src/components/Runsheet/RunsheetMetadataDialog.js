@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initialData, isLoading }) {
+export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initialData, isLoading, groups = [], activeFilter = null }) {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
+    const [groupId, setGroupId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -27,15 +28,27 @@ export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initia
                     ? moment(initialData.date).format('YYYY-MM-DDTHH:mm')
                     : moment().format('YYYY-MM-DDTHH:mm');
             setDate(initialDate);
+            
+            if (!initialData && activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter)) {
+                setGroupId(activeFilter);
+            } else {
+                setGroupId('');
+            }
+            
             setIsSubmitting(false);
         }
-    }, [open, initialData]);
+    }, [open, initialData, activeFilter]);
 
     const handleSubmit = () => {
         if (!name.trim() || !date || isSubmitting) return;
         setIsSubmitting(true);
         const dateObj = moment(date);
-        onSubmit({ name, date: dateObj.format('YYYY-MM-DD'), time: dateObj.format('HHmm') });
+        onSubmit({ 
+            name, 
+            date: dateObj.format('YYYY-MM-DD'), 
+            time: dateObj.format('HHmm'),
+            groupId: groupId || null
+        });
     };
 
     return (
@@ -74,6 +87,23 @@ export default function RunsheetMetadataDialog({ open, onClose, onSubmit, initia
                             className="rounded-xl"
                         />
                     </div>
+                    {!initialData && groups && groups.length > 0 && (
+                        <div className="grid gap-2">
+                            <Label htmlFor="group" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Group</Label>
+                            <select
+                                id="group"
+                                value={groupId}
+                                onChange={(e) => setGroupId(e.target.value)}
+                                disabled={isLoading}
+                                className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option value="">No Group</option>
+                                {groups.map(g => (
+                                    <option key={g.id} value={g.id}>{g.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={onClose} disabled={isLoading} className="rounded-xl">Cancel</Button>

@@ -323,8 +323,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const handleMetadataUpdate = async (formData) => {
-        await updateDoc(doc(db, 'runsheets', runsheet.id), { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
         setIsMetadataDialogOpen(false);
+        try {
+            await updateDoc(doc(db, 'runsheets', runsheet.id), { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
+        } catch (error) {
+            console.error("Error updating metadata", error);
+        }
     };
 
     const openAddAtIndex = (index) => { setCurrentItem({ insertAtIndex: index }); setIsItemDialogOpen(true); };

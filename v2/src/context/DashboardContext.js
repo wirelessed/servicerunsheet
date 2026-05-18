@@ -18,32 +18,33 @@ export const DashboardContextProvider = ({ children }) => {
     const enrolledGroupsRef = useRef(new Set());
 
     // ── Main data fetch: runs ONCE per user session, not on filter change ──
-    const fetchRunsheets = useCallback(async () => {
+    const fetchRunsheets = useCallback(async (isInitialLoad = false) => {
         if (!user || !user.email) return;
 
         const cacheKey = `runsheetsCache_${user.email}`;
         const groupsCacheKey = `groupsCache_${user.email}`;
-        const cachedStr = localStorage.getItem(cacheKey);
-        const cachedGroupsStr = localStorage.getItem(groupsCacheKey);
-        let hasCache = false;
 
-        if (cachedStr) {
-            try {
-                const cachedData = JSON.parse(cachedStr);
-                if (Array.isArray(cachedData) && cachedData.length > 0) {
-                    setRunsheets(cachedData);
-                    hasCache = true;
-                }
-            } catch (e) {}
-        }
+        if (isInitialLoad) {
+            const cachedStr = localStorage.getItem(cacheKey);
+            const cachedGroupsStr = localStorage.getItem(groupsCacheKey);
 
-        if (cachedGroupsStr) {
-            try {
-                const cachedGroups = JSON.parse(cachedGroupsStr);
-                if (Array.isArray(cachedGroups)) {
-                    setGroups(cachedGroups);
-                }
-            } catch (e) {}
+            if (cachedStr) {
+                try {
+                    const cachedData = JSON.parse(cachedStr);
+                    if (Array.isArray(cachedData) && cachedData.length > 0) {
+                        setRunsheets(cachedData);
+                    }
+                } catch (e) {}
+            }
+
+            if (cachedGroupsStr) {
+                try {
+                    const cachedGroups = JSON.parse(cachedGroupsStr);
+                    if (Array.isArray(cachedGroups)) {
+                        setGroups(cachedGroups);
+                    }
+                } catch (e) {}
+            }
         }
 
         setIsSyncing(true);
@@ -165,7 +166,7 @@ export const DashboardContextProvider = ({ children }) => {
     // Initial fetch — only when user changes, NOT when filter changes
     useEffect(() => {
         if (user?.email) {
-            fetchRunsheets();
+            fetchRunsheets(true);
         } else {
             setRunsheets([]);
             setGroups([]);

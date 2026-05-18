@@ -18,11 +18,11 @@ export default function NotesTab({ runsheet, isEditor, mode }) {
     useEffect(() => { setNotes(runsheet.notes || ''); }, [runsheet.notes]);
 
     const handleSave = async (andClose = false) => {
+        if (andClose) setIsEditing(false);
         setStatus('saving');
         try {
             await updateDoc(doc(db, 'runsheets', runsheet.id), { notes: notes });
             setStatus('saved');
-            if (andClose) setIsEditing(false);
             setTimeout(() => setStatus(''), 2000);
         } catch (error) {
             console.error("Error saving notes:", error);

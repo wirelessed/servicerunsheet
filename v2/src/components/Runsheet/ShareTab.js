@@ -134,15 +134,13 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
 
     const handleRemoveUser = async () => {
         if (!removeConfirm.email) return;
-        setIsLoading(true);
+        const targetEmail = removeConfirm.email;
+        setRemoveConfirm({ open: false, email: null });
         try {
-            await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, removeConfirm.email));
-            await deleteDoc(doc(db, `users/${removeConfirm.email}/runsheets`, runsheetId));
-            setRemoveConfirm({ open: false, email: null });
+            await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, targetEmail));
+            await deleteDoc(doc(db, `users/${targetEmail}/runsheets`, runsheetId));
         } catch (err) {
             console.error('Error removing user:', err);
-        } finally {
-            setIsLoading(false);
         }
     };
 

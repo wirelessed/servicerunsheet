@@ -183,7 +183,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     orderCount: 0,
                     lastUpdated: moment().format(),
                     category: 'active',
-                    groupId: isGroup ? activeFilter : null
+                    groupId: formData.groupId !== undefined ? formData.groupId : (isGroup ? activeFilter : null)
                 };
                 const docRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
                 await setDoc(doc(db, `users/${user.email}/runsheets`, docRef.id), { id: docRef.id });
@@ -995,6 +995,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         onSubmit={handleCreateOrUpdate}
                         initialData={metadataDialog.data}
                         isLoading={isActionLoading}
+                        groups={groups}
+                        activeFilter={activeFilter}
                     />
 
                     <ConfirmationDialog
