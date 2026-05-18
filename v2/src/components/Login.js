@@ -3,6 +3,7 @@ import GoogleIcon from '@mui/icons-material/Google';
 import { useAuth } from '../context/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import packageInfo from '../../package.json';
 
 const features = [
     {
@@ -216,7 +217,7 @@ export default function Login() {
             {/* ── Footer ── */}
             <footer className="relative z-10 text-center py-8 pb-12">
                 <p className="text-[11px] text-muted-foreground/60">
-                    © 2026 RunsheetPro · Built for production teams
+                    © 2026 RunsheetPro · Built for production teams · Build {packageInfo.version}
                 </p>
             </footer>
 
