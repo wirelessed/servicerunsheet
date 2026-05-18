@@ -284,8 +284,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                 role: 'owner',
                 email: user.email
             });
-            // Optionally copy collaborators (owners only)
-            if (copyCollaborators && runsheet.role === 'owner') {
+            // Optionally copy collaborators (owners and editors only)
+            if (copyCollaborators && (runsheet.role === 'owner' || runsheet.role === 'editor')) {
                 const usersSnap = await getDocs(collection(db, `runsheets/${runsheet.id}/users`));
                 usersSnap.docs.forEach(userDoc => {
                     if (userDoc.id !== user.email) {
@@ -1083,7 +1083,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                             <div className="relative bg-card border border-border rounded-2xl shadow-xl p-6 mx-4 w-full max-w-sm flex flex-col gap-4">
                                 <h2 className="text-base font-bold text-foreground">Duplicate Runsheet</h2>
 
-                                {duplicateDialog.runsheet?.role === 'owner' ? (
+                                {duplicateDialog.runsheet?.role === 'owner' || duplicateDialog.runsheet?.role === 'editor' ? (
                                     <label className="flex items-start gap-3 cursor-pointer group">
                                         <div className="mt-0.5 shrink-0">
                                             <input
@@ -1097,7 +1097,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     </label>
                                 ) : (
                                     <p className="text-sm text-muted-foreground">
-                                        As you are not the owner of the original runsheet, the editors and viewers will not have access to the new duplicated runsheet until you share with them.
+                                        As you are not an owner or editor of the original runsheet, the existing users will not have access to the new duplicated runsheet until you share with them.
                                     </p>
                                 )}
 
