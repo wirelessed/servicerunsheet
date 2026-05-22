@@ -72,7 +72,7 @@ export const DashboardContextProvider = ({ children }) => {
             const uniqueGroupIds = [...new Set(withRoles.map(r => r.groupId).filter(Boolean))];
             const groupData = await Promise.all(uniqueGroupIds.map(async (gid) => {
                 const groupSnap = await getDoc(doc(db, 'groups', gid));
-                return groupSnap.exists() ? { id: gid, name: groupSnap.data().name } : null;
+                return groupSnap.exists() ? { id: gid, ...groupSnap.data() } : null;
             }));
             const validGroups = groupData.filter(Boolean);
 

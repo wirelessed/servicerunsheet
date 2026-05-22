@@ -72,14 +72,18 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [whatsNewDialog, setWhatsNewDialog] = useState(false);
     const [renameGroupDialog, setRenameGroupDialog] = useState({ open: false, groupId: null, currentName: '' });
     const [archiveGroupDialog, setArchiveGroupDialog] = useState({ open: false, groupId: null });
+    const [unarchiveGroupDialog, setUnarchiveGroupDialog] = useState({ open: false, groupId: null });
     const [renameGroupInput, setRenameGroupInput] = useState('');
     const [groupActionLoading, setGroupActionLoading] = useState(false);
-
+    const [blockedArchiveDialog, setBlockedArchiveDialog] = useState(false);
+    
+    const activeGroups = groups.filter(g => g.archived !== true);
+    const archivedGroups = groups.filter(g => g.archived === true);
     const handleRenameGroup = async () => {
         if (!renameGroupDialog.groupId || !renameGroupInput.trim()) return;
         try {
             setGroupActionLoading(true);
-            await updateDoc(doc(db, 'groups', renameGroupDialog.groupId), { name: renameGroupInput.trim() });
+            await setDoc(doc(db, 'groups', renameGroupDialog.groupId), { name: renameGroupInput.trim() }, { merge: true });
             setGroups(prev => prev.map(g => g.id === renameGroupDialog.groupId ? { ...g, name: renameGroupInput.trim() } : g));
             refresh();
             setRenameGroupDialog({ open: false, groupId: null, currentName: '' });
@@ -105,18 +109,46 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             });
 
             // Mark the group as archived/hidden
-            batch.update(doc(db, 'groups', groupId), { archived: true });
+            batch.set(doc(db, 'groups', groupId), { archived: true }, { merge: true });
             await batch.commit();
 
             const updatedRunsheetIds = groupRsSnap.docs.map(doc => doc.id);
             setRunsheets(prev => prev.map(r => updatedRunsheetIds.includes(r.id) ? { ...r, category: 'archive' } : r));
-            setGroups(prev => prev.filter(g => g.id !== groupId));
+            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, archived: true } : g));
 
             refresh();
             setArchiveGroupDialog({ open: false, groupId: null });
-            navigateToFilter('archive');
+            navigateToFilter('archived_groups');
         } catch (err) {
             console.error('Error archiving group', err);
+        } finally {
+            setGroupActionLoading(false);
+        }
+    };
+
+    const handleUnarchiveGroup = async () => {
+        if (!unarchiveGroupDialog.groupId) return;
+        const groupId = unarchiveGroupDialog.groupId;
+        try {
+            setGroupActionLoading(true);
+            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
+            const groupRsSnap = await getDocs(groupRsQuery);
+            const batch = writeBatch(db);
+            groupRsSnap.docs.forEach(rsDoc => {
+                batch.update(rsDoc.ref, { category: 'active' });
+            });
+            batch.set(doc(db, 'groups', groupId), { archived: false }, { merge: true });
+            await batch.commit();
+            
+            const updatedRunsheetIds = groupRsSnap.docs.map(doc => doc.id);
+            setRunsheets(prev => prev.map(r => updatedRunsheetIds.includes(r.id) ? { ...r, category: 'active' } : r));
+            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, archived: false } : g));
+            
+            refresh();
+            setUnarchiveGroupDialog({ open: false, groupId: null });
+            navigateToFilter(groupId);
+        } catch (err) {
+            console.error('Error unarchiving group', err);
         } finally {
             setGroupActionLoading(false);
         }
@@ -238,8 +270,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             await updateDoc(doc(db, 'runsheets', runsheetId), { groupId });
             const updated = runsheets.map(r => r.id === runsheetId ? { ...r, groupId } : r);
             setRunsheets(updated);
-            checkGroupEmptyAfterAction(updated);
             refresh();
+            navigateToFilter(groupId);
         } catch (err) {
             console.error("Error setting group", err);
         } finally {
@@ -444,17 +476,17 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                     </h3>
                                                     <div className="flex items-center gap-1 mt-1 flex-wrap overflow-hidden">
                                                         {runsheet.groupId && (
-                                                            <button
+                                                            <div
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
                                                                     navigateToFilter(runsheet.groupId);
                                                                 }}
-                                                                className="px-1.5 py-0.5 rounded-sm bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase transition-colors whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]"
+                                                                className="px-1.5 py-0.5 rounded-sm bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase transition-colors whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px] cursor-pointer"
                                                                 title={`Go to group: ${groups.find(g => g.id === runsheet.groupId)?.name || 'Group'}`}
                                                             >
                                                                 {groups.find(g => g.id === runsheet.groupId)?.name || 'Group'}
-                                                            </button>
+                                                            </div>
                                                         )}
                                                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                                                             Last updated {moment(runsheet.lastUpdated).fromNow()}
@@ -526,7 +558,13 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                                 </DropdownMenuItem>
                                                             )}
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem onClick={() => setArchiveDialog({ open: true, runsheet })}>
+                                                            <DropdownMenuItem onClick={() => {
+                                                                if (runsheet.groupId) {
+                                                                    setBlockedArchiveDialog(true);
+                                                                } else {
+                                                                    setArchiveDialog({ open: true, runsheet });
+                                                                }
+                                                            }}>
                                                                 <span className="material-symbols-outlined text-base mr-2">{runsheet.category === 'archive' ? 'unarchive' : 'inventory_2'}</span>
                                                                 {runsheet.category === 'archive' ? 'Unarchive' : 'Archive'}
                                                             </DropdownMenuItem>
@@ -565,8 +603,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     });
     const archivedRunsheets = runsheets.filter(r => r.category === 'archive');
 
-    const groupRunsheetsList = activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive'
-        ? runsheets.filter(r => r.groupId === activeFilter && r.category !== 'archive')
+    const groupRunsheetsList = activeFilter && activeFilter !== 'upcoming' && activeFilter !== 'past' && activeFilter !== 'archive' && activeFilter !== 'archived_groups'
+        ? runsheets.filter(r => r.groupId === activeFilter)
         : [];
 
     const tabCounts = {
@@ -608,10 +646,9 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     </div>
 
                     {/* Groups section */}
-                    {groups.length > 0 && (
-                        <div className="flex flex-col gap-0.5 mt-6 px-1">
+                    <div className="flex flex-col gap-0.5 mt-6 px-1">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">My Groups</p>
-                            {groups.map(group => (
+                            {activeGroups.map(group => (
                                 <button
                                     key={group.id}
                                     onClick={() => navigateToFilter(group.id)}
@@ -632,8 +669,35 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     )}
                                 </button>
                             ))}
+                            <button
+                                onClick={() => navigateToFilter('archived_groups')}
+                                className={`
+                                    flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
+                                    ${activeFilter === 'archived_groups'
+                                        ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
+                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                    }
+                                `}
+                            >
+                                <span className={`material-symbols-outlined text-[20px] ${activeFilter === 'archived_groups' ? 'icon-filled' : ''}`}>inventory_2</span>
+                                Archived Groups
+                            </button>
+                            {(() => {
+                                const activeArchivedGroup = archivedGroups.find(g => g.id === activeFilter);
+                                if (!activeArchivedGroup) return null;
+                                return (
+                                    <div className="pl-6 mt-0.5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                        <button
+                                            onClick={() => navigateToFilter(activeArchivedGroup.id)}
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-primary/10 dark:bg-primary/15 text-primary shadow-xs w-full transition-all duration-200"
+                                        >
+                                            <span className="material-symbols-outlined text-[20px] icon-filled">folder_zip</span>
+                                            <span className="truncate flex-1 text-left">{activeArchivedGroup.name}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })()}
                         </div>
-                    )}
 
                     {/* Nav items: Past & Archive */}
                     <div className="flex flex-col gap-0.5 mt-6">
@@ -865,7 +929,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                             {activeFilter === 'upcoming' ? 'Upcoming' :
                                                 activeFilter === 'past' ? 'Past' :
                                                     activeFilter === 'archive' ? 'Archive' :
-                                                        groups.find(g => g.id === activeFilter)?.name || 'Group'}
+                                                        activeFilter === 'archived_groups' ? 'Archived Groups' :
+                                                            groups.find(g => g.id === activeFilter)?.name || 'Group'}
                                         </h1>
                                         {/* Inline group edit button — only shown when viewing a group */}
                                         {activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter) && (() => {
@@ -890,13 +955,23 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                             Rename Group
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            className="cursor-pointer text-destructive focus:text-destructive"
-                                                            onClick={() => setArchiveGroupDialog({ open: true, groupId: activeGroup.id })}
-                                                        >
-                                                            <span className="material-symbols-outlined text-base mr-2">inventory_2</span>
-                                                            Archive Group
-                                                        </DropdownMenuItem>
+                                                        {activeGroup.archived ? (
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer font-semibold text-primary focus:text-primary"
+                                                                onClick={() => setUnarchiveGroupDialog({ open: true, groupId: activeGroup.id })}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">unarchive</span>
+                                                                Unarchive Group
+                                                            </DropdownMenuItem>
+                                                        ) : (
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer text-destructive focus:text-destructive"
+                                                                onClick={() => setArchiveGroupDialog({ open: true, groupId: activeGroup.id })}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">inventory_2</span>
+                                                                Archive Group
+                                                            </DropdownMenuItem>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             );
@@ -922,7 +997,6 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                 >
                                     upcoming
                                 </button>
-                                {groups.length >= 4 ? (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
@@ -938,8 +1012,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                 <span className="material-symbols-outlined text-[14px]">expand_more</span>
                                             </button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-48">
-                                            {groups.map(group => (
+                                        <DropdownMenuContent align="start" className="w-48 max-h-[60vh] overflow-y-auto">
+                                            {activeGroups.map(group => (
                                                 <DropdownMenuItem
                                                     key={group.id}
                                                     onClick={() => navigateToFilter(group.id)}
@@ -953,30 +1027,27 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                     )}
                                                 </DropdownMenuItem>
                                             ))}
+                                            {activeGroups.length > 0 && <DropdownMenuSeparator />}
+                                            <DropdownMenuItem
+                                                onClick={() => navigateToFilter('archived_groups')}
+                                                className="cursor-pointer flex items-center justify-between py-3 text-muted-foreground"
+                                            >
+                                                <span className={`truncate ${activeFilter === 'archived_groups' ? 'font-bold text-primary' : ''}`}>Archived Groups</span>
+                                            </DropdownMenuItem>
+                                            {(() => {
+                                                const activeArchivedGroup = archivedGroups.find(g => g.id === activeFilter);
+                                                if (!activeArchivedGroup) return null;
+                                                return (
+                                                    <DropdownMenuItem
+                                                        onClick={() => navigateToFilter(activeArchivedGroup.id)}
+                                                        className="cursor-pointer flex items-center justify-between py-2.5 ml-4 mt-1 bg-primary/10 rounded-lg text-primary animate-in slide-in-from-top-2 fade-in duration-200"
+                                                    >
+                                                        <span className="truncate font-bold text-sm">{activeArchivedGroup.name}</span>
+                                                    </DropdownMenuItem>
+                                                );
+                                            })()}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                ) : (
-                                    groups.map(group => (
-                                        <button
-                                            key={group.id}
-                                            onClick={() => navigateToFilter(group.id)}
-                                            className={`
-                                                px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
-                                                ${activeFilter === group.id
-                                                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
-                                                    : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
-                                                }
-                                            `}
-                                        >
-                                            {group.name}
-                                            {tabCounts[group.id] > 0 && (
-                                                <span className={`ml-1.5 ${activeFilter === group.id ? 'text-primary-foreground/70' : 'text-muted-foreground/50'}`}>
-                                                    {tabCounts[group.id]}
-                                                </span>
-                                            )}
-                                        </button>
-                                    ))
-                                )}
                                 {['past', 'archive'].map((tab) => (
                                     <button
                                         key={tab}
@@ -1007,6 +1078,57 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         <p className="text-sm font-medium">Type to search runsheets</p>
                                     </div>
                                 ))
+                                : activeFilter === 'archived_groups' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
+                                        {archivedGroups.length > 0 ? archivedGroups.map(group => {
+                                            const groupRunsheetsCount = runsheets.filter(r => r.groupId === group.id).length;
+                                            return (
+                                            <div 
+                                                key={group.id} 
+                                                onClick={() => navigateToFilter(group.id)}
+                                                className="relative group/card overflow-hidden rounded-2xl border border-border/60 bg-card p-5 hover:border-primary/40 hover:shadow-sm transition-all duration-300 text-left cursor-pointer"
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-muted text-muted-foreground shrink-0">
+                                                            <span className="material-symbols-outlined">inventory_2</span>
+                                                        </div>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <h3 className="font-bold text-foreground text-lg truncate group-hover/card:text-primary transition-colors">{group.name}</h3>
+                                                            <span className="text-xs font-medium text-muted-foreground mt-0.5">
+                                                                {groupRunsheetsCount} {groupRunsheetsCount === 1 ? 'runsheet' : 'runsheets'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <button className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all active:scale-95">
+                                                                    <span className="material-symbols-outlined text-lg">more_vert</span>
+                                                                </button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48">
+                                                                <DropdownMenuItem 
+                                                                    onClick={() => setUnarchiveGroupDialog({ open: true, groupId: group.id })}
+                                                                    className="cursor-pointer font-semibold text-primary focus:text-primary py-2.5"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-base mr-2">unarchive</span>
+                                                                    Unarchive Group
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            );
+                                        }) : (
+                                            <div className="col-span-full flex flex-col items-center justify-center h-full pt-20 text-muted-foreground/50">
+                                                <span className="material-symbols-outlined text-5xl mb-4 opacity-40">inventory_2</span>
+                                                <p className="text-sm font-medium">No archived groups</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
                                 : activeFilter === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
                                     : activeFilter === 'past' ? renderRunsheetList(pastRunsheets)
                                         : activeFilter === 'archive' ? renderRunsheetList(archivedRunsheets)
@@ -1212,6 +1334,51 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         Cancel
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Unarchive Group Confirmation */}
+                    {unarchiveGroupDialog.open && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setUnarchiveGroupDialog({ open: false, groupId: null })}>
+                            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mb-4">
+                                    <span className="material-symbols-outlined text-2xl text-primary">unarchive</span>
+                                </div>
+                                <h2 className="text-xl font-extrabold tracking-tight mb-2">Unarchive Group?</h2>
+                                <p className="text-sm text-muted-foreground mb-6">All runsheets in this group will be unarchived and visible again. Are you sure?</p>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        onClick={handleUnarchiveGroup}
+                                        disabled={groupActionLoading}
+                                        className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        {groupActionLoading ? 'Unarchiving...' : 'Unarchive Group'}
+                                    </button>
+                                    <button
+                                        onClick={() => setUnarchiveGroupDialog({ open: false, groupId: null })}
+                                        className="w-full h-11 rounded-xl border border-border text-foreground font-semibold text-sm hover:bg-muted transition-all active:scale-[0.98]"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Blocked Archive Dialog */}
+                    {blockedArchiveDialog && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setBlockedArchiveDialog(false)}>
+                            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mb-4">
+                                    <span className="material-symbols-outlined text-2xl text-primary">info</span>
+                                </div>
+                                <h2 className="text-xl font-extrabold tracking-tight mb-2">Action Blocked</h2>
+                                <p className="text-sm text-muted-foreground mb-6">Runsheets in groups cannot be archived individually. Archive the whole group instead.</p>
+                                <button
+                                    onClick={() => setBlockedArchiveDialog(false)}
+                                    className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
+                                >
+                                    Got it
+                                </button>
                             </div>
                         </div>
                     )}

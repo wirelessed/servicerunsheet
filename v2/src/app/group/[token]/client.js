@@ -41,6 +41,9 @@ export default function GroupPageClient() {
         
         if (!t || t === 'fallback' || t === '[token]') return;
 
+        // Immediately update id to the new token, then resolve it if it's a share link
+        setId(t);
+
         const resolveToken = async () => {
             // Only need to resolve if it's not already a direct groupId
             // We'll check if we actually have it in our Firestore to be safe
@@ -48,12 +51,12 @@ export default function GroupPageClient() {
             const tokenDoc = await getDoc(doc(db, 'groupTokens', t));
             if (tokenDoc.exists()) {
                 const groupId = tokenDoc.data().groupId;
-                if (groupId !== id) setId(groupId);
+                setId(groupId);
             }
         };
 
         resolveToken();
-    }, [params, id]);
+    }, [params?.token]);
 
     // ── AUTH LOADING ──
     if (authLoading) {

@@ -892,10 +892,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             groupName = currentGroup ? currentGroup.name : 'Runsheets';
 
             const filterGroupId = runsheet.groupId || activeFilter;
-            groupRunsheets = runsheets?.filter(r =>
-                r.groupId === filterGroupId &&
-                r.category !== 'archive'
-            ) || [];
+            groupRunsheets = runsheets?.filter(r => r.groupId === filterGroupId) || [];
 
             const currentIsPast = moment(runsheet.date).isBefore(moment(), 'day');
             if (!currentIsPast && !filterGroupId) {
