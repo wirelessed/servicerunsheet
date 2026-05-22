@@ -16,47 +16,45 @@ export default function GroupPageClient() {
     const params = useParams();
     const { user, loading: authLoading } = useAuth();
 
-    const [id, setId] = useState(() => {
-        // Try to resolve ID synchronously from path to prevent initial flicker
+    // 1. Compute the raw token from URL or params synchronously
+    let rawToken = params?.token;
+    if (!rawToken || rawToken === 'fallback' || rawToken === '[token]' || rawToken === '%5Btoken%5D') {
         if (typeof window !== 'undefined') {
             const segments = window.location.pathname.split('/');
             const groupIndex = segments.indexOf('group');
             if (groupIndex !== -1 && segments.length > groupIndex + 1) {
                 const t = segments[groupIndex + 1];
-                if (t && t !== 'fallback' && t !== '[token]') return t;
+                if (t && t !== 'fallback' && t !== '[token]') {
+                    rawToken = decodeURIComponent(t);
+                }
             }
         }
-        return params?.token || null;
-    });
+    }
+
+    // 2. State for resolving share tokens
+    const [resolvedGroupId, setResolvedGroupId] = useState(null);
 
     useEffect(() => {
-        let t = params?.token;
-        if (!t || t === 'fallback' || t === '[token]' || t === '%5Btoken%5D') {
-            const segments = window.location.pathname.split('/');
-            const groupIndex = segments.indexOf('group');
-            if (groupIndex !== -1 && segments.length > groupIndex + 1) {
-                t = segments[groupIndex + 1];
-            }
-        }
-        
-        if (!t || t === 'fallback' || t === '[token]') return;
+        if (!rawToken || rawToken === 'fallback' || rawToken === '[token]') return;
 
-        // Immediately update id to the new token, then resolve it if it's a share link
-        setId(t);
+        // Reset resolved group when token changes
+        setResolvedGroupId(null);
 
         const resolveToken = async () => {
-            // Only need to resolve if it's not already a direct groupId
-            // We'll check if we actually have it in our Firestore to be safe
-            // but we won't block the UI for it
-            const tokenDoc = await getDoc(doc(db, 'groupTokens', t));
-            if (tokenDoc.exists()) {
-                const groupId = tokenDoc.data().groupId;
-                setId(groupId);
+            try {
+                const tokenDoc = await getDoc(doc(db, 'groupTokens', rawToken));
+                if (tokenDoc.exists()) {
+                    setResolvedGroupId(tokenDoc.data().groupId);
+                }
+            } catch (err) {
+                console.error("Failed to resolve token", err);
             }
         };
 
         resolveToken();
-    }, [params?.token]);
+    }, [rawToken]);
+
+    const activeId = resolvedGroupId || rawToken;
 
     // ── AUTH LOADING ──
     if (authLoading) {
@@ -70,13 +68,11 @@ export default function GroupPageClient() {
 
     // ── LOGGED-IN: render the full dashboard filtered to this group ──
     if (user) {
-        // Use a fallback or current id instantly to prevent "blank screen"
-        const currentId = id || params?.token;
-        return <RunsheetList initialFilter={currentId} />;
+        return <RunsheetList initialFilter={activeId} />;
     }
 
     // ── LOGGED-OUT: public group listing ──
-    return <PublicGroupView id={id} />;
+    return <PublicGroupView id={activeId} />;
 }
 
 function PublicGroupView({ id }) {
