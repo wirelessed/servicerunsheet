@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "servicerunsheet"
-  }
+  },
+  "targets": {
+    "servicerunsheet": {
+      "hosting": {
+        "beta": [
+          "runsheetprobeta"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
