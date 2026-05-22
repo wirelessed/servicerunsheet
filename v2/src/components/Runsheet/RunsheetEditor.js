@@ -65,6 +65,21 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const [mode, setMode] = useState('view'); // 'view', 'edit', 'ops'
     const [activeTab, setActiveTab] = useState('runsheet'); // 'runsheet', 'notes', 'share'
     const [isListSidebarOpen, setIsListSidebarOpen] = useState(true);
+    const [isSidebarInitialized, setIsSidebarInitialized] = useState(false);
+
+    useEffect(() => {
+        const savedState = localStorage.getItem('runsheetListSidebarOpen');
+        if (savedState !== null) {
+            setIsListSidebarOpen(savedState === 'true');
+        }
+        setIsSidebarInitialized(true);
+    }, []);
+
+    useEffect(() => {
+        if (isSidebarInitialized) {
+            localStorage.setItem('runsheetListSidebarOpen', isListSidebarOpen);
+        }
+    }, [isListSidebarOpen, isSidebarInitialized]);
 
     // Dialogs
     const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
@@ -839,6 +854,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const renderRunsheetListSidebar = () => {
         let groupName = 'Runsheets';
         let groupRunsheets = [];
+        let showLoadMore = false;
 
         if (activeFilter === 'upcoming') {
             groupName = 'Upcoming';
@@ -846,24 +862,43 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 !moment(r.date).isBefore(moment(), 'day') &&
                 r.category !== 'archive'
             ) || [];
-        } else if (activeFilter === 'past') {
-            groupName = 'Past';
-            groupRunsheets = runsheets?.filter(r =>
-                moment(r.date).isBefore(moment(), 'day') &&
-                r.category !== 'archive'
-            ) || [];
+        } else if (activeFilter === 'past' || activeFilter === 'archive') {
+            groupName = activeFilter === 'past' ? 'Past' : 'Archive';
+            const isArchive = activeFilter === 'archive';
+
+            let list = runsheets?.filter(r => {
+                if (isArchive) return r.category === 'archive';
+                return moment(r.date).isBefore(moment(), 'day') && r.category !== 'archive';
+            }) || [];
+
+            list.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const currentIndex = list.findIndex(r => r.id === runsheet.id);
+            if (currentIndex !== -1) {
+                const startIndex = Math.max(0, currentIndex - 3);
+                const endIndex = Math.min(list.length - 1, currentIndex + 3);
+                groupRunsheets = list.slice(startIndex, endIndex + 1);
+
+                if (list.length > groupRunsheets.length) {
+                    showLoadMore = true;
+                }
+            } else {
+                groupRunsheets = list.slice(0, 7);
+                if (list.length > 7) showLoadMore = true;
+            }
         } else {
-            const currentGroup = groups?.find(g => g.id === runsheet.groupId);
+            // "if i'm in a group, the leftmost plane should show my group"
+            const currentGroup = groups?.find(g => g.id === runsheet.groupId || g.id === activeFilter);
             groupName = currentGroup ? currentGroup.name : 'Runsheets';
 
-            const currentIsPast = moment(runsheet.date).isBefore(moment(), 'day');
-
+            const filterGroupId = runsheet.groupId || activeFilter;
             groupRunsheets = runsheets?.filter(r =>
-                r.groupId === runsheet.groupId &&
+                r.groupId === filterGroupId &&
                 r.category !== 'archive'
             ) || [];
 
-            if (!currentIsPast && !runsheet.groupId) {
+            const currentIsPast = moment(runsheet.date).isBefore(moment(), 'day');
+            if (!currentIsPast && !filterGroupId) {
                 groupRunsheets = groupRunsheets.filter(r => !moment(r.date).isBefore(moment(), 'day'));
             }
         }
@@ -877,7 +912,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
 
         return (
-            <aside className={`hidden lg:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${isListSidebarOpen ? 'w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[72px]'}`}>
+            <aside className={`hidden md:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${isListSidebarOpen ? 'w-[200px] lg:w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[80px]'}`}>
                 {/* Back and Toggle Header */}
                 <div className={`flex mb-4 px-3 ${isListSidebarOpen ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
                     {isListSidebarOpen ? (
@@ -947,6 +982,16 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                     No other runsheets found.
                                 </div>
                             )}
+                            {showLoadMore && (
+                                <div className="px-3 pt-2">
+                                    <button
+                                        onClick={handleBackToDashboard}
+                                        className="w-full text-center py-2 text-[11px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 transition-colors bg-primary/5 hover:bg-primary/10 rounded-xl"
+                                    >
+                                        Load more in Dashboard...
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -956,44 +1001,34 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     // ── Desktop Sidebar ──
     const renderDesktopSidebar = () => (
-        <aside className="hidden md:flex flex-col w-[100px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0 z-20">
-            <div className="flex flex-col gap-1 px-3">
-                {/* Back (Only visible on md screens, hidden on lg since it moves to the left pane) */}
-                <div className="flex lg:hidden items-center justify-center mb-1">
-                    <button
-                        onClick={handleBackToDashboard}
-                        className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                        title="Back to Dashboard"
-                    >
-                        <ArrowBackIcon style={{ fontSize: 18 }} />
-                    </button>
-                </div>
+        <aside className="hidden md:flex flex-col w-[80px] border-r border-border bg-sidebar pt-4 pb-4 justify-between h-screen sticky top-0 z-20">
+            <div className="flex flex-col gap-1 w-full">
 
                 {/* Nav */}
-                <div className="flex flex-col gap-6 mt-2 px-2">
+                <div className="flex flex-col gap-6 mt-2 w-full">
                     <button
                         onClick={() => setActiveTab('runsheet')}
-                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'runsheet' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
+                        className={`flex flex-col items-center w-full gap-1 transition-all active:scale-95 ${activeTab === 'runsheet' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <div className={`px-6 py-1.5 rounded-xl transition-colors ${activeTab === 'runsheet' ? 'bg-primary/10' : ''}`}>
+                        <div className={`flex items-center justify-center w-[52px] py-1.5 rounded-xl transition-colors ${activeTab === 'runsheet' ? 'bg-primary/10' : ''}`}>
                             <CalendarViewDayIcon className={activeTab === 'runsheet' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
                         </div>
                         <span className="text-[11px] font-bold">Runsheet</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('notes')}
-                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'notes' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
+                        className={`flex flex-col items-center w-full gap-1 transition-all active:scale-95 ${activeTab === 'notes' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <div className={`px-6 py-1.5 rounded-xl transition-colors ${activeTab === 'notes' ? 'bg-primary/10' : ''}`}>
+                        <div className={`flex items-center justify-center w-[52px] py-1.5 rounded-xl transition-colors ${activeTab === 'notes' ? 'bg-primary/10' : ''}`}>
                             <ArticleIcon className={activeTab === 'notes' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
                         </div>
                         <span className="text-[11px] font-bold">Notes</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('share')}
-                        className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${activeTab === 'share' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
+                        className={`flex flex-col items-center w-full gap-1 transition-all active:scale-95 ${activeTab === 'share' ? 'text-primary' : 'text-muted-foreground hover:text-foreground group'}`}
                     >
-                        <div className={`px-6 py-1.5 rounded-xl transition-colors ${activeTab === 'share' ? 'bg-primary/10' : ''}`}>
+                        <div className={`flex items-center justify-center w-[52px] py-1.5 rounded-xl transition-colors ${activeTab === 'share' ? 'bg-primary/10' : ''}`}>
                             <ShareIcon className={activeTab === 'share' ? "text-[24px]" : "text-[24px] group-hover:-translate-y-0.5 transition-transform"} />
                         </div>
                         <span className="text-[11px] font-bold">Share</span>
