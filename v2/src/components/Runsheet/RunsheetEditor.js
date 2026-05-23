@@ -914,11 +914,13 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         });
         const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
 
+        const effectiveListSidebarOpen = user ? isListSidebarOpen : false;
+
         return (
-            <aside className={`hidden md:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${isListSidebarOpen ? 'w-[200px] lg:w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[80px]'}`}>
+            <aside className={`hidden md:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${effectiveListSidebarOpen ? 'w-[200px] lg:w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[80px]'}`}>
                 {/* Back and Toggle Header */}
-                <div className={`flex mb-4 px-3 ${isListSidebarOpen ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
-                    {isListSidebarOpen ? (
+                <div className={`flex mb-4 px-3 ${effectiveListSidebarOpen ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
+                    {effectiveListSidebarOpen ? (
                         <button
                             onClick={handleBackToDashboard}
                             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
@@ -935,16 +937,18 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             <ArrowBackIcon style={{ fontSize: 18 }} />
                         </button>
                     )}
-                    <button
-                        onClick={() => setIsListSidebarOpen(!isListSidebarOpen)}
-                        className={`flex items-center justify-center rounded-xl transition-all ${isListSidebarOpen ? 'w-8 h-8 bg-primary/10 text-primary' : 'w-10 h-10 text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-                        title="Toggle Runsheet List"
-                    >
-                        <span className="material-symbols-outlined text-[18px]">view_sidebar</span>
-                    </button>
+                    {user && (
+                        <button
+                            onClick={() => setIsListSidebarOpen(!isListSidebarOpen)}
+                            className={`flex items-center justify-center rounded-xl transition-all ${effectiveListSidebarOpen ? 'w-8 h-8 bg-primary/10 text-primary' : 'w-10 h-10 text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                            title="Toggle Runsheet List"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">view_sidebar</span>
+                        </button>
+                    )}
                 </div>
 
-                {isListSidebarOpen && (
+                {effectiveListSidebarOpen && (
                     <div className="flex-1 flex flex-col overflow-hidden mt-1">
                         <div className="px-5 mb-2 mt-2">
                             <h2 className="text-lg font-extrabold tracking-tight text-foreground">{groupName}</h2>
