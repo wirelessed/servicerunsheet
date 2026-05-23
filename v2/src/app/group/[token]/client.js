@@ -20,16 +20,34 @@ export default function GroupPageClient() {
     let rawToken = params?.token;
     if (!rawToken || rawToken === 'fallback' || rawToken === '[token]' || rawToken === '%5Btoken%5D') {
         if (typeof window !== 'undefined') {
-            const segments = window.location.pathname.split('/');
-            const groupIndex = segments.indexOf('group');
-            if (groupIndex !== -1 && segments.length > groupIndex + 1) {
-                const t = segments[groupIndex + 1];
-                if (t && t !== 'fallback' && t !== '[token]') {
-                    rawToken = decodeURIComponent(t);
+            const searchParams = new URLSearchParams(window.location.search);
+            const queryToken = searchParams.get('token');
+            if (queryToken) {
+                rawToken = queryToken;
+            } else {
+                const segments = window.location.pathname.split('/');
+                const groupIndex = segments.indexOf('group');
+                if (groupIndex !== -1 && segments.length > groupIndex + 1) {
+                    const t = segments[groupIndex + 1];
+                    if (t && t !== 'fallback' && t !== '[token]') {
+                        rawToken = decodeURIComponent(t);
+                    }
                 }
             }
         }
     }
+
+    // Clean up fallback URL in browser address bar
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const path = window.location.pathname;
+            const searchParams = new URLSearchParams(window.location.search);
+            const queryToken = searchParams.get('token');
+            if (path.endsWith('/fallback') && queryToken) {
+                window.history.replaceState(null, '', `/group/${queryToken}`);
+            }
+        }
+    }, []);
 
     // 2. State for resolving share tokens
     const [resolvedGroupId, setResolvedGroupId] = useState(null);
@@ -212,7 +230,7 @@ function PublicGroupView({ id }) {
                                     return (
                                         <Link
                                             key={rs.id}
-                                            href={`/runsheet/${rs.id}`}
+                                            href={`/runsheet/fallback?id=${rs.id}`}
                                             className="flex items-center gap-4 p-4 rounded-2xl bg-background border border-border/50 hover:border-primary/30 hover:shadow-md transition-all group"
                                         >
                                             <div className={`

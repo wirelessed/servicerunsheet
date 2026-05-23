@@ -187,7 +187,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         if (filter === 'upcoming') router.replace('/upcoming');
         else if (filter === 'past') router.replace('/past');
         else if (filter === 'archive') router.replace('/archive');
-        else router.replace(`/group/${filter}`);
+        else router.replace(`/group/fallback?token=${filter}`);
     };
 
     useEffect(() => {
@@ -528,7 +528,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                 return (
                                     <div key={runsheet.id} className="group relative">
                                         <Link
-                                            href={`/runsheet/${runsheet.id}`}
+                                            href={`/runsheet/fallback?id=${runsheet.id}`}
                                             className={`
                                                 block p-0 transition-all duration-300
                                                 hover:-translate-y-0.5

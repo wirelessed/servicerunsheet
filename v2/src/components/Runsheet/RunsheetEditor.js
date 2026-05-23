@@ -331,7 +331,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     const handleBackToDashboard = () => {
         if (runsheet?.groupId) {
-            router.replace(`/group/${runsheet.groupId}`);
+            router.replace(`/group/fallback?token=${runsheet.groupId}`);
         } else {
             router.replace('/upcoming');
         }
@@ -952,12 +952,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                         const niceDate = dateObj.format('D');
                                         const dayName = dateObj.format('ddd');
                                         const isToday = dateObj.isSame(moment(), 'day');
-                                        const isActive = rs.id === runsheet.id;
+                                         const isActive = rs.id === runsheet.id;
 
                                         return (
                                             <button
                                                 key={rs.id}
-                                                onClick={() => router.push(`/runsheet/${rs.id}`)}
+                                                onClick={() => router.push(`/runsheet/fallback?id=${rs.id}`)}
                                                 className={`w-full text-left p-2 rounded-2xl transition-all flex items-start gap-3 group active:scale-[0.98] ${isActive ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
                                             >
                                                 <div className={`flex flex-col items-center justify-center w-[42px] h-[42px] rounded-lg shrink-0 transition-colors ${isActive ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' : isToday ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>

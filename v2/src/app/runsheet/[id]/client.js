@@ -20,15 +20,33 @@ export default function RunsheetPage() {
     // Resolve the real ID from params or URL
     useEffect(() => {
         let currentId = params?.id;
-        if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D') {
-            const segments = window.location.pathname.split('/');
-            const runsheetIndex = segments.indexOf('runsheet');
-            if (runsheetIndex !== -1 && segments.length > runsheetIndex + 1) {
-                currentId = segments[runsheetIndex + 1];
+        if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D' || currentId === '[id]') {
+            const searchParams = new URLSearchParams(window.location.search);
+            const queryId = searchParams.get('id');
+            if (queryId) {
+                currentId = queryId;
+            } else {
+                const segments = window.location.pathname.split('/');
+                const runsheetIndex = segments.indexOf('runsheet');
+                if (runsheetIndex !== -1 && segments.length > runsheetIndex + 1) {
+                    currentId = segments[runsheetIndex + 1];
+                }
             }
         }
         setId(currentId);
     }, [params]);
+
+    // Clean up fallback URL in browser address bar
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const path = window.location.pathname;
+            const searchParams = new URLSearchParams(window.location.search);
+            const queryId = searchParams.get('id');
+            if (path.endsWith('/fallback') && queryId) {
+                window.history.replaceState(null, '', `/runsheet/${queryId}`);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
