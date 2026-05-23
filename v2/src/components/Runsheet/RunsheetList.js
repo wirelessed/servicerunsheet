@@ -37,7 +37,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         isSyncing, setIsSyncing,
         activeFilter, setActiveFilter,
         refresh,
-        enrollInGroup
+        enrollInGroup,
+        migrationState, setMigrationState
     } = useDashboard();
 
     const [theme, setTheme] = useState('dark');
@@ -81,56 +82,68 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const archivedGroups = groups.filter(g => g.archived === true);
     const handleRenameGroup = async () => {
         if (!renameGroupDialog.groupId || !renameGroupInput.trim()) return;
+        const groupId = renameGroupDialog.groupId;
+        const newName = renameGroupInput.trim();
+        const originalGroups = [...groups];
         try {
-            setGroupActionLoading(true);
-            await setDoc(doc(db, 'groups', renameGroupDialog.groupId), { name: renameGroupInput.trim() }, { merge: true });
-            setGroups(prev => prev.map(g => g.id === renameGroupDialog.groupId ? { ...g, name: renameGroupInput.trim() } : g));
-            refresh();
+            // Optimistic update
+            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name: newName } : g));
             setRenameGroupDialog({ open: false, groupId: null, currentName: '' });
+
+            await setDoc(doc(db, 'groups', groupId), { name: newName }, { merge: true });
         } catch (err) {
-            console.error('Error renaming group', err);
-        } finally {
-            setGroupActionLoading(false);
+            console.error('Error renaming group, rolling back...', err);
+            setGroups(originalGroups);
+            alert("Failed to rename group.");
         }
     };
 
     const handleArchiveGroup = async () => {
         if (!archiveGroupDialog.groupId) return;
-        try {
-            setGroupActionLoading(true);
-            const groupId = archiveGroupDialog.groupId;
+        const groupId = archiveGroupDialog.groupId;
+        const originalRunsheets = [...runsheets];
+        const originalGroups = [...groups];
 
-            // Archive all runsheets in the group
+        try {
+            // Optimistic update
+            const updated = runsheets.map(r => r.groupId === groupId ? { ...r, category: 'archive' } : r);
+            setRunsheets(updated);
+            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, archived: true } : g));
+            setArchiveGroupDialog({ open: false, groupId: null });
+            navigateToFilter('archived_groups');
+
+            // Background updates
             const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
             const groupRsSnap = await getDocs(groupRsQuery);
             const batch = writeBatch(db);
             groupRsSnap.docs.forEach(rsDoc => {
                 batch.update(rsDoc.ref, { category: 'archive' });
             });
-
-            // Mark the group as archived/hidden
             batch.set(doc(db, 'groups', groupId), { archived: true }, { merge: true });
             await batch.commit();
-
-            const updatedRunsheetIds = groupRsSnap.docs.map(doc => doc.id);
-            setRunsheets(prev => prev.map(r => updatedRunsheetIds.includes(r.id) ? { ...r, category: 'archive' } : r));
-            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, archived: true } : g));
-
-            refresh();
-            setArchiveGroupDialog({ open: false, groupId: null });
-            navigateToFilter('archived_groups');
         } catch (err) {
-            console.error('Error archiving group', err);
-        } finally {
-            setGroupActionLoading(false);
+            console.error('Error archiving group, rolling back...', err);
+            setRunsheets(originalRunsheets);
+            setGroups(originalGroups);
+            alert("Failed to archive group.");
         }
     };
 
     const handleUnarchiveGroup = async () => {
         if (!unarchiveGroupDialog.groupId) return;
         const groupId = unarchiveGroupDialog.groupId;
+        const originalRunsheets = [...runsheets];
+        const originalGroups = [...groups];
+
         try {
-            setGroupActionLoading(true);
+            // Optimistic update
+            const updated = runsheets.map(r => r.groupId === groupId ? { ...r, category: 'active' } : r);
+            setRunsheets(updated);
+            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, archived: false } : g));
+            setUnarchiveGroupDialog({ open: false, groupId: null });
+            navigateToFilter(groupId);
+
+            // Background updates
             const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
             const groupRsSnap = await getDocs(groupRsQuery);
             const batch = writeBatch(db);
@@ -139,30 +152,26 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             });
             batch.set(doc(db, 'groups', groupId), { archived: false }, { merge: true });
             await batch.commit();
-            
-            const updatedRunsheetIds = groupRsSnap.docs.map(doc => doc.id);
-            setRunsheets(prev => prev.map(r => updatedRunsheetIds.includes(r.id) ? { ...r, category: 'active' } : r));
-            setGroups(prev => prev.map(g => g.id === groupId ? { ...g, archived: false } : g));
-            
-            refresh();
-            setUnarchiveGroupDialog({ open: false, groupId: null });
-            navigateToFilter(groupId);
         } catch (err) {
-            console.error('Error unarchiving group', err);
-        } finally {
-            setGroupActionLoading(false);
+            console.error('Error unarchiving group, rolling back...', err);
+            setRunsheets(originalRunsheets);
+            setGroups(originalGroups);
+            alert("Failed to unarchive group.");
         }
     };
 
     useEffect(() => {
         if (user) {
-            const hasSeenWhatsNew = localStorage.getItem('hasSeenWhatsNew_v2');
-            if (!hasSeenWhatsNew) {
-                setWhatsNewDialog(true);
-                localStorage.setItem('hasSeenWhatsNew_v2', 'true');
+            const isMigrationDoneOrNotNeeded = migrationState.status === 'none';
+            if (isMigrationDoneOrNotNeeded) {
+                const hasSeenWhatsNew = localStorage.getItem('hasSeenWhatsNew_v2');
+                if (!hasSeenWhatsNew) {
+                    setWhatsNewDialog(true);
+                    localStorage.setItem('hasSeenWhatsNew_v2', 'true');
+                }
             }
         }
-    }, [user]);
+    }, [user, migrationState.status]);
 
     // Update default sort order when filter changes
     useEffect(() => {
@@ -201,13 +210,23 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const handleCreateOrUpdate = async (formData) => {
         try {
             if (!user?.email) return;
-            setIsActionLoading(true);
+            
             if (metadataDialog.data) {
                 const runsheetRef = doc(db, 'runsheets', metadataDialog.data.id);
+                const originalRunsheets = [...runsheets];
+
+                // Optimistic Update
+                const updated = runsheets.map(r => r.id === metadataDialog.data.id ? { ...r, name: formData.name, date: formData.date, time: formData.time } : r);
+                setRunsheets(updated);
+                setMetadataDialog({ open: false, data: null });
+
+                // Background write
                 await updateDoc(runsheetRef, { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
-                setRunsheets(prev => prev.map(r => r.id === metadataDialog.data.id ? { ...r, name: formData.name, date: formData.date, time: formData.time } : r));
             } else {
                 const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
+                const runsheetRef = doc(collection(db, 'runsheets'));
+                const newId = runsheetRef.id;
+
                 const newRunsheet = {
                     name: formData.name,
                     date: formData.date,
@@ -215,37 +234,52 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     orderCount: 0,
                     lastUpdated: moment().format(),
                     category: 'active',
-                    groupId: formData.groupId !== undefined ? formData.groupId : (isGroup ? activeFilter : null)
+                    groupId: formData.groupId !== undefined ? formData.groupId : (isGroup ? activeFilter : null),
+                    memberEmails: [user.email],
+                    roles: { [user.email]: 'owner' }
                 };
-                const docRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
-                await setDoc(doc(db, `users/${user.email}/runsheets`, docRef.id), { id: docRef.id });
-                await setDoc(doc(db, `runsheets/${docRef.id}/users`, user.email), {
+
+                // Optimistic Update
+                setRunsheets(prev => [...prev, { id: newId, ...newRunsheet, role: 'owner', isEditor: true }]);
+                setMetadataDialog({ open: false, data: null });
+
+                // Background write
+                await setDoc(runsheetRef, newRunsheet);
+                await setDoc(doc(db, `users/${user.email}/runsheets`, newId), { id: newId });
+                await setDoc(doc(db, `runsheets/${newId}/users`, user.email), {
                     id: user.email,
                     role: 'owner',
                     email: user.email
                 });
-                setRunsheets(prev => [...prev, { id: docRef.id, ...newRunsheet, role: 'owner', isEditor: true }]);
             }
-            refresh();
         } catch (err) {
             console.error("Error saving runsheet", err);
-        } finally {
-            setIsActionLoading(false);
-            setMetadataDialog({ open: false, data: null });
+            alert("Failed to save runsheet changes. Please try again.");
+            // onSnapshot will automatically reconcile with the server, but we trigger a migration sync check just in case
+            refresh();
         }
     };
 
 
     const handleCreateGroup = async (name) => {
         try {
-            const groupRef = await addDoc(collection(db, 'groups'), {
+            const groupRef = doc(collection(db, 'groups'));
+            const groupId = groupRef.id;
+            
+            // Optimistic Update
+            setGroups(prev => [...prev, { id: groupId, name }]);
+            
+            // Background write
+            setDoc(groupRef, {
                 name,
                 createdBy: user.email,
                 createdAt: moment().format()
+            }).catch(err => {
+                console.error("Error creating group in db", err);
+                setGroups(prev => prev.filter(g => g.id !== groupId));
             });
-            setGroups(prev => [...prev, { id: groupRef.id, name }]);
-            refresh();
-            return groupRef.id;
+
+            return groupId;
         } catch (err) {
             console.error("Error creating group", err);
             throw err;
@@ -265,35 +299,40 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     };
 
     const handleSetGroup = async (runsheetId, groupId) => {
+        const originalRunsheets = [...runsheets];
         try {
-            setIsActionLoading(true);
-            await updateDoc(doc(db, 'runsheets', runsheetId), { groupId });
+            // Optimistic Update
             const updated = runsheets.map(r => r.id === runsheetId ? { ...r, groupId } : r);
             setRunsheets(updated);
-            refresh();
-            navigateToFilter(groupId);
-        } catch (err) {
-            console.error("Error setting group", err);
-        } finally {
-            setIsActionLoading(false);
             setGroupDialog({ open: false, runsheet: null });
+            navigateToFilter(groupId);
+
+            // Background update
+            await updateDoc(doc(db, 'runsheets', runsheetId), { groupId });
+        } catch (err) {
+            console.error("Error setting group, rolling back...", err);
+            setRunsheets(originalRunsheets);
+            alert("Failed to assign runsheet to group.");
         }
     };
 
     const handleRemoveFromGroup = async () => {
         if (!removeFromGroupDialog.runsheet) return;
+        const runsheetId = removeFromGroupDialog.runsheet.id;
+        const originalRunsheets = [...runsheets];
         try {
-            setIsActionLoading(true);
-            await updateDoc(doc(db, 'runsheets', removeFromGroupDialog.runsheet.id), { groupId: null });
-            const updated = runsheets.map(r => r.id === removeFromGroupDialog.runsheet.id ? { ...r, groupId: null } : r);
+            // Optimistic Update
+            const updated = runsheets.map(r => r.id === runsheetId ? { ...r, groupId: null } : r);
             setRunsheets(updated);
             checkGroupEmptyAfterAction(updated);
-            refresh();
-        } catch (err) {
-            console.error("Error removing from group", err);
-        } finally {
-            setIsActionLoading(false);
             setRemoveFromGroupDialog({ open: false, runsheet: null });
+
+            // Background update
+            await updateDoc(doc(db, 'runsheets', runsheetId), { groupId: null });
+        } catch (err) {
+            console.error("Error removing from group, rolling back...", err);
+            setRunsheets(originalRunsheets);
+            alert("Failed to remove runsheet from group.");
         }
     };
 
@@ -303,56 +342,95 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             const q = query(collection(db, `runsheets/${runsheet.id}/programme`), orderBy('orderCount', 'asc'));
             const snapshot = await getDocs(q);
             const items = snapshot.docs.map(doc => doc.data());
-            const newRunsheet = { ...runsheet, name: `Copy of ${runsheet.name}`, category: 'active', lastUpdated: moment().format() };
-            delete newRunsheet.id;
-            delete newRunsheet.role;
-            delete newRunsheet.isEditor;
-            const newDocRef = await addDoc(collection(db, 'runsheets'), newRunsheet);
-            await setDoc(doc(db, `users/${user.email}/runsheets`, newDocRef.id), { id: newDocRef.id });
-            const batch = writeBatch(db);
-            // Always make the duplicating user the owner
-            batch.set(doc(db, `runsheets/${newDocRef.id}/users`, user.email), {
-                id: user.email,
-                role: 'owner',
-                email: user.email
-            });
-            // Optionally copy collaborators (owners and editors only)
-            if (copyCollaborators && (runsheet.role === 'owner' || runsheet.role === 'editor')) {
-                const usersSnap = await getDocs(collection(db, `runsheets/${runsheet.id}/users`));
-                usersSnap.docs.forEach(userDoc => {
-                    if (userDoc.id !== user.email) {
-                        const userData = userDoc.data();
-                        batch.set(doc(db, `runsheets/${newDocRef.id}/users`, userDoc.id), userData);
-                        batch.set(doc(db, `users/${userDoc.id}/runsheets`, newDocRef.id), { id: newDocRef.id });
-                    }
+            
+            const newDocRef = doc(collection(db, 'runsheets'));
+            const newId = newDocRef.id;
+
+            const newRunsheet = {
+                name: runsheet.name + (runsheet.name.endsWith(' (Copy)') ? '' : ' (Copy)'),
+                date: runsheet.date,
+                time: runsheet.time || '',
+                category: 'active',
+                groupId: runsheet.groupId || null,
+                lastUpdated: moment().format(),
+                orderCount: runsheet.orderCount || 0,
+                memberEmails: [user.email],
+                roles: { [user.email]: 'owner' }
+            };
+
+            // Optimistic Update
+            setRunsheets(prev => [...prev, { ...newRunsheet, id: newId, role: 'owner', isEditor: true }]);
+            setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false });
+            setIsActionLoading(false);
+
+            // Background writes
+            const runDuplicateWrite = async () => {
+                await setDoc(newDocRef, newRunsheet);
+                await setDoc(doc(db, `users/${user.email}/runsheets`, newId), { id: newId });
+                const batch = writeBatch(db);
+                batch.set(doc(db, `runsheets/${newId}/users`, user.email), {
+                    id: user.email,
+                    role: 'owner',
+                    email: user.email
                 });
-            }
-            items.forEach((item) => { batch.set(doc(collection(db, `runsheets/${newDocRef.id}/programme`)), item); });
-            await batch.commit();
-            setRunsheets(prev => [...prev, { ...newRunsheet, id: newDocRef.id, role: 'owner', isEditor: true }]);
-            refresh();
+
+                if (copyCollaborators && (runsheet.role === 'owner' || runsheet.role === 'editor')) {
+                    const usersSnap = await getDocs(collection(db, `runsheets/${runsheet.id}/users`));
+                    const memberEmails = [user.email];
+                    const roles = { [user.email]: 'owner' };
+
+                    usersSnap.docs.forEach(userDoc => {
+                        if (userDoc.id !== user.email) {
+                            const userData = userDoc.data();
+                            batch.set(doc(db, `runsheets/${newId}/users`, userDoc.id), userData);
+                            batch.set(doc(db, `users/${userDoc.id}/runsheets`, newId), { id: newId });
+                            
+                            const email = userDoc.id.trim().toLowerCase();
+                            memberEmails.push(email);
+                            roles[email] = userData.role || 'viewer';
+                        }
+                    });
+
+                    batch.update(newDocRef, { memberEmails, roles });
+                }
+
+                items.forEach((item) => {
+                    batch.set(doc(collection(db, `runsheets/${newId}/programme`)), item);
+                });
+                await batch.commit();
+            };
+
+            runDuplicateWrite().catch(err => {
+                console.error("Error committing duplicated runsheet", err);
+                setRunsheets(prev => prev.filter(r => r.id !== newId));
+                alert("Failed to duplicate runsheet.");
+            });
+
         } catch (err) {
             console.error("Error duplicating runsheet", err);
-        } finally {
             setIsActionLoading(false);
-            setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false });
+            alert("Failed to duplicate runsheet.");
         }
     };
 
     const handleDelete = async () => {
         if (!deleteDialog.runsheetId) return;
+        const runsheetId = deleteDialog.runsheetId;
+        const originalRunsheets = [...runsheets];
         try {
-            setIsActionLoading(true);
-            await deleteDoc(doc(db, 'runsheets', deleteDialog.runsheetId));
-            const updated = runsheets.filter(r => r.id !== deleteDialog.runsheetId);
+            // Optimistic Update
+            const updated = runsheets.filter(r => r.id !== runsheetId);
             setRunsheets(updated);
             checkGroupEmptyAfterAction(updated);
-            refresh();
-        } catch (err) {
-            console.error('Error deleting runsheet', err);
-        } finally {
-            setIsActionLoading(false);
             setDeleteDialog({ open: false, runsheetId: null });
+
+            // Background deletion
+            await deleteDoc(doc(db, 'runsheets', runsheetId));
+            await deleteDoc(doc(db, `users/${user.email}/runsheets`, runsheetId));
+        } catch (err) {
+            console.error('Error deleting runsheet, rolling back...', err);
+            setRunsheets(originalRunsheets);
+            alert("Failed to delete runsheet.");
         }
     };
 
@@ -360,18 +438,20 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         if (!archiveDialog.runsheet) return;
         const runsheet = archiveDialog.runsheet;
         const newCategory = runsheet.category === 'archive' ? 'active' : 'archive';
+        const originalRunsheets = [...runsheets];
         try {
-            setIsActionLoading(true);
-            await updateDoc(doc(db, 'runsheets', runsheet.id), { category: newCategory });
+            // Optimistic Update
             const updated = runsheets.map(r => r.id === runsheet.id ? { ...r, category: newCategory } : r);
             setRunsheets(updated);
             checkGroupEmptyAfterAction(updated);
-            refresh();
-        } catch (err) {
-            console.error('Error updating category', err);
-        } finally {
-            setIsActionLoading(false);
             setArchiveDialog({ open: false, runsheet: null });
+
+            // Background update
+            await updateDoc(doc(db, 'runsheets', runsheet.id), { category: newCategory });
+        } catch (err) {
+            console.error('Error updating category, rolling back...', err);
+            setRunsheets(originalRunsheets);
+            alert("Failed to archive runsheet.");
         }
     };
 
@@ -925,6 +1005,17 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                                        {(() => {
+                                            const group = groups.find(g => g.id === activeFilter);
+                                            const isArchivedGroups = activeFilter === 'archived_groups';
+                                            if (!group && !isArchivedGroups) return null;
+                                            const iconName = (group?.archived || isArchivedGroups) ? 'folder_zip' : 'folder';
+                                            return (
+                                                <span className="material-symbols-outlined text-[24px] md:text-[28px] text-muted-foreground/80 shrink-0 select-none">
+                                                    {iconName}
+                                                </span>
+                                            );
+                                        })()}
                                         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
                                             {activeFilter === 'upcoming' ? 'Upcoming' :
                                                 activeFilter === 'past' ? 'Past' :
@@ -953,6 +1044,13 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                         >
                                                             <span className="material-symbols-outlined text-base mr-2">drive_file_rename_outline</span>
                                                             Rename Group
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer"
+                                                            onClick={() => setShareGroupDialog({ open: true, group: activeGroup })}
+                                                        >
+                                                            <span className="material-symbols-outlined text-base mr-2">share</span>
+                                                            Share Group
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         {activeGroup.archived ? (
@@ -1195,7 +1293,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         message="Are you sure you want to delete this runsheet? This action cannot be undone."
                         confirmText="Delete"
                         confirmStyle="destructive"
-                        isLoading={isSyncing}
+                        isLoading={isActionLoading}
                     />
 
                     {/* Duplicate Runsheet Dialog */}
@@ -1244,23 +1342,23 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
                     <GroupDialog
                         open={groupDialog.open}
-                        onClose={() => !isSyncing && setGroupDialog({ open: false, runsheet: null })}
+                        onClose={() => !isActionLoading && setGroupDialog({ open: false, runsheet: null })}
                         existingGroups={groups}
                         onSetGroup={(groupId) => handleSetGroup(groupDialog.runsheet?.id, groupId)}
                         onCreateGroup={handleCreateGroup}
                         currentGroupId={groupDialog.runsheet?.groupId}
-                        isLoading={isSyncing}
+                        isLoading={isActionLoading}
                     />
 
                     <ConfirmationDialog
                         open={removeFromGroupDialog.open}
-                        onClose={() => !isSyncing && setRemoveFromGroupDialog({ open: false, runsheet: null })}
+                        onClose={() => !isActionLoading && setRemoveFromGroupDialog({ open: false, runsheet: null })}
                         onConfirm={handleRemoveFromGroup}
                         title="Remove from Group"
                         message={`Are you sure you want to remove "${removeFromGroupDialog.runsheet?.name}" from its group?`}
                         confirmText="Remove"
                         confirmStyle="default"
-                        isLoading={isSyncing}
+                        isLoading={isActionLoading}
                     />
 
                     <ShareGroupDialog
@@ -1378,6 +1476,53 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                     className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
                                 >
                                     Got it
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Migration Upgrade Modal */}
+                    {migrationState.total > 0 && (migrationState.status === 'migrating' || migrationState.status === 'completed') && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                            <div className="relative w-full max-w-md bg-card border border-border/80 rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-300">
+                                {/* Animated Icon */}
+                                <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                    {migrationState.status === 'completed' ? (
+                                        <span className="material-symbols-outlined text-4xl text-success animate-bounce">check_circle</span>
+                                    ) : (
+                                        <span className="material-symbols-outlined text-4xl text-primary animate-spin">upgrade</span>
+                                    )}
+                                </div>
+
+                                {/* Title and details */}
+                                <div className="text-center space-y-2">
+                                    <h3 className="text-xl font-black text-foreground">System Upgrade</h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        We are upgrading all your old runsheets. This is only performed once. Please wait...
+                                    </p>
+                                </div>
+
+                                {/* Progress bar container */}
+                                <div className="w-full space-y-2">
+                                    <div className="flex justify-between text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                        <span>Progress</span>
+                                        <span>{migrationState.migrated} / {migrationState.total}</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden border border-border/20">
+                                        <div 
+                                            className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                                            style={{ width: `${(migrationState.migrated / migrationState.total) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Done Button */}
+                                <button
+                                    disabled={migrationState.status !== 'completed'}
+                                    onClick={() => setMigrationState(prev => ({ ...prev, status: 'none' }))}
+                                    className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-primary/20 border border-primary/10"
+                                >
+                                    {migrationState.status === 'completed' ? 'Done' : 'Upgrading...'}
                                 </button>
                             </div>
                         </div>

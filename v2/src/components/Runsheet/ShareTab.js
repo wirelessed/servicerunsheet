@@ -111,6 +111,18 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                 sharedBy: user.email,
                 sharedAt: new Date().toISOString(),
             });
+
+            // Also update the main runsheet document memberEmails and roles
+            const currentEmails = runsheet.memberEmails || [];
+            const currentRoles = runsheet.roles || {};
+            await updateDoc(doc(db, 'runsheets', runsheetId), {
+                memberEmails: [...new Set([...currentEmails, email])],
+                roles: {
+                    ...currentRoles,
+                    [email]: 'viewer'
+                }
+            });
+
             setNewEmail('');
         } catch (err) {
             console.error('Error adding user:', err);
@@ -127,6 +139,15 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
 
             await updateDoc(doc(db, `runsheets/${runsheetId}/users`, email), { role: newRole });
             await updateDoc(doc(db, `users/${email}/runsheets`, runsheetId), { role: newRole });
+
+            // Also update the main runsheet document roles map
+            const currentRoles = runsheet.roles || {};
+            await updateDoc(doc(db, 'runsheets', runsheetId), {
+                roles: {
+                    ...currentRoles,
+                    [email]: newRole
+                }
+            });
         } catch (err) {
             console.error('Error changing role:', err);
         }
@@ -139,6 +160,15 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         try {
             await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, targetEmail));
             await deleteDoc(doc(db, `users/${targetEmail}/runsheets`, runsheetId));
+
+            // Also update the main runsheet document memberEmails and roles
+            const currentEmails = runsheet.memberEmails || [];
+            const currentRoles = { ...(runsheet.roles || {}) };
+            delete currentRoles[targetEmail];
+            await updateDoc(doc(db, 'runsheets', runsheetId), {
+                memberEmails: currentEmails.filter(e => e !== targetEmail),
+                roles: currentRoles
+            });
         } catch (err) {
             console.error('Error removing user:', err);
         }

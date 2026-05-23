@@ -1,7 +1,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, getDocs, query, orderBy, setDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -79,6 +79,18 @@ export default function SharePage() {
                             if (!existing.exists()) {
                                 await setDoc(userRoleRef, { role: 'viewer', email: user.email, id: user.email });
                                 await setDoc(doc(db, `users/${user.email}/runsheets`, id), { id });
+                                
+                                // Also update memberEmails and roles on the main runsheet document
+                                const currentEmails = docSnap.data().memberEmails || [];
+                                const currentRoles = docSnap.data().roles || {};
+                                await updateDoc(docRef, {
+                                    memberEmails: [...new Set([...currentEmails, user.email])],
+                                    roles: {
+                                        ...currentRoles,
+                                        [user.email]: 'viewer'
+                                    }
+                                });
+                                
                                 setEnrolled(true);
                             }
                         } catch (e) {

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { db } from '../../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 
@@ -41,7 +41,7 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
             setEditors(userList);
             if (user?.email) {
                 const me = userList.find(u => u.email === user.email);
-                setCurrentUserIsEditor(me?.role === 'editor');
+                setCurrentUserIsEditor(me?.role === 'editor' || me?.role === 'owner');
             }
         });
         return () => unsubscribe();
@@ -70,6 +70,23 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
             const email = newEditorEmail.trim().toLowerCase();
             await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), { email, role: 'editor', addedAt: new Date().toISOString(), addedBy: user.email });
             await setDoc(doc(db, `users/${email}/runsheets`, runsheetId), { id: runsheetId, role: 'editor', sharedBy: user.email, sharedAt: new Date().toISOString() });
+
+            // Fetch and update main runsheet document
+            const runsheetRef = doc(db, 'runsheets', runsheetId);
+            const runsheetSnap = await getDoc(runsheetRef);
+            if (runsheetSnap.exists()) {
+                const data = runsheetSnap.data();
+                const currentEmails = data.memberEmails || [];
+                const currentRoles = data.roles || {};
+                await updateDoc(runsheetRef, {
+                    memberEmails: [...new Set([...currentEmails, email])],
+                    roles: {
+                        ...currentRoles,
+                        [email]: 'editor'
+                    }
+                });
+            }
+
             setNewEditorEmail('');
         } catch (error) { console.error("Error adding editor:", error); }
         finally { setIsLoading(false); }
@@ -79,8 +96,24 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
         if (!deleteConfirm.email) return;
         setIsLoading(true);
         try {
-            await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, deleteConfirm.email));
-            await deleteDoc(doc(db, `users/${deleteConfirm.email}/runsheets`, runsheetId));
+            const email = deleteConfirm.email;
+            await deleteDoc(doc(db, `runsheets/${runsheetId}/users`, email));
+            await deleteDoc(doc(db, `users/${email}/runsheets`, runsheetId));
+
+            // Fetch and update main runsheet document
+            const runsheetRef = doc(db, 'runsheets', runsheetId);
+            const runsheetSnap = await getDoc(runsheetRef);
+            if (runsheetSnap.exists()) {
+                const data = runsheetSnap.data();
+                const currentEmails = data.memberEmails || [];
+                const currentRoles = { ...(data.roles || {}) };
+                delete currentRoles[email];
+                await updateDoc(runsheetRef, {
+                    memberEmails: currentEmails.filter(e => e !== email),
+                    roles: currentRoles
+                });
+            }
+
             setDeleteConfirm({ open: false, email: null });
         } catch (error) { console.error("Error removing editor:", error); }
         finally { setIsLoading(false); }
