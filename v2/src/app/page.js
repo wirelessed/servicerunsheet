@@ -10,7 +10,7 @@ export default function Home() {
 
     useEffect(() => {
         if (!loading && user) {
-            router.replace('/upcoming');
+            router.replace('/dashboard');
         }
     }, [user, loading, router]);
 
@@ -27,7 +27,7 @@ export default function Home() {
 
     if (!user) return <Login />;
 
-    // Will redirect to /upcoming via the useEffect
+    // Will redirect to /dashboard via the useEffect
     return null;
 }
 

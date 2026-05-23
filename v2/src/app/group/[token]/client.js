@@ -1,11 +1,10 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, getDocs, query, where, collection, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
 import LoginBanner from '../../../components/LoginBanner';
-import RunsheetList from '../../../components/Runsheet/RunsheetList';
 import Link from 'next/link';
 import moment from 'moment';
 import dynamic from 'next/dynamic';
@@ -14,43 +13,27 @@ const ShareGroupDialog = dynamic(() => import('../../../components/Runsheet/Shar
 
 export default function GroupPageClient() {
     const params = useParams();
+    const router = useRouter();
     const { user, loading: authLoading } = useAuth();
 
     // 1. Compute the raw token from URL or params synchronously
     let rawToken = params?.token;
     if (!rawToken || rawToken === 'fallback' || rawToken === '[token]' || rawToken === '%5Btoken%5D') {
         if (typeof window !== 'undefined') {
-            const searchParams = new URLSearchParams(window.location.search);
-            const queryToken = searchParams.get('token');
-            if (queryToken) {
-                rawToken = queryToken;
-            } else {
-                const segments = window.location.pathname.split('/');
-                const groupIndex = segments.indexOf('group');
-                if (groupIndex !== -1 && segments.length > groupIndex + 1) {
-                    const t = segments[groupIndex + 1];
-                    if (t && t !== 'fallback' && t !== '[token]') {
-                        rawToken = decodeURIComponent(t);
-                    }
+            const segments = window.location.pathname.split('/');
+            const groupIndex = segments.indexOf('group');
+            if (groupIndex !== -1 && segments.length > groupIndex + 1) {
+                const t = segments[groupIndex + 1];
+                if (t && t !== 'fallback' && t !== '[token]') {
+                    rawToken = decodeURIComponent(t);
                 }
             }
         }
     }
 
-    // Clean up fallback URL in browser address bar
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const path = window.location.pathname;
-            const searchParams = new URLSearchParams(window.location.search);
-            const queryToken = searchParams.get('token');
-            if (path.endsWith('/fallback') && queryToken) {
-                window.history.replaceState(null, '', `/group/${queryToken}`);
-            }
-        }
-    }, []);
-
     // 2. State for resolving share tokens
     const [resolvedGroupId, setResolvedGroupId] = useState(null);
+    const [redirected, setRedirected] = useState(false);
 
     useEffect(() => {
         if (!rawToken || rawToken === 'fallback' || rawToken === '[token]') return;
@@ -74,6 +57,15 @@ export default function GroupPageClient() {
 
     const activeId = resolvedGroupId || rawToken;
 
+    // ── LOGGED-IN: redirect to /dashboard with the group filter ──
+    useEffect(() => {
+        if (user && activeId && activeId !== 'fallback' && activeId !== '[token]' && !redirected) {
+            localStorage.setItem('dashboard_filter', activeId);
+            setRedirected(true);
+            router.replace('/dashboard');
+        }
+    }, [user, activeId, router, redirected]);
+
     // ── AUTH LOADING ──
     if (authLoading) {
         return (
@@ -84,9 +76,14 @@ export default function GroupPageClient() {
         );
     }
 
-    // ── LOGGED-IN: render the full dashboard filtered to this group ──
+    // ── LOGGED-IN: show spinner while redirecting ──
     if (user) {
-        return <RunsheetList initialFilter={activeId} />;
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
+                <div className="w-12 h-12 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
+                <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading...</p>
+            </div>
+        );
     }
 
     // ── LOGGED-OUT: public group listing ──
@@ -230,7 +227,7 @@ function PublicGroupView({ id }) {
                                     return (
                                         <Link
                                             key={rs.id}
-                                            href={`/runsheet/fallback?id=${rs.id}`}
+                                            href={`/runsheet/${rs.id}`}
                                             className="flex items-center gap-4 p-4 rounded-2xl bg-background border border-border/50 hover:border-primary/30 hover:shadow-md transition-all group"
                                         >
                                             <div className={`

@@ -46,7 +46,7 @@ const AdvancedGrid = dynamic(() => import('./AdvancedGrid'), { ssr: false, loadi
 
 export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false, isAuthenticated = true }) {
     const { user } = useAuth();
-    const { runsheets, groups, activeFilter } = useDashboard();
+    const { runsheets, groups, activeFilter, setActiveFilter } = useDashboard();
     const router = useRouter();
     const [items, setItems] = useState(initialProgramme);
     const [timings, setTimings] = useState({});
@@ -330,11 +330,17 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const handleBackToDashboard = () => {
-        if (runsheet?.groupId) {
-            router.replace(`/group/fallback?token=${runsheet.groupId}`);
-        } else {
-            router.replace('/upcoming');
+        if (!user && runsheet?.groupId) {
+            // Logged-out user viewing a group's runsheet → go to public group page
+            router.replace(`/group/${runsheet.groupId}`);
+            return;
         }
+        if (runsheet?.groupId) {
+            setActiveFilter(runsheet.groupId);
+        } else {
+            setActiveFilter('upcoming');
+        }
+        router.replace('/dashboard');
     };
 
     const handleMetadataUpdate = async (formData) => {
@@ -952,12 +958,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                         const niceDate = dateObj.format('D');
                                         const dayName = dateObj.format('ddd');
                                         const isToday = dateObj.isSame(moment(), 'day');
-                                         const isActive = rs.id === runsheet.id;
+                                        const isActive = rs.id === runsheet.id;
 
                                         return (
                                             <button
                                                 key={rs.id}
-                                                onClick={() => router.push(`/runsheet/fallback?id=${rs.id}`)}
+                                                onClick={() => router.push(`/runsheet/${rs.id}`)}
                                                 className={`w-full text-left p-2 rounded-2xl transition-all flex items-start gap-3 group active:scale-[0.98] ${isActive ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
                                             >
                                                 <div className={`flex flex-col items-center justify-center w-[42px] h-[42px] rounded-lg shrink-0 transition-colors ${isActive ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' : isToday ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>
@@ -1033,6 +1039,20 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 </div>
             </div>
 
+            {/* Bottom section */}
+            <div className="flex flex-col gap-3 px-4 pb-2">
+                {/* Ops Mode panel */}
+                {mode === 'ops' && (
+                    <div className="p-4 bg-card rounded-xl border border-border shadow-sm">
+                        <div className="flex flex-col mb-3">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Current Time</span>
+                            <div className="text-2xl font-mono font-bold text-foreground leading-none tracking-tight mt-1">
+                                {clock.format("h:mm:ss A")}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </aside>
     );
 
@@ -1152,24 +1172,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         </div>
                     ) : null}
                 </div>
-
-                {/* Desktop Ops Mode Current Time Box */}
-                {mode === 'ops' && (
-                    <div className="hidden md:block fixed bottom-6 right-6 z-40 animate-in fade-in duration-200">
-                        <div className="p-4 bg-background/80 backdrop-blur-md rounded-2xl border border-border shadow-lg flex flex-col min-w-[150px] items-center text-center">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                </span>
-                                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider leading-none">Live Time</span>
-                            </div>
-                            <span className="text-2xl font-mono font-bold text-foreground leading-none">
-                                {clock.format("h:mm:ss A")}
-                            </span>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* ── Bottom Dock - Mobile Only ── */}

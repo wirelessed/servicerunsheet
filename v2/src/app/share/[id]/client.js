@@ -23,7 +23,7 @@ export default function SharePage() {
 
     const handleBackToDashboard = () => {
         if (runsheet?.groupId) {
-            router.replace(`/group/fallback?token=${runsheet.groupId}`);
+            router.replace(`/group/${runsheet.groupId}`);
         } else {
             router.replace('/upcoming');
         }

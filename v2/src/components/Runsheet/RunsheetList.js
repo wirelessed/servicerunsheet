@@ -28,7 +28,7 @@ const WhatsNewDialog = dynamic(() => import('./WhatsNewDialog'), { ssr: false })
 
 import { useDashboard } from '../../context/DashboardContext';
 
-export default function RunsheetList({ initialFilter = 'upcoming' }) {
+export default function RunsheetList() {
     const { user, logOut } = useAuth();
     const router = useRouter();
     const {
@@ -42,13 +42,6 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     } = useDashboard();
 
     const [theme, setTheme] = useState('dark');
-
-    // Sync initialFilter prop to context once on mount or if prop changes
-    useEffect(() => {
-        if (initialFilter && initialFilter !== activeFilter) {
-            setActiveFilter(initialFilter);
-        }
-    }, [initialFilter, activeFilter, setActiveFilter]);
 
     // Auto-enroll in group when switching to a group filter
     useEffect(() => {
@@ -180,14 +173,10 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         setSortOrder(isDesc ? 'desc' : 'asc');
     }, [activeFilter]);
 
-    // Navigate to filter: only push URL, don't update state manually here to prevent double hits
+    // Navigate to filter: pure state setter, no URL changes
     const navigateToFilter = (filter) => {
         if (filter === activeFilter) return;
-
-        if (filter === 'upcoming') router.replace('/upcoming');
-        else if (filter === 'past') router.replace('/past');
-        else if (filter === 'archive') router.replace('/archive');
-        else router.replace(`/group/fallback?token=${filter}`);
+        setActiveFilter(filter);
     };
 
     useEffect(() => {
@@ -528,7 +517,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                 return (
                                     <div key={runsheet.id} className="group relative">
                                         <Link
-                                            href={`/runsheet/fallback?id=${runsheet.id}`}
+                                            href={`/runsheet/${runsheet.id}`}
                                             className={`
                                                 block p-0 transition-all duration-300
                                                 hover:-translate-y-0.5

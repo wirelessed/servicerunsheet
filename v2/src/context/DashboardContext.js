@@ -14,9 +14,21 @@ export const DashboardContextProvider = ({ children }) => {
     const [runsheets, setRunsheets] = useState([]);
     const [groups, setGroups] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
-    const [activeFilter, setActiveFilter] = useState('upcoming');
+    const [activeFilter, setActiveFilter] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('dashboard_filter') || 'upcoming';
+        }
+        return 'upcoming';
+    });
     const [migrationState, setMigrationState] = useState({ status: 'idle', total: 0, migrated: 0 });
     const enrolledGroupsRef = useRef(new Set());
+
+    // Persist activeFilter to localStorage whenever it changes
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('dashboard_filter', activeFilter);
+        }
+    }, [activeFilter]);
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
     const runMigration = useCallback(async () => {
