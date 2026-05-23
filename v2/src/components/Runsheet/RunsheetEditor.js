@@ -1033,20 +1033,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 </div>
             </div>
 
-            {/* Bottom section */}
-            <div className="flex flex-col gap-3 px-4 pb-2">
-                {/* Ops Mode panel */}
-                {mode === 'ops' && (
-                    <div className="p-4 bg-card rounded-xl border border-border shadow-sm">
-                        <div className="flex flex-col mb-3">
-                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Current Time</span>
-                            <div className="text-2xl font-mono font-bold text-foreground leading-none tracking-tight mt-1">
-                                {clock.format("h:mm:ss A")}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
         </aside>
     );
 
@@ -1166,6 +1152,24 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         </div>
                     ) : null}
                 </div>
+
+                {/* Desktop Ops Mode Current Time Box */}
+                {mode === 'ops' && (
+                    <div className="hidden md:block fixed bottom-6 right-6 z-40 animate-in fade-in duration-200">
+                        <div className="p-4 bg-background/80 backdrop-blur-md rounded-2xl border border-border shadow-lg flex flex-col min-w-[150px] items-center text-center">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider leading-none">Live Time</span>
+                            </div>
+                            <span className="text-2xl font-mono font-bold text-foreground leading-none">
+                                {clock.format("h:mm:ss A")}
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── Bottom Dock - Mobile Only ── */}
