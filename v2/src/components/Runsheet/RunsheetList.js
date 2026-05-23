@@ -77,7 +77,8 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const [renameGroupInput, setRenameGroupInput] = useState('');
     const [groupActionLoading, setGroupActionLoading] = useState(false);
     const [blockedArchiveDialog, setBlockedArchiveDialog] = useState(false);
-    
+    const [groupMoveWarningDialog, setGroupMoveWarningDialog] = useState({ open: false, runsheetId: null, groupId: null });
+
     const activeGroups = groups.filter(g => g.archived !== true);
     const archivedGroups = groups.filter(g => g.archived === true);
     const handleRenameGroup = async () => {
@@ -210,7 +211,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
     const handleCreateOrUpdate = async (formData) => {
         try {
             if (!user?.email) return;
-            
+
             if (metadataDialog.data) {
                 const runsheetRef = doc(db, 'runsheets', metadataDialog.data.id);
                 const originalRunsheets = [...runsheets];
@@ -265,10 +266,10 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         try {
             const groupRef = doc(collection(db, 'groups'));
             const groupId = groupRef.id;
-            
+
             // Optimistic Update
             setGroups(prev => [...prev, { id: groupId, name }]);
-            
+
             // Background write
             setDoc(groupRef, {
                 name,
@@ -342,7 +343,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
             const q = query(collection(db, `runsheets/${runsheet.id}/programme`), orderBy('orderCount', 'asc'));
             const snapshot = await getDocs(q);
             const items = snapshot.docs.map(doc => doc.data());
-            
+
             const newDocRef = doc(collection(db, 'runsheets'));
             const newId = newDocRef.id;
 
@@ -384,7 +385,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                             const userData = userDoc.data();
                             batch.set(doc(db, `runsheets/${newId}/users`, userDoc.id), userData);
                             batch.set(doc(db, `users/${userDoc.id}/runsheets`, newId), { id: newId });
-                            
+
                             const email = userDoc.id.trim().toLowerCase();
                             memberEmails.push(email);
                             roles[email] = userData.role || 'viewer';
@@ -687,6 +688,11 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
         ? runsheets.filter(r => r.groupId === activeFilter)
         : [];
 
+    const deleteRunsheetObj = runsheets.find(r => r.id === deleteDialog.runsheetId);
+    const isDeleteLastInGroup = deleteRunsheetObj && deleteRunsheetObj.groupId && runsheets.filter(r => r.groupId === deleteRunsheetObj.groupId).length === 1;
+
+    const isRemoveLastInGroup = removeFromGroupDialog.runsheet && removeFromGroupDialog.runsheet.groupId && runsheets.filter(r => r.groupId === removeFromGroupDialog.runsheet.groupId).length === 1;
+
     const tabCounts = {
         upcoming: upcomingRunsheets.length,
         past: pastRunsheets.length,
@@ -727,57 +733,57 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
 
                     {/* Groups section */}
                     <div className="flex flex-col gap-0.5 mt-6 px-1">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">My Groups</p>
-                            {activeGroups.map(group => (
-                                <button
-                                    key={group.id}
-                                    onClick={() => navigateToFilter(group.id)}
-                                    className={`
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">My Groups</p>
+                        {activeGroups.map(group => (
+                            <button
+                                key={group.id}
+                                onClick={() => navigateToFilter(group.id)}
+                                className={`
                                         flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
                                         ${activeFilter === group.id
-                                            ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
-                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                        }
-                                    `}
-                                >
-                                    <span className={`material-symbols-outlined text-[20px] ${activeFilter === group.id ? 'icon-filled' : ''}`}>folder</span>
-                                    <span className="truncate flex-1 text-left">{group.name}</span>
-                                    {tabCounts[group.id] > 0 && (
-                                        <span className={`ml-auto text-[11px] font-bold px-2 py-0.5 rounded-full ${activeFilter === group.id ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                            {tabCounts[group.id]}
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => navigateToFilter('archived_groups')}
-                                className={`
-                                    flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
-                                    ${activeFilter === 'archived_groups'
                                         ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
                                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                     }
-                                `}
+                                    `}
                             >
-                                <span className={`material-symbols-outlined text-[20px] ${activeFilter === 'archived_groups' ? 'icon-filled' : ''}`}>inventory_2</span>
-                                Archived Groups
+                                <span className={`material-symbols-outlined text-[20px] ${activeFilter === group.id ? 'icon-filled' : ''}`}>folder</span>
+                                <span className="truncate flex-1 text-left">{group.name}</span>
+                                {tabCounts[group.id] > 0 && (
+                                    <span className={`ml-auto text-[11px] font-bold px-2 py-0.5 rounded-full ${activeFilter === group.id ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                        {tabCounts[group.id]}
+                                    </span>
+                                )}
                             </button>
-                            {(() => {
-                                const activeArchivedGroup = archivedGroups.find(g => g.id === activeFilter);
-                                if (!activeArchivedGroup) return null;
-                                return (
-                                    <div className="pl-6 mt-0.5 animate-in slide-in-from-top-2 fade-in duration-200">
-                                        <button
-                                            onClick={() => navigateToFilter(activeArchivedGroup.id)}
-                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-primary/10 dark:bg-primary/15 text-primary shadow-xs w-full transition-all duration-200"
-                                        >
-                                            <span className="material-symbols-outlined text-[20px] icon-filled">folder_zip</span>
-                                            <span className="truncate flex-1 text-left">{activeArchivedGroup.name}</span>
-                                        </button>
-                                    </div>
-                                );
-                            })()}
-                        </div>
+                        ))}
+                        <button
+                            onClick={() => navigateToFilter('archived_groups')}
+                            className={`
+                                    flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
+                                    ${activeFilter === 'archived_groups'
+                                    ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                }
+                                `}
+                        >
+                            <span className={`material-symbols-outlined text-[20px] ${activeFilter === 'archived_groups' ? 'icon-filled' : ''}`}>inventory_2</span>
+                            Archived Groups
+                        </button>
+                        {(() => {
+                            const activeArchivedGroup = archivedGroups.find(g => g.id === activeFilter);
+                            if (!activeArchivedGroup) return null;
+                            return (
+                                <div className="pl-6 mt-0.5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                    <button
+                                        onClick={() => navigateToFilter(activeArchivedGroup.id)}
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-primary/10 dark:bg-primary/15 text-primary shadow-xs w-full transition-all duration-200"
+                                    >
+                                        <span className="material-symbols-outlined text-[20px] icon-filled">folder_zip</span>
+                                        <span className="truncate flex-1 text-left">{activeArchivedGroup.name}</span>
+                                    </button>
+                                </div>
+                            );
+                        })()}
+                    </div>
 
                     {/* Nav items: Past & Archive */}
                     <div className="flex flex-col gap-0.5 mt-6">
@@ -889,99 +895,99 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                             {/* Top bar */}
                             {!showSearch && (
                                 <div className="flex items-center justify-between mb-4 relative">
-                                {/* Mobile: Hamburger menu */}
-                                <div className="md:hidden">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <button className="flex size-10 items-center justify-center rounded-xl hover:bg-muted text-foreground transition-all active:scale-95">
-                                                <span className="material-symbols-outlined text-[22px]">menu</span>
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-56">
-                                            <DropdownMenuItem disabled className="text-xs text-muted-foreground flex items-center gap-2">
-                                                <Avatar className="h-5 w-5">
-                                                    <AvatarImage src={user?.photoURL} />
-                                                    <AvatarFallback className="text-[9px]">{user?.displayName?.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                {user?.displayName}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
-                                                <span className="material-symbols-outlined text-base mr-2">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-                                                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                                onClick={async () => {
-                                                    try {
-                                                        Object.keys(localStorage).forEach(key => {
-                                                            if (key.startsWith('runsheetsCache_') || key.startsWith('groupsCache_') || key.startsWith('public_group')) {
-                                                                localStorage.removeItem(key);
+                                    {/* Mobile: Hamburger menu */}
+                                    <div className="md:hidden">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button className="flex size-10 items-center justify-center rounded-xl hover:bg-muted text-foreground transition-all active:scale-95">
+                                                    <span className="material-symbols-outlined text-[22px]">menu</span>
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="start" className="w-56">
+                                                <DropdownMenuItem disabled className="text-xs text-muted-foreground flex items-center gap-2">
+                                                    <Avatar className="h-5 w-5">
+                                                        <AvatarImage src={user?.photoURL} />
+                                                        <AvatarFallback className="text-[9px]">{user?.displayName?.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    {user?.displayName}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
+                                                    <span className="material-symbols-outlined text-base mr-2">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+                                                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onClick={async () => {
+                                                        try {
+                                                            Object.keys(localStorage).forEach(key => {
+                                                                if (key.startsWith('runsheetsCache_') || key.startsWith('groupsCache_') || key.startsWith('public_group')) {
+                                                                    localStorage.removeItem(key);
+                                                                }
+                                                            });
+                                                            const dbs = await window.indexedDB.databases();
+                                                            for (const dbInfo of dbs) {
+                                                                if (dbInfo.name && dbInfo.name.startsWith('firebaseLocalStorage')) {
+                                                                    window.indexedDB.deleteDatabase(dbInfo.name);
+                                                                }
                                                             }
-                                                        });
-                                                        const dbs = await window.indexedDB.databases();
-                                                        for (const dbInfo of dbs) {
-                                                            if (dbInfo.name && dbInfo.name.startsWith('firebaseLocalStorage')) {
-                                                                window.indexedDB.deleteDatabase(dbInfo.name);
-                                                            }
+                                                            window.location.reload();
+                                                        } catch (e) {
+                                                            console.error('Error clearing cache:', e);
+                                                            window.location.reload();
                                                         }
-                                                        window.location.reload();
-                                                    } catch (e) {
-                                                        console.error('Error clearing cache:', e);
-                                                        window.location.reload();
-                                                    }
-                                                }}
-                                                className="cursor-pointer"
-                                            >
-                                                <span className="material-symbols-outlined text-base mr-2">cached</span>
-                                                Clear Cache
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={logOut} className="text-destructive focus:text-destructive cursor-pointer">
-                                                <span className="material-symbols-outlined text-base mr-2">logout</span>
-                                                Log Out
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-
-                                {/* Mobile Center: RunsheetPro Branding */}
-                                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:hidden">
-                                    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 dark:bg-primary/15">
-                                        <span className="material-symbols-outlined text-primary text-base icon-filled">event_note</span>
+                                                    }}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <span className="material-symbols-outlined text-base mr-2">cached</span>
+                                                    Clear Cache
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={logOut} className="text-destructive focus:text-destructive cursor-pointer">
+                                                    <span className="material-symbols-outlined text-base mr-2">logout</span>
+                                                    Log Out
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
-                                    <span className="text-base font-extrabold tracking-tight text-foreground">RunsheetPro</span>
-                                </div>
 
-                                <div className="hidden md:block" />
+                                    {/* Mobile Center: RunsheetPro Branding */}
+                                    <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:hidden">
+                                        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 dark:bg-primary/15">
+                                            <span className="material-symbols-outlined text-primary text-base icon-filled">event_note</span>
+                                        </div>
+                                        <span className="text-base font-extrabold tracking-tight text-foreground">RunsheetPro</span>
+                                    </div>
 
-                                {/* Right actions */}
-                                <div className="flex items-center gap-1.5">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <button className="flex size-9 items-center justify-center rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all active:scale-95">
-                                                <span className="material-symbols-outlined text-[20px]">swap_vert</span>
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => setSortOrder('desc')} className="cursor-pointer">
-                                                Latest first
-                                                {sortOrder === 'desc' && <span className="material-symbols-outlined text-sm ml-auto text-primary">check</span>}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setSortOrder('asc')} className="cursor-pointer">
-                                                Oldest first
-                                                {sortOrder === 'asc' && <span className="material-symbols-outlined text-sm ml-auto text-primary">check</span>}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <div className="hidden md:block" />
 
-                                    <button
-                                        onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(''); }}
-                                        className={`flex size-9 items-center justify-center rounded-xl hover:bg-muted transition-all active:scale-95 ${showSearch ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                    >
-                                        <span className="material-symbols-outlined text-[20px]">search</span>
-                                    </button>
-                                </div>
+                                    {/* Right actions */}
+                                    <div className="flex items-center gap-1.5">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button className="flex size-9 items-center justify-center rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all active:scale-95">
+                                                    <span className="material-symbols-outlined text-[20px]">swap_vert</span>
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => setSortOrder('desc')} className="cursor-pointer">
+                                                    Latest first
+                                                    {sortOrder === 'desc' && <span className="material-symbols-outlined text-sm ml-auto text-primary">check</span>}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => setSortOrder('asc')} className="cursor-pointer">
+                                                    Oldest first
+                                                    {sortOrder === 'asc' && <span className="material-symbols-outlined text-sm ml-auto text-primary">check</span>}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+
+                                        <button
+                                            onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(''); }}
+                                            className={`flex size-9 items-center justify-center rounded-xl hover:bg-muted transition-all active:scale-95 ${showSearch ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">search</span>
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -989,7 +995,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                             <div className="min-h-[48px] flex items-center">
                                 {showSearch ? (
                                     <div className="w-full flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <button 
+                                        <button
                                             onClick={() => { setShowSearch(false); setSearchQuery(''); }}
                                             className="flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-muted text-foreground transition-all active:scale-95"
                                         >
@@ -1027,6 +1033,9 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         {activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter) && (() => {
                                             const activeGroup = groups.find(g => g.id === activeFilter);
                                             if (!activeGroup) return null;
+                                            const canManageGroup = groupRunsheetsList.length > 0
+                                                ? groupRunsheetsList.every(r => r.isEditor)
+                                                : (activeGroup.createdBy === user?.email);
                                             return (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -1035,16 +1044,18 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                         </button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-44">
-                                                        <DropdownMenuItem
-                                                            className="cursor-pointer"
-                                                            onClick={() => {
-                                                                setRenameGroupInput(activeGroup.name);
-                                                                setRenameGroupDialog({ open: true, groupId: activeGroup.id, currentName: activeGroup.name });
-                                                            }}
-                                                        >
-                                                            <span className="material-symbols-outlined text-base mr-2">drive_file_rename_outline</span>
-                                                            Rename Group
-                                                        </DropdownMenuItem>
+                                                        {canManageGroup && (
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer"
+                                                                onClick={() => {
+                                                                    setRenameGroupInput(activeGroup.name);
+                                                                    setRenameGroupDialog({ open: true, groupId: activeGroup.id, currentName: activeGroup.name });
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">drive_file_rename_outline</span>
+                                                                Rename Group
+                                                            </DropdownMenuItem>
+                                                        )}
                                                         <DropdownMenuItem
                                                             className="cursor-pointer"
                                                             onClick={() => setShareGroupDialog({ open: true, group: activeGroup })}
@@ -1052,23 +1063,27 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                                             <span className="material-symbols-outlined text-base mr-2">share</span>
                                                             Share Group
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        {activeGroup.archived ? (
-                                                            <DropdownMenuItem
-                                                                className="cursor-pointer font-semibold text-primary focus:text-primary"
-                                                                onClick={() => setUnarchiveGroupDialog({ open: true, groupId: activeGroup.id })}
-                                                            >
-                                                                <span className="material-symbols-outlined text-base mr-2">unarchive</span>
-                                                                Unarchive Group
-                                                            </DropdownMenuItem>
-                                                        ) : (
-                                                            <DropdownMenuItem
-                                                                className="cursor-pointer text-destructive focus:text-destructive"
-                                                                onClick={() => setArchiveGroupDialog({ open: true, groupId: activeGroup.id })}
-                                                            >
-                                                                <span className="material-symbols-outlined text-base mr-2">inventory_2</span>
-                                                                Archive Group
-                                                            </DropdownMenuItem>
+                                                        {canManageGroup && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                {activeGroup.archived ? (
+                                                                    <DropdownMenuItem
+                                                                        className="cursor-pointer font-semibold text-primary focus:text-primary"
+                                                                        onClick={() => setUnarchiveGroupDialog({ open: true, groupId: activeGroup.id })}
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-base mr-2">unarchive</span>
+                                                                        Unarchive Group
+                                                                    </DropdownMenuItem>
+                                                                ) : (
+                                                                    <DropdownMenuItem
+                                                                        className="cursor-pointer text-destructive focus:text-destructive"
+                                                                        onClick={() => setArchiveGroupDialog({ open: true, groupId: activeGroup.id })}
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-base mr-2">inventory_2</span>
+                                                                        Archive Group
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -1082,19 +1097,19 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         {/* Tab Pills — Mobile only */}
                         {!showSearch && (
                             <div className="md:hidden px-4 pb-3 overflow-x-auto scrollbar-hide">
-                            <div className="flex items-center gap-1.5 w-max">
-                                <button
-                                    onClick={() => navigateToFilter('upcoming')}
-                                    className={`
+                                <div className="flex items-center gap-1.5 w-max">
+                                    <button
+                                        onClick={() => navigateToFilter('upcoming')}
+                                        className={`
                                         px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
                                         ${activeFilter === 'upcoming'
-                                            ? 'bg-primary border-primary text-primary-foreground shadow-sm'
-                                            : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
-                                        }
+                                                ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                                : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
+                                            }
                                     `}
-                                >
-                                    upcoming
-                                </button>
+                                    >
+                                        upcoming
+                                    </button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
@@ -1146,22 +1161,22 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                             })()}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                {['past', 'archive'].map((tab) => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => navigateToFilter(tab)}
-                                        className={`
+                                    {['past', 'archive'].map((tab) => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => navigateToFilter(tab)}
+                                            className={`
                                             px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border
                                             ${activeFilter === tab
-                                                ? 'bg-primary border-primary text-primary-foreground shadow-sm'
-                                                : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
-                                            }
+                                                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                                    : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
+                                                }
                                         `}
-                                    >
-                                        {tab}
-                                    </button>
-                                ))}
-                            </div>
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </header>
@@ -1169,7 +1184,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                     {/* Main Content */}
                     <main className="flex-1 flex flex-col mt-2 md:pl-8 md:pr-8">
                         <div className="w-full flex-1 flex flex-col">
-                            {showSearch 
+                            {showSearch
                                 ? (searchQuery.trim() ? renderRunsheetList(runsheets) : (
                                     <div className="flex flex-col items-center justify-center h-full pt-20 md:pt-32 text-muted-foreground/50">
                                         <span className="material-symbols-outlined text-5xl mb-4 opacity-40">search</span>
@@ -1181,43 +1196,43 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         {archivedGroups.length > 0 ? archivedGroups.map(group => {
                                             const groupRunsheetsCount = runsheets.filter(r => r.groupId === group.id).length;
                                             return (
-                                            <div 
-                                                key={group.id} 
-                                                onClick={() => navigateToFilter(group.id)}
-                                                className="relative group/card overflow-hidden rounded-2xl border border-border/60 bg-card p-5 hover:border-primary/40 hover:shadow-sm transition-all duration-300 text-left cursor-pointer"
-                                            >
-                                                <div className="flex items-center justify-between w-full">
-                                                    <div className="flex items-center gap-3 overflow-hidden">
-                                                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-muted text-muted-foreground shrink-0">
-                                                            <span className="material-symbols-outlined">inventory_2</span>
+                                                <div
+                                                    key={group.id}
+                                                    onClick={() => navigateToFilter(group.id)}
+                                                    className="relative group/card overflow-hidden rounded-2xl border border-border/60 bg-card p-5 hover:border-primary/40 hover:shadow-sm transition-all duration-300 text-left cursor-pointer"
+                                                >
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-muted text-muted-foreground shrink-0">
+                                                                <span className="material-symbols-outlined">inventory_2</span>
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0">
+                                                                <h3 className="font-bold text-foreground text-lg truncate group-hover/card:text-primary transition-colors">{group.name}</h3>
+                                                                <span className="text-xs font-medium text-muted-foreground mt-0.5">
+                                                                    {groupRunsheetsCount} {groupRunsheetsCount === 1 ? 'runsheet' : 'runsheets'}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <h3 className="font-bold text-foreground text-lg truncate group-hover/card:text-primary transition-colors">{group.name}</h3>
-                                                            <span className="text-xs font-medium text-muted-foreground mt-0.5">
-                                                                {groupRunsheetsCount} {groupRunsheetsCount === 1 ? 'runsheet' : 'runsheets'}
-                                                            </span>
+                                                        <div className="shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <button className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all active:scale-95">
+                                                                        <span className="material-symbols-outlined text-lg">more_vert</span>
+                                                                    </button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-48">
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => setUnarchiveGroupDialog({ open: true, groupId: group.id })}
+                                                                        className="cursor-pointer font-semibold text-primary focus:text-primary py-2.5"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-base mr-2">unarchive</span>
+                                                                        Unarchive Group
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
-                                                    </div>
-                                                    <div className="shrink-0 ml-2" onClick={e => e.stopPropagation()}>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <button className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all active:scale-95">
-                                                                    <span className="material-symbols-outlined text-lg">more_vert</span>
-                                                                </button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-48">
-                                                                <DropdownMenuItem 
-                                                                    onClick={() => setUnarchiveGroupDialog({ open: true, groupId: group.id })}
-                                                                    className="cursor-pointer font-semibold text-primary focus:text-primary py-2.5"
-                                                                >
-                                                                    <span className="material-symbols-outlined text-base mr-2">unarchive</span>
-                                                                    Unarchive Group
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
                                                     </div>
                                                 </div>
-                                            </div>
                                             );
                                         }) : (
                                             <div className="col-span-full flex flex-col items-center justify-center h-full pt-20 text-muted-foreground/50">
@@ -1227,10 +1242,10 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         )}
                                     </div>
                                 )
-                                : activeFilter === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
-                                    : activeFilter === 'past' ? renderRunsheetList(pastRunsheets)
-                                        : activeFilter === 'archive' ? renderRunsheetList(archivedRunsheets)
-                                            : renderRunsheetList(groupRunsheetsList)
+                                    : activeFilter === 'upcoming' ? renderRunsheetList(upcomingRunsheets)
+                                        : activeFilter === 'past' ? renderRunsheetList(pastRunsheets)
+                                            : activeFilter === 'archive' ? renderRunsheetList(archivedRunsheets)
+                                                : renderRunsheetList(groupRunsheetsList)
                             }
                         </div>
                         {/* Share Group button — shown at bottom when viewing a group the user owns */}
@@ -1289,10 +1304,12 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         open={deleteDialog.open}
                         onClose={() => !isActionLoading && setDeleteDialog({ open: false, runsheetId: null })}
                         onConfirm={handleDelete}
-                        title="Delete Runsheet"
-                        message="Are you sure you want to delete this runsheet? This action cannot be undone."
-                        confirmText="Delete"
-                        confirmStyle="destructive"
+                        title={isDeleteLastInGroup ? "Empty Group Warning" : "Delete Runsheet"}
+                        message={isDeleteLastInGroup
+                            ? "As this is the last runsheet in this group, this group will now be empty and will be hidden for all users."
+                            : "Are you sure you want to delete this runsheet? This action cannot be undone."}
+                        confirmText={isDeleteLastInGroup ? "Proceed" : "Delete"}
+                        confirmStyle={isDeleteLastInGroup ? "default" : "destructive"}
                         isLoading={isActionLoading}
                     />
 
@@ -1344,7 +1361,22 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         open={groupDialog.open}
                         onClose={() => !isActionLoading && setGroupDialog({ open: false, runsheet: null })}
                         existingGroups={groups}
-                        onSetGroup={(groupId) => handleSetGroup(groupDialog.runsheet?.id, groupId)}
+                        onSetGroup={(groupId) => {
+                            const currentRunsheet = groupDialog.runsheet;
+                            if (currentRunsheet && currentRunsheet.groupId && currentRunsheet.groupId !== groupId) {
+                                const isLast = runsheets.filter(r => r.groupId === currentRunsheet.groupId).length === 1;
+                                if (isLast) {
+                                    setGroupMoveWarningDialog({
+                                        open: true,
+                                        runsheetId: currentRunsheet.id,
+                                        groupId: groupId
+                                    });
+                                    setGroupDialog({ open: false, runsheet: null });
+                                    return;
+                                }
+                            }
+                            handleSetGroup(groupDialog.runsheet?.id, groupId);
+                        }}
                         onCreateGroup={handleCreateGroup}
                         currentGroupId={groupDialog.runsheet?.groupId}
                         isLoading={isActionLoading}
@@ -1354,9 +1386,25 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                         open={removeFromGroupDialog.open}
                         onClose={() => !isActionLoading && setRemoveFromGroupDialog({ open: false, runsheet: null })}
                         onConfirm={handleRemoveFromGroup}
-                        title="Remove from Group"
-                        message={`Are you sure you want to remove "${removeFromGroupDialog.runsheet?.name}" from its group?`}
-                        confirmText="Remove"
+                        title={isRemoveLastInGroup ? "Empty Group Warning" : "Remove from Group"}
+                        message={isRemoveLastInGroup
+                            ? "As this is the last runsheet in this group, this group will now be empty and will be hidden for all users."
+                            : `Are you sure you want to remove "${removeFromGroupDialog.runsheet?.name}" from its group?`}
+                        confirmText={isRemoveLastInGroup ? "Proceed" : "Remove"}
+                        confirmStyle="default"
+                        isLoading={isActionLoading}
+                    />
+
+                    <ConfirmationDialog
+                        open={groupMoveWarningDialog.open}
+                        onClose={() => setGroupMoveWarningDialog({ open: false, runsheetId: null, groupId: null })}
+                        onConfirm={() => {
+                            handleSetGroup(groupMoveWarningDialog.runsheetId, groupMoveWarningDialog.groupId);
+                            setGroupMoveWarningDialog({ open: false, runsheetId: null, groupId: null });
+                        }}
+                        title="Delete Group?"
+                        message="As this is the last runsheet in this group, this group will be empty and deleted for all users."
+                        confirmText="Proceed"
                         confirmStyle="default"
                         isLoading={isActionLoading}
                     />
@@ -1469,7 +1517,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                 <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mb-4">
                                     <span className="material-symbols-outlined text-2xl text-primary">info</span>
                                 </div>
-                                <h2 className="text-xl font-extrabold tracking-tight mb-2">Action Blocked</h2>
+                                <h2 className="text-xl font-extrabold tracking-tight mb-2">Archive Group Instead?</h2>
                                 <p className="text-sm text-muted-foreground mb-6">Runsheets in groups cannot be archived individually. Archive the whole group instead.</p>
                                 <button
                                     onClick={() => setBlockedArchiveDialog(false)}
@@ -1509,7 +1557,7 @@ export default function RunsheetList({ initialFilter = 'upcoming' }) {
                                         <span>{migrationState.migrated} / {migrationState.total}</span>
                                     </div>
                                     <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden border border-border/20">
-                                        <div 
+                                        <div
                                             className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
                                             style={{ width: `${(migrationState.migrated / migrationState.total) * 100}%` }}
                                         />
