@@ -89,19 +89,23 @@ export default function RunsheetList() {
     // Update pinned group when a group is active
     useEffect(() => {
         if (activeFilter && !['upcoming', 'past', 'archive', 'archived_groups'].includes(activeFilter)) {
+            const groupObj = groups.find(g => g.id === activeFilter);
+            if (groupObj && groupObj.archived === true) {
+                return;
+            }
             if (user?.email) {
                 localStorage.setItem(`lastGroup_${user.email}`, activeFilter);
                 setLastGroupId(activeFilter);
             }
         }
-    }, [activeFilter, user]);
+    }, [activeFilter, groups, user]);
 
-    // Cleanup pinned group if it gets deleted or becomes empty
+    // Cleanup pinned group if it gets deleted, becomes empty, or is archived
     useEffect(() => {
         if (lastGroupId && groups.length > 0) {
             const exists = groups.find(g => g.id === lastGroupId);
             const hasRunsheets = runsheets.some(r => r.groupId === lastGroupId);
-            if (!exists || !hasRunsheets) {
+            if (!exists || !hasRunsheets || exists.archived === true) {
                 if (user?.email) {
                     localStorage.removeItem(`lastGroup_${user.email}`);
                 }
