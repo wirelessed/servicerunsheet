@@ -249,30 +249,40 @@ export const DashboardContextProvider = ({ children }) => {
             setRunsheets(fetchedRunsheets);
             localStorage.setItem(cacheKey, JSON.stringify(fetchedRunsheets));
 
-            // Fetch referenced groups in a single query chunk
-            const groupIds = [...new Set(fetchedRunsheets.map(r => r.groupId).filter(Boolean))];
-            if (groupIds.length > 0) {
-                try {
+            // Fetch referenced groups and user-owned groups
+            try {
+                // 1. Fetch groups created/owned by this user
+                const ownedQuery = query(collection(db, 'groups'), where('createdBy', '==', user.email));
+                const ownedSnap = await getDocs(ownedQuery);
+                const ownedGroups = ownedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                // 2. Identify referenced groups that we don't own
+                const groupIds = [...new Set(fetchedRunsheets.map(r => r.groupId).filter(Boolean))];
+                const ownedGroupIds = new Set(ownedGroups.map(g => g.id));
+                const remainingGroupIds = groupIds.filter(id => !ownedGroupIds.has(id));
+
+                let allGroups = [...ownedGroups];
+
+                if (remainingGroupIds.length > 0) {
                     const chunks = [];
-                    for (let i = 0; i < groupIds.length; i += 30) {
-                        chunks.push(groupIds.slice(i, i + 30));
+                    for (let i = 0; i < remainingGroupIds.length; i += 30) {
+                        chunks.push(remainingGroupIds.slice(i, i + 30));
                     }
                     const snaps = await Promise.all(
                         chunks.map(chunk =>
                             getDocs(query(collection(db, 'groups'), where('__name__', 'in', chunk)))
                         )
                     );
-                    const validGroups = snaps.flatMap(snap =>
+                    const otherGroups = snaps.flatMap(snap =>
                         snap.docs.map(d => ({ id: d.id, ...d.data() }))
                     );
-                    setGroups(validGroups);
-                    localStorage.setItem(groupsCacheKey, JSON.stringify(validGroups));
-                } catch (e) {
-                    console.error("Error fetching groups:", e);
+                    allGroups = [...allGroups, ...otherGroups];
                 }
-            } else {
-                setGroups([]);
-                localStorage.setItem(groupsCacheKey, JSON.stringify([]));
+
+                setGroups(allGroups);
+                localStorage.setItem(groupsCacheKey, JSON.stringify(allGroups));
+            } catch (e) {
+                console.error("Error fetching groups:", e);
             }
 
             setIsSyncing(false);

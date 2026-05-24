@@ -70,10 +70,63 @@ export default function RunsheetList() {
     const [renameGroupInput, setRenameGroupInput] = useState('');
     const [groupActionLoading, setGroupActionLoading] = useState(false);
     const [blockedArchiveDialog, setBlockedArchiveDialog] = useState(false);
-    const [groupMoveWarningDialog, setGroupMoveWarningDialog] = useState({ open: false, runsheetId: null, groupId: null });
+    const [deleteGroupDialog, setDeleteGroupDialog] = useState({ open: false, group: null });
+    const [notOwnerInfoDialog, setNotOwnerInfoDialog] = useState(false);
 
-    const activeGroups = groups.filter(g => g.archived !== true);
-    const archivedGroups = groups.filter(g => g.archived === true);
+    // Pin group state
+    const [lastGroupId, setLastGroupId] = useState('');
+
+    // Load initial pinned group
+    useEffect(() => {
+        if (user?.email) {
+            const stored = localStorage.getItem(`lastGroup_${user.email}`);
+            setLastGroupId(stored || '');
+        } else {
+            setLastGroupId('');
+        }
+    }, [user]);
+
+    // Update pinned group when a group is active
+    useEffect(() => {
+        if (activeFilter && !['upcoming', 'past', 'archive', 'archived_groups'].includes(activeFilter)) {
+            if (user?.email) {
+                localStorage.setItem(`lastGroup_${user.email}`, activeFilter);
+                setLastGroupId(activeFilter);
+            }
+        }
+    }, [activeFilter, user]);
+
+    // Cleanup pinned group if it gets deleted or becomes empty
+    useEffect(() => {
+        if (lastGroupId && groups.length > 0) {
+            const exists = groups.find(g => g.id === lastGroupId);
+            const hasRunsheets = runsheets.some(r => r.groupId === lastGroupId);
+            if (!exists || !hasRunsheets) {
+                if (user?.email) {
+                    localStorage.removeItem(`lastGroup_${user.email}`);
+                }
+                setLastGroupId('');
+            }
+        }
+    }, [lastGroupId, groups, runsheets, user]);
+
+    const pinnedGroup = lastGroupId ? groups.find(g => g.id === lastGroupId) : null;
+    const isPinnedGroupValid = pinnedGroup && runsheets.some(r => r.groupId === pinnedGroup.id);
+
+    const activeGroups = groups.filter(g => {
+        if (g.archived === true) return false;
+        const isOwner = g.createdBy === user?.email;
+        const isEmpty = !runsheets.some(r => r.groupId === g.id);
+        if (!isOwner && isEmpty) return false;
+        return true;
+    });
+    const archivedGroups = groups.filter(g => {
+        if (g.archived !== true) return false;
+        const isOwner = g.createdBy === user?.email;
+        const isEmpty = !runsheets.some(r => r.groupId === g.id);
+        if (!isOwner && isEmpty) return false;
+        return true;
+    });
     const handleRenameGroup = async () => {
         if (!renameGroupDialog.groupId || !renameGroupInput.trim()) return;
         const groupId = renameGroupDialog.groupId;
@@ -151,6 +204,43 @@ export default function RunsheetList() {
             setRunsheets(originalRunsheets);
             setGroups(originalGroups);
             alert("Failed to unarchive group.");
+        }
+    };
+
+    const handleDeleteGroup = async () => {
+        if (!deleteGroupDialog.group) return;
+        const groupId = deleteGroupDialog.group.id;
+        const originalRunsheets = [...runsheets];
+        const originalGroups = [...groups];
+
+        try {
+            setIsActionLoading(true);
+            // Optimistic update
+            setGroups(prev => prev.filter(g => g.id !== groupId));
+            const updated = runsheets.map(r => r.groupId === groupId ? { ...r, groupId: null } : r);
+            setRunsheets(updated);
+            setDeleteGroupDialog({ open: false, group: null });
+
+            if (activeFilter === groupId) {
+                navigateToFilter('upcoming');
+            }
+
+            // Database updates
+            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
+            const groupRsSnap = await getDocs(groupRsQuery);
+            const batch = writeBatch(db);
+            groupRsSnap.docs.forEach(rsDoc => {
+                batch.update(rsDoc.ref, { groupId: null });
+            });
+            batch.delete(doc(db, 'groups', groupId));
+            await batch.commit();
+        } catch (err) {
+            console.error('Error deleting group, rolling back...', err);
+            setRunsheets(originalRunsheets);
+            setGroups(originalGroups);
+            alert("Failed to delete group.");
+        } finally {
+            setIsActionLoading(false);
         }
     };
 
@@ -279,11 +369,15 @@ export default function RunsheetList() {
 
 
     const checkGroupEmptyAfterAction = (updatedRunsheets) => {
-        const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
+        const isGroup = activeFilter && !['upcoming', 'past', 'archive', 'archived_groups'].includes(activeFilter);
         if (isGroup) {
-            const remaining = updatedRunsheets.filter(r => r.groupId === activeFilter && r.category !== 'archive');
-            if (remaining.length === 0) {
-                navigateToFilter('upcoming');
+            const group = groups.find(g => g.id === activeFilter);
+            const isOwner = group?.createdBy === user?.email;
+            if (!isOwner) {
+                const remaining = updatedRunsheets.filter(r => r.groupId === activeFilter && r.category !== 'archive');
+                if (remaining.length === 0) {
+                    navigateToFilter('upcoming');
+                }
             }
         }
     };
@@ -677,16 +771,13 @@ export default function RunsheetList() {
         ? runsheets.filter(r => r.groupId === activeFilter)
         : [];
 
-    const deleteRunsheetObj = runsheets.find(r => r.id === deleteDialog.runsheetId);
-    const isDeleteLastInGroup = deleteRunsheetObj && deleteRunsheetObj.groupId && runsheets.filter(r => r.groupId === deleteRunsheetObj.groupId).length === 1;
 
-    const isRemoveLastInGroup = removeFromGroupDialog.runsheet && removeFromGroupDialog.runsheet.groupId && runsheets.filter(r => r.groupId === removeFromGroupDialog.runsheet.groupId).length === 1;
 
     const tabCounts = {
         upcoming: upcomingRunsheets.length,
         past: pastRunsheets.length,
         archive: archivedRunsheets.length,
-        ...Object.fromEntries(groups.map(g => [g.id, runsheets.filter(r => r.groupId === g.id && r.category !== 'archive' && (moment(r.date).isSameOrAfter(today) || moment(r.date).isAfter(moment().subtract(7, 'days')))).length]))
+        ...Object.fromEntries(groups.map(g => [g.id, runsheets.filter(r => r.groupId === g.id).length]))
     };
 
     return (
@@ -723,55 +814,221 @@ export default function RunsheetList() {
                     {/* Groups section */}
                     <div className="flex flex-col gap-0.5 mt-6 px-1">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">My Groups</p>
-                        {activeGroups.map(group => (
-                            <button
-                                key={group.id}
-                                onClick={() => navigateToFilter(group.id)}
-                                className={`
-                                        flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
-                                        ${activeFilter === group.id
-                                        ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
-                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                    }
+                        {activeGroups.map(group => {
+                            const isGroupActive = activeFilter === group.id;
+                            const isGroupOwner = group.createdBy === user?.email;
+                            const isGroupEmpty = !runsheets.some(r => r.groupId === group.id);
+                            return (
+                                <div
+                                    key={group.id}
+                                    className={`
+                                        group flex items-center justify-between px-3 py-0.5 rounded-xl transition-all duration-200
+                                        ${isGroupActive
+                                            ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
+                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                        }
                                     `}
-                            >
-                                <span className={`material-symbols-outlined text-[20px] ${activeFilter === group.id ? 'icon-filled' : ''}`}>folder</span>
-                                <span className="truncate flex-1 text-left">{group.name}</span>
-                                {tabCounts[group.id] > 0 && (
-                                    <span className={`ml-auto text-[11px] font-bold px-2 py-0.5 rounded-full ${activeFilter === group.id ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                        {tabCounts[group.id]}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
+                                >
+                                    <button
+                                        onClick={() => navigateToFilter(group.id)}
+                                        className="flex items-center gap-3 flex-1 min-w-0 py-2 text-sm font-semibold text-left"
+                                    >
+                                        <span className={`material-symbols-outlined text-[20px] ${isGroupActive ? 'icon-filled' : ''}`}>folder</span>
+                                        <span className="truncate flex-1">{group.name}</span>
+                                    </button>
+
+                                    <div className="flex items-center gap-1.5 ml-2">
+                                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isGroupActive ? 'bg-primary/15 text-primary' : 'bg-background text-muted-foreground'}`}>
+                                            {tabCounts[group.id] || 0}
+                                        </span>
+                                        {isGroupOwner ? (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center justify-center w-6 h-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-all"
+                                                        title="Manage group"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                                                    </button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-44">
+                                                    <DropdownMenuItem
+                                                        className="cursor-pointer"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setRenameGroupInput(group.name);
+                                                            setRenameGroupDialog({ open: true, groupId: group.id, currentName: group.name });
+                                                        }}
+                                                    >
+                                                        <span className="material-symbols-outlined text-base mr-2">drive_file_rename_outline</span>
+                                                        Rename
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="cursor-pointer"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setShareGroupDialog({ open: true, group });
+                                                        }}
+                                                    >
+                                                        <span className="material-symbols-outlined text-base mr-2">share</span>
+                                                        Share
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="cursor-pointer text-destructive focus:text-destructive"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setArchiveGroupDialog({ open: true, groupId: group.id });
+                                                        }}
+                                                    >
+                                                        <span className="material-symbols-outlined text-base mr-2">inventory_2</span>
+                                                        Archive
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="cursor-pointer text-destructive focus:text-destructive font-semibold"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDeleteGroupDialog({ open: true, group });
+                                                        }}
+                                                    >
+                                                        <span className="material-symbols-outlined text-base mr-2">delete</span>
+                                                        Delete Group
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setNotOwnerInfoDialog(true);
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center justify-center w-6 h-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-all"
+                                                title="Group info"
+                                            >
+                                                <span className="material-symbols-outlined text-[16px]">info</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                         <button
                             onClick={() => navigateToFilter('archived_groups')}
                             className={`
                                     flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
-                                    ${activeFilter === 'archived_groups'
+                                    ${activeFilter === 'archived_groups' || archivedGroups.some(g => g.id === activeFilter)
                                     ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
                                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                 }
                                 `}
                         >
-                            <span className={`material-symbols-outlined text-[20px] ${activeFilter === 'archived_groups' ? 'icon-filled' : ''}`}>inventory_2</span>
+                            <span className={`material-symbols-outlined text-[20px] ${activeFilter === 'archived_groups' || archivedGroups.some(g => g.id === activeFilter) ? 'icon-filled' : ''}`}>inventory_2</span>
                             Archived Groups
                         </button>
-                        {(() => {
-                            const activeArchivedGroup = archivedGroups.find(g => g.id === activeFilter);
-                            if (!activeArchivedGroup) return null;
-                            return (
-                                <div className="pl-6 mt-0.5 animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <button
-                                        onClick={() => navigateToFilter(activeArchivedGroup.id)}
-                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-primary/10 dark:bg-primary/15 text-primary shadow-xs w-full transition-all duration-200"
-                                    >
-                                        <span className="material-symbols-outlined text-[20px] icon-filled">folder_zip</span>
-                                        <span className="truncate flex-1 text-left">{activeArchivedGroup.name}</span>
-                                    </button>
-                                </div>
-                            );
-                        })()}
+                        {(activeFilter === 'archived_groups' || archivedGroups.some(g => g.id === activeFilter)) && (
+                            <div className="flex flex-col gap-0.5 mt-0.5 pl-3 border-l border-border ml-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                                {archivedGroups.map(group => {
+                                    const isGroupActive = activeFilter === group.id;
+                                    const isGroupOwner = group.createdBy === user?.email;
+                                    const isGroupEmpty = !runsheets.some(r => r.groupId === group.id);
+                                    return (
+                                        <div
+                                            key={group.id}
+                                            className={`
+                                                group flex items-center justify-between px-3 py-0.5 rounded-xl transition-all duration-200
+                                                ${isGroupActive
+                                                    ? 'bg-primary/10 dark:bg-primary/15 text-primary shadow-xs'
+                                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                                }
+                                            `}
+                                        >
+                                            <button
+                                                onClick={() => navigateToFilter(group.id)}
+                                                className="flex items-center gap-3 flex-1 min-w-0 py-2 text-sm font-semibold text-left"
+                                            >
+                                                <span className={`material-symbols-outlined text-[20px] ${isGroupActive ? 'icon-filled' : ''}`}>folder_zip</span>
+                                                <span className="truncate flex-1">{group.name}</span>
+                                            </button>
+
+                                            <div className="flex items-center gap-1.5 ml-2">
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isGroupActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                                    {tabCounts[group.id] || 0}
+                                                </span>
+                                                {isGroupOwner ? (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center justify-center w-6 h-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-all"
+                                                                title="Manage group"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-44">
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRenameGroupInput(group.name);
+                                                                    setRenameGroupDialog({ open: true, groupId: group.id, currentName: group.name });
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">drive_file_rename_outline</span>
+                                                                Rename
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setShareGroupDialog({ open: true, group });
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">share</span>
+                                                                Share
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer font-semibold text-primary focus:text-primary"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setUnarchiveGroupDialog({ open: true, groupId: group.id });
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">unarchive</span>
+                                                                Unarchive
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer text-destructive focus:text-destructive font-semibold"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDeleteGroupDialog({ open: true, group });
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined text-base mr-2">delete</span>
+                                                                Delete Group
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setNotOwnerInfoDialog(true);
+                                                        }}
+                                                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center justify-center w-6 h-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-all"
+                                                        title="Group info"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[16px]">info</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     {/* Nav items: Past & Archive */}
@@ -1022,14 +1279,16 @@ export default function RunsheetList() {
                                         {activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter) && (() => {
                                             const activeGroup = groups.find(g => g.id === activeFilter);
                                             if (!activeGroup) return null;
+                                            const isGroupOwner = activeGroup.createdBy === user?.email;
+                                            const isGroupEmpty = !runsheets.some(r => r.groupId === activeGroup.id);
                                             const canManageGroup = groupRunsheetsList.length > 0
                                                 ? groupRunsheetsList.every(r => r.isEditor)
-                                                : (activeGroup.createdBy === user?.email);
+                                                : isGroupOwner;
                                             return (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <button className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all" title="Manage group">
-                                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                                            <span className="material-symbols-outlined text-[18px]">more_vert</span>
                                                         </button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-44">
@@ -1074,6 +1333,18 @@ export default function RunsheetList() {
                                                                 )}
                                                             </>
                                                         )}
+                                                        {isGroupOwner && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="cursor-pointer text-destructive focus:text-destructive font-semibold"
+                                                                    onClick={() => setDeleteGroupDialog({ open: true, group: activeGroup })}
+                                                                >
+                                                                    <span className="material-symbols-outlined text-base mr-2">delete</span>
+                                                                    Delete Group
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             );
@@ -1099,12 +1370,37 @@ export default function RunsheetList() {
                                     >
                                         upcoming
                                     </button>
+                                    {/* Pinned Group Pill */}
+                                    {isPinnedGroupValid && (
+                                        <button
+                                            onClick={() => navigateToFilter(pinnedGroup.id)}
+                                            className={`
+                                                px-4 py-2 max-h-[34.5px] rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border flex items-center gap-1
+                                                ${activeFilter === pinnedGroup.id
+                                                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                                    : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
+                                                }
+                                            `}
+                                        >
+                                            <span className="truncate max-w-[100px]">{pinnedGroup.name}</span>
+                                            <span className={`
+                                                text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0
+                                                ${activeFilter === pinnedGroup.id
+                                                    ? 'bg-primary-foreground/20 text-primary-foreground'
+                                                    : 'bg-muted-foreground/10 text-muted-foreground'
+                                                }
+                                            `}>
+                                                {tabCounts[pinnedGroup.id] || 0}
+                                            </span>
+                                        </button>
+                                    )}
+
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 className={`
                                                     px-4 py-2 max-h-[34.5px] rounded-xl text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 whitespace-nowrap border flex items-center gap-1
-                                                    ${activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter)
+                                                    ${activeFilter === 'archived_groups'
                                                         ? 'bg-primary border-primary text-primary-foreground shadow-sm'
                                                         : 'bg-muted/80 border-border/40 text-muted-foreground hover:text-foreground'
                                                     }
@@ -1114,27 +1410,27 @@ export default function RunsheetList() {
                                                 <span className="material-symbols-outlined text-[14px]">expand_more</span>
                                             </button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-48 max-h-[60vh] overflow-y-auto">
+                                        <DropdownMenuContent align="start" className="w-56 p-1.5 max-h-[60vh] overflow-y-auto">
                                             {activeGroups.map(group => (
                                                 <DropdownMenuItem
                                                     key={group.id}
                                                     onClick={() => navigateToFilter(group.id)}
-                                                    className="cursor-pointer flex items-center justify-between py-3"
+                                                    className="cursor-pointer flex items-center py-2.5 px-3 rounded-xl hover:bg-muted/80"
                                                 >
-                                                    <span className={`truncate ${activeFilter === group.id ? 'font-bold text-primary' : ''}`}>{group.name}</span>
-                                                    {tabCounts[group.id] > 0 && (
-                                                        <span className="ml-2 text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">
-                                                            {tabCounts[group.id]}
-                                                        </span>
-                                                    )}
+                                                    <span className={`material-symbols-outlined text-[18px] mr-2 shrink-0 ${activeFilter === group.id ? 'text-primary icon-filled' : 'text-muted-foreground'}`}>folder</span>
+                                                    <span className={`truncate flex-1 text-left ${activeFilter === group.id ? 'font-bold text-primary' : ''}`}>{group.name}</span>
+                                                    <span className="ml-2 text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground shrink-0">
+                                                        {tabCounts[group.id] || 0}
+                                                    </span>
                                                 </DropdownMenuItem>
                                             ))}
-                                            {activeGroups.length > 0 && <DropdownMenuSeparator />}
+                                            {activeGroups.length > 0 && <DropdownMenuSeparator className="my-1.5" />}
                                             <DropdownMenuItem
                                                 onClick={() => navigateToFilter('archived_groups')}
-                                                className="cursor-pointer flex items-center justify-between py-3 text-muted-foreground"
+                                                className="cursor-pointer flex items-center py-2.5 px-3 rounded-xl text-muted-foreground hover:bg-muted/80"
                                             >
-                                                <span className={`truncate ${activeFilter === 'archived_groups' ? 'font-bold text-primary' : ''}`}>Archived Groups</span>
+                                                <span className={`material-symbols-outlined text-[18px] mr-2 shrink-0 ${activeFilter === 'archived_groups' ? 'text-primary icon-filled' : ''}`}>folder_zip</span>
+                                                <span className={`truncate flex-1 text-left ${activeFilter === 'archived_groups' ? 'font-bold text-primary' : ''}`}>Archived Groups</span>
                                             </DropdownMenuItem>
                                             {(() => {
                                                 const activeArchivedGroup = archivedGroups.find(g => g.id === activeFilter);
@@ -1142,9 +1438,10 @@ export default function RunsheetList() {
                                                 return (
                                                     <DropdownMenuItem
                                                         onClick={() => navigateToFilter(activeArchivedGroup.id)}
-                                                        className="cursor-pointer flex items-center justify-between py-2.5 ml-4 mt-1 bg-primary/10 rounded-lg text-primary animate-in slide-in-from-top-2 fade-in duration-200"
+                                                        className="cursor-pointer flex items-center py-2.5 px-3 ml-2 mr-2 mt-1.5 bg-primary/10 hover:bg-primary/15 rounded-xl text-primary animate-in slide-in-from-top-2 fade-in duration-200"
                                                     >
-                                                        <span className="truncate font-bold text-sm">{activeArchivedGroup.name}</span>
+                                                        <span className="material-symbols-outlined text-[18px] mr-2 shrink-0 text-primary">folder_zip</span>
+                                                        <span className="truncate flex-1 text-left font-bold text-sm">{activeArchivedGroup.name}</span>
                                                     </DropdownMenuItem>
                                                 );
                                             })()}
@@ -1293,12 +1590,10 @@ export default function RunsheetList() {
                         open={deleteDialog.open}
                         onClose={() => !isActionLoading && setDeleteDialog({ open: false, runsheetId: null })}
                         onConfirm={handleDelete}
-                        title={isDeleteLastInGroup ? "Empty Group Warning" : "Delete Runsheet"}
-                        message={isDeleteLastInGroup
-                            ? "As this is the last runsheet in this group, this group will now be empty and will be hidden for all users."
-                            : "Are you sure you want to delete this runsheet? This action cannot be undone."}
-                        confirmText={isDeleteLastInGroup ? "Proceed" : "Delete"}
-                        confirmStyle={isDeleteLastInGroup ? "default" : "destructive"}
+                        title="Delete Runsheet"
+                        message="Are you sure you want to delete this runsheet? This action cannot be undone."
+                        confirmText="Delete"
+                        confirmStyle="destructive"
                         isLoading={isActionLoading}
                     />
 
@@ -1349,21 +1644,8 @@ export default function RunsheetList() {
                     <GroupDialog
                         open={groupDialog.open}
                         onClose={() => !isActionLoading && setGroupDialog({ open: false, runsheet: null })}
-                        existingGroups={groups}
+                        existingGroups={groups.filter(g => g.archived !== true)}
                         onSetGroup={(groupId) => {
-                            const currentRunsheet = groupDialog.runsheet;
-                            if (currentRunsheet && currentRunsheet.groupId && currentRunsheet.groupId !== groupId) {
-                                const isLast = runsheets.filter(r => r.groupId === currentRunsheet.groupId).length === 1;
-                                if (isLast) {
-                                    setGroupMoveWarningDialog({
-                                        open: true,
-                                        runsheetId: currentRunsheet.id,
-                                        groupId: groupId
-                                    });
-                                    setGroupDialog({ open: false, runsheet: null });
-                                    return;
-                                }
-                            }
                             handleSetGroup(groupDialog.runsheet?.id, groupId);
                         }}
                         onCreateGroup={handleCreateGroup}
@@ -1375,27 +1657,35 @@ export default function RunsheetList() {
                         open={removeFromGroupDialog.open}
                         onClose={() => !isActionLoading && setRemoveFromGroupDialog({ open: false, runsheet: null })}
                         onConfirm={handleRemoveFromGroup}
-                        title={isRemoveLastInGroup ? "Empty Group Warning" : "Remove from Group"}
-                        message={isRemoveLastInGroup
-                            ? "As this is the last runsheet in this group, this group will now be empty and will be hidden for all users."
-                            : `Are you sure you want to remove "${removeFromGroupDialog.runsheet?.name}" from its group?`}
-                        confirmText={isRemoveLastInGroup ? "Proceed" : "Remove"}
+                        title="Remove from Group"
+                        message={`Are you sure you want to remove "${removeFromGroupDialog.runsheet?.name}" from its group?`}
+                        confirmText="Remove"
                         confirmStyle="default"
                         isLoading={isActionLoading}
                     />
 
                     <ConfirmationDialog
-                        open={groupMoveWarningDialog.open}
-                        onClose={() => setGroupMoveWarningDialog({ open: false, runsheetId: null, groupId: null })}
-                        onConfirm={() => {
-                            handleSetGroup(groupMoveWarningDialog.runsheetId, groupMoveWarningDialog.groupId);
-                            setGroupMoveWarningDialog({ open: false, runsheetId: null, groupId: null });
-                        }}
-                        title="Delete Group?"
-                        message="As this is the last runsheet in this group, this group will be empty and deleted for all users."
-                        confirmText="Proceed"
-                        confirmStyle="default"
+                        open={deleteGroupDialog.open}
+                        onClose={() => !isActionLoading && setDeleteGroupDialog({ open: false, group: null })}
+                        onConfirm={handleDeleteGroup}
+                        title="Delete Group"
+                        message={deleteGroupDialog.group && runsheets.some(r => r.groupId === deleteGroupDialog.group.id)
+                            ? `This group is not empty. Are you sure you want to delete this group? Runsheets in this group will not be deleted.`
+                            : `Are you sure you want to delete the group "${deleteGroupDialog.group?.name}"? This action cannot be undone.`}
+                        confirmText="Delete"
+                        confirmStyle="destructive"
                         isLoading={isActionLoading}
+                    />
+
+                    <ConfirmationDialog
+                        open={notOwnerInfoDialog}
+                        onClose={() => setNotOwnerInfoDialog(false)}
+                        onConfirm={() => setNotOwnerInfoDialog(false)}
+                        title="Group Ownership"
+                        message="You are not the owner of the group. Only owners can edit and delete groups."
+                        confirmText="OK"
+                        confirmStyle="default"
+                        showCancel={false}
                     />
 
                     <ShareGroupDialog

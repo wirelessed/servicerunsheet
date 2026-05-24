@@ -17,9 +17,11 @@ export default function ConfirmationDialog({
     message,
     confirmText = 'Confirm',
     confirmStyle = 'default',
-    isLoading = false
+    isLoading = false,
+    showCancel = true
 }) {
     const variant = confirmStyle === 'btn-error' || confirmStyle === 'destructive' ? 'destructive' : 'default';
+    const iconName = title && title.toLowerCase().includes('ownership') ? 'info' : (variant === 'destructive' ? 'warning' : 'help');
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -28,7 +30,7 @@ export default function ConfirmationDialog({
                     <div className="flex items-center gap-3 mb-1">
                         <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${variant === 'destructive' ? 'bg-destructive/10' : 'bg-primary/10'}`}>
                             <span className={`material-symbols-outlined text-xl ${variant === 'destructive' ? 'text-destructive' : 'text-primary'}`}>
-                                {variant === 'destructive' ? 'warning' : 'help'}
+                                {iconName}
                             </span>
                         </div>
                         <DialogTitle>{title}</DialogTitle>
@@ -38,7 +40,7 @@ export default function ConfirmationDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 pt-2">
-                    <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>
+                    {showCancel && <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>}
                     <Button variant={variant} onClick={onConfirm} className="rounded-xl shadow-sm" disabled={isLoading}>
                         {isLoading ? (
                             <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin mr-2"></div>
