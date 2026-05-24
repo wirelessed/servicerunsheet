@@ -66,6 +66,13 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const [activeTab, setActiveTab] = useState('runsheet'); // 'runsheet', 'notes', 'share'
     const [isListSidebarOpen, setIsListSidebarOpen] = useState(true);
     const [isSidebarInitialized, setIsSidebarInitialized] = useState(false);
+    const effectiveListSidebarOpen = user ? isListSidebarOpen : false;
+    const [isDragging, setIsDragging] = useState(false);
+    const [hasEntered, setHasEntered] = useState(false);
+
+    useEffect(() => {
+        setHasEntered(false);
+    }, [activeTab, mode, runsheet?.id]);
 
     useEffect(() => {
         const savedState = localStorage.getItem('runsheetListSidebarOpen');
@@ -181,7 +188,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         return result;
     };
 
+    const onDragStart = () => {
+        setIsDragging(true);
+    };
+
     const onDragEnd = async (result) => {
+        setIsDragging(false);
         if (!result.destination) return;
         const newItems = reorder(items, result.source.index, result.destination.index);
         setItems(newItems);
@@ -512,12 +524,19 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     // ── Runsheet content ──
     const renderRunsheetContent = () => (
-        <main className="flex-1 flex flex-col pt-2 pb-32 relative px-0 page-enter">
-            <DragDropContext onDragEnd={onDragEnd}>
+        <main
+            className={`flex-1 flex flex-col pt-2 pb-32 relative px-0 ${hasEntered ? '' : 'page-enter'}`}
+            onAnimationEnd={(e) => {
+                if (e.target === e.currentTarget) {
+                    setHasEntered(true);
+                }
+            }}
+        >
+            <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
                 <Droppable droppableId="programme" isDropDisabled={mode === 'view'} isDragDisabled={mode === 'view'}>
                     {(provided) => (
                         <div ref={provided.innerRef} {...provided.droppableProps} className="w-full">
-                            {mode === 'edit' && (
+                            {mode === 'edit' && !isDragging && (
                                 <div className="flex w-full mb-4 z-10 relative items-center">
                                     <div className="w-[25%]"></div>
                                     <div className="w-[75%] pl-4 pr-4">
@@ -544,7 +563,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                                 // Calculate visual representation for item height
                                 let extraPadding = 0;
-                                if (duration > 10) {
+                                if (duration > 10 && !isDragging) {
                                     extraPadding = Math.floor((duration - 10) / 5) * 5;
                                 }
                                 extraPadding = Math.min(extraPadding, 200); // cap at 200px
@@ -637,17 +656,17 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                 <div className={`flex-1 flex flex-col ${mode === 'edit' ? 'mt-4' : ''}`}>
                                                                     <div className="flex items-start justify-between mb-1 relative z-10">
                                                                         <div className="min-w-0 flex-1">
-                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'} ${hasSubContent ? 'mb-2' : ''}`}>
+                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'} ${hasSubContent && !isDragging ? 'mb-2' : ''}`}>
                                                                                 {item.text}
                                                                             </h3>
-                                                                            {item.location && (
+                                                                            {!isDragging && item.location && (
                                                                                 <div className="flex items-center gap-1.5 mt-1.5 min-h-[25px]">
                                                                                     <LocationOnIcon style={{ fontSize: 14 }} className="text-muted-foreground" />
                                                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{item.location}</span>
                                                                                 </div>
                                                                             )}
                                                                             {/* Links */}
-                                                                            {Array.isArray(item.links) && item.links.length > 0 && (
+                                                                            {!isDragging && Array.isArray(item.links) && item.links.length > 0 && (
                                                                                 <div className="flex flex-col gap-2 mt-2">
                                                                                     {item.links.map((link, li) => (
                                                                                         link.url ? (
@@ -688,7 +707,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                         )}
                                                                     </div>
 
-                                                                    {item.remarks && (
+                                                                    {!isDragging && item.remarks && (
                                                                         <div
                                                                             className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
                                                                             dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
@@ -727,7 +746,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                             )}
                                         </Draggable>
 
-                                        {(mode === 'edit' || mode === 'ops') && (
+                                        {(mode === 'edit' ? !isDragging : mode === 'ops') && (
                                             <div className="flex w-full mb-4 z-10 relative items-center">
                                                 <div className="w-[25%]"></div>
                                                 <div className="w-[75%] pl-3 pr-3 md:pl-4 md:pr-4">
@@ -798,7 +817,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                     const lastTiming = timings[lastItem.id];
                                     const origLastTiming = originalTimings[lastItem.id] || lastTiming;
 
-                                    if (lastTiming && lastTiming.obj) {
+                                    if (lastTiming && lastTiming.obj && !isDragging) {
                                         const duration = parseInt(lastItem.duration) || 0;
                                         const origDuration = lastItem.originalDuration !== undefined ? parseInt(lastItem.originalDuration) : duration;
 
@@ -930,7 +949,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         });
         const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
 
-        const effectiveListSidebarOpen = user ? isListSidebarOpen : false;
         const showBackButton = !!user || fromGroup;
 
         return (
@@ -1064,17 +1082,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
             {/* Bottom section */}
             <div className="flex flex-col gap-3 px-4 pb-2">
-                {/* Ops Mode panel */}
-                {mode === 'ops' && (
-                    <div className="p-4 bg-card rounded-xl border border-border shadow-sm">
-                        <div className="flex flex-col mb-3">
-                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Current Time</span>
-                            <div className="text-2xl font-mono font-bold text-foreground leading-none tracking-tight mt-1">
-                                {clock.format("h:mm:ss A")}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </aside>
     );
@@ -1337,6 +1344,26 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     <button onClick={() => { if (opsToastTimerRef.current) clearTimeout(opsToastTimerRef.current); setOpsToast(null); }} className="opacity-50 hover:opacity-100 transition-opacity">
                         <span className="material-symbols-outlined text-[18px]">close</span>
                     </button>
+                </div>
+            )}
+
+            {/* Desktop Ops Clock: center align bottom */}
+            {mode === 'ops' && (
+                <div 
+                    className={`
+                        hidden md:flex fixed bottom-6 -translate-x-1/2 z-50 px-6 py-3 bg-background/80 backdrop-blur-md border border-border/80 rounded-2xl shadow-xl items-center justify-center animate-in slide-in-from-bottom-4 transition-all duration-300
+                        ${effectiveListSidebarOpen 
+                            ? 'left-[calc(50%+140px)] lg:left-[calc(50%+170px)]' 
+                            : 'left-[calc(50%+80px)]'
+                        }
+                    `}
+                >
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">Current Time</span>
+                        <div className="text-3xl font-mono font-bold text-foreground leading-none tracking-tight">
+                            {clock.format("h:mm:ss A")}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

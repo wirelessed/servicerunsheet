@@ -33,12 +33,16 @@ export default function GroupPageClient() {
 
     // 2. State for resolving share tokens
     const [resolvedGroupId, setResolvedGroupId] = useState(null);
+    const [resolving, setResolving] = useState(true);
     const [redirected, setRedirected] = useState(false);
 
     useEffect(() => {
-        if (!rawToken || rawToken === 'fallback' || rawToken === '[token]') return;
+        if (!rawToken || rawToken === 'fallback' || rawToken === '[token]') {
+            setResolving(false);
+            return;
+        }
 
-        // Reset resolved group when token changes
+        setResolving(true);
         setResolvedGroupId(null);
 
         const resolveToken = async () => {
@@ -49,6 +53,8 @@ export default function GroupPageClient() {
                 }
             } catch (err) {
                 console.error("Failed to resolve token", err);
+            } finally {
+                setResolving(false);
             }
         };
 
@@ -59,12 +65,12 @@ export default function GroupPageClient() {
 
     // ── LOGGED-IN: redirect to /dashboard with the group filter ──
     useEffect(() => {
-        if (user && activeId && activeId !== 'fallback' && activeId !== '[token]' && !redirected) {
+        if (!resolving && user && activeId && activeId !== 'fallback' && activeId !== '[token]' && !redirected) {
             localStorage.setItem('dashboard_filter', activeId);
             setRedirected(true);
             router.replace('/dashboard');
         }
-    }, [user, activeId, router, redirected]);
+    }, [resolving, user, activeId, router, redirected]);
 
     // ── AUTH LOADING ──
     if (authLoading) {

@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot, FieldPath } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import moment from 'moment';
@@ -156,9 +156,9 @@ export const DashboardContextProvider = ({ children }) => {
                     const currentRoles = rsDoc.data().roles || {};
                     if (!currentEmails.includes(user.email)) {
                         batch.update(doc(db, 'runsheets', rsId), {
-                            memberEmails: [...currentEmails, user.email],
-                            [`roles.${user.email.replace(/\./g, '_')}`]: 'viewer' // escape dots if necessary, but standard email field path is ok
+                            memberEmails: [...currentEmails, user.email]
                         });
+                        batch.update(doc(db, 'runsheets', rsId), new FieldPath('roles', user.email), 'viewer');
                     }
                     needsCommit = true;
 
