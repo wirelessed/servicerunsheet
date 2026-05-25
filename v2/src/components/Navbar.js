@@ -33,7 +33,7 @@ export default function Navbar() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuItem onClick={() => router.push('/feedback')} className="cursor-pointer">
+                            <DropdownMenuItem onClick={() => window.location.href = '/feedback'} className="cursor-pointer">
                                 Feedback
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
