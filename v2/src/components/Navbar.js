@@ -1,16 +1,19 @@
 'use client';
 import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'next/navigation';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
     const { user, logOut } = useAuth();
+    const router = useRouter();
 
     return (
         <nav className="flex items-center justify-between px-6 py-3 bg-background border-b shadow-sm">
@@ -30,6 +33,10 @@ export default function Navbar() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem onClick={() => router.push('/feedback')} className="cursor-pointer">
+                                Feedback
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={logOut} className="text-destructive focus:text-destructive">
                                 Logout
                             </DropdownMenuItem>

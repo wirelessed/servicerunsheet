@@ -1086,6 +1086,14 @@ export default function RunsheetList() {
                                 <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user.email}</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
+                                    onClick={() => router.push('/feedback')}
+                                    className="cursor-pointer"
+                                >
+                                    <span className="material-symbols-outlined text-base mr-2">feedback</span>
+                                    Feedback
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
                                     onClick={async () => {
                                         try {
                                             // Clear localStorage caches
@@ -1165,6 +1173,14 @@ export default function RunsheetList() {
                                                 <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
                                                     <span className="material-symbols-outlined text-base mr-2">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
                                                     {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onClick={() => router.push('/feedback')}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <span className="material-symbols-outlined text-base mr-2">feedback</span>
+                                                    Feedback
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem
