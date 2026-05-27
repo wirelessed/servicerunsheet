@@ -500,3 +500,10 @@ ol.list-node ol.list-node ol.list-node {
 .prose p:empty::before {
   content: "\00a0";
 }
+
+/* Invert calendar/clock picker icon color inside native inputs in dark mode */
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}

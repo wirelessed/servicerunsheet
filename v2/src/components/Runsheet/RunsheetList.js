@@ -307,7 +307,18 @@ export default function RunsheetList() {
                 // Background write
                 await updateDoc(runsheetRef, { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
             } else {
-                const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
+                let finalGroupId = null;
+                if (formData.groupId === 'CREATE_NEW_GROUP') {
+                    if (formData.newGroupName) {
+                        finalGroupId = await handleCreateGroup(formData.newGroupName);
+                    }
+                } else if (formData.groupId !== undefined) {
+                    finalGroupId = formData.groupId;
+                } else {
+                    const isGroup = activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter);
+                    finalGroupId = isGroup ? activeFilter : null;
+                }
+
                 const runsheetRef = doc(collection(db, 'runsheets'));
                 const newId = runsheetRef.id;
 
@@ -318,7 +329,7 @@ export default function RunsheetList() {
                     orderCount: 0,
                     lastUpdated: moment().format(),
                     category: 'active',
-                    groupId: formData.groupId !== undefined ? formData.groupId : (isGroup ? activeFilter : null),
+                    groupId: finalGroupId,
                     memberEmails: [user.email],
                     roles: { [user.email]: 'owner' }
                 };
@@ -645,13 +656,7 @@ export default function RunsheetList() {
                                                     <div className="flex items-center gap-1 mt-1 flex-wrap overflow-hidden">
                                                         {runsheet.groupId && (
                                                             <div
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    navigateToFilter(runsheet.groupId);
-                                                                }}
-                                                                className="px-1.5 py-0.5 rounded-sm bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase transition-colors whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px] cursor-pointer"
-                                                                title={`Go to group: ${groups.find(g => g.id === runsheet.groupId)?.name || 'Group'}`}
+                                                                className="px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary text-[10px] font-bold uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]"
                                                             >
                                                                 {groups.find(g => g.id === runsheet.groupId)?.name || 'Group'}
                                                             </div>

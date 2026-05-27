@@ -62,7 +62,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const isOps = isAuthenticated && userRole === 'ops';
 
     // UI States
-    const [mode, setMode] = useState('view'); // 'view', 'edit', 'ops'
+    const [mode, setMode] = useState('view'); // 'view', 'edit', 'reorder', 'ops'
     const [activeTab, setActiveTab] = useState('runsheet'); // 'runsheet', 'notes', 'share'
     const [isListSidebarOpen, setIsListSidebarOpen] = useState(true);
     const [isSidebarInitialized, setIsSidebarInitialized] = useState(false);
@@ -395,15 +395,15 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     // ── Mode pill component ──
     const renderModePills = ({ className = '' } = {}) => (
-        <div className={`flex items-center gap-1 p-1 rounded-xl bg-muted border border-border/40 shadow-xs ${className}`}>
+        <div className={`flex items-center gap-1 p-1 h-10 rounded-xl bg-muted border border-border/40 shadow-xs ${className}`}>
             {effectiveIsEditor ? (
                 <>
-                    {['view', 'edit', 'ops'].map((m) => (
+                    {['view', 'edit', 'reorder', 'ops'].map((m) => (
                         <button
                             key={m}
                             onClick={() => setMode(m)}
                             className={`
-                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
+                                h-full px-3 md:px-4 rounded-lg text-[10px] md:text-[11px] font-bold uppercase tracking-normal md:tracking-[0.08em] transition-all duration-200 border
                                 ${mode === m
                                     ? 'border-primary/30 bg-primary/10 text-primary shadow-sm dark:bg-primary/15 dark:border-primary/40'
                                     : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5'
@@ -416,7 +416,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     <button
                         onClick={() => setMode('advanced')}
                         className={`
-                            hidden md:block px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
+                            hidden md:block h-full px-4 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
                             ${mode === 'advanced'
                                 ? 'border-primary/30 bg-primary/10 text-primary shadow-sm dark:bg-primary/15 dark:border-primary/40'
                                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5'
@@ -433,7 +433,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                             key={m}
                             onClick={() => setMode(m)}
                             className={`
-                                px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.08em] transition-all duration-200 border
+                                h-full px-3 md:px-4 rounded-lg text-[10px] md:text-[11px] font-bold uppercase tracking-normal md:tracking-[0.08em] transition-all duration-200 border
                                 ${mode === m
                                     ? 'border-primary/30 bg-primary/10 text-primary shadow-sm dark:bg-primary/15 dark:border-primary/40'
                                     : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5'
@@ -445,7 +445,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     ))}
                 </>
             ) : (
-                <div className="px-4 py-1.5 text-[11px] font-bold uppercase text-muted-foreground tracking-wider">View Only</div>
+                <div className="h-full flex items-center px-4 text-[11px] font-bold uppercase text-muted-foreground tracking-wider">View Only</div>
             )}
         </div>
     );
@@ -533,7 +533,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             }}
         >
             <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
-                <Droppable droppableId="programme" isDropDisabled={mode === 'view'} isDragDisabled={mode === 'view'}>
+                <Droppable droppableId="programme" isDropDisabled={mode !== 'reorder'} isDragDisabled={mode !== 'reorder'}>
                     {(provided) => (
                         <div ref={provided.innerRef} {...provided.droppableProps} className="w-full">
                             {mode === 'edit' && !isDragging && (
@@ -563,7 +563,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                                 // Calculate visual representation for item height
                                 let extraPadding = 0;
-                                if (duration > 10 && !isDragging) {
+                                if (duration > 10 && !isDragging && mode !== 'reorder') {
                                     extraPadding = Math.floor((duration - 10) / 5) * 5;
                                 }
                                 extraPadding = Math.min(extraPadding, 200); // cap at 200px
@@ -574,7 +574,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                                 return (
                                     <div key={item.id}>
-                                        <Draggable draggableId={item.id} index={index} isDragDisabled={mode !== 'edit'}>
+                                        <Draggable draggableId={item.id} index={index} isDragDisabled={mode !== 'reorder'}>
                                             {(provided, snapshot) => (
                                                 <div ref={provided.innerRef} {...provided.draggableProps}>
                                                     <div className="flex w-full mb-1.5 z-10 relative group">
@@ -625,6 +625,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                         {/* Card */}
                                                         <div className="w-[75%] pl-3 pr-3 md:pl-4 md:pr-4">
                                                             <div
+                                                                {...(mode === 'reorder' ? provided.dragHandleProps : {})}
                                                                 onClick={() => {
                                                                     if (mode === 'edit') { setCurrentItem(item); setIsItemDialogOpen(true); }
                                                                 }}
@@ -632,6 +633,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                 className={`
                                                                     rounded-xl p-4 border transition-all duration-200 relative overflow-hidden h-full
                                                                     ${mode === 'edit' ? 'cursor-pointer hover:shadow-md hover:border-primary/20' : 'cursor-default'}
+                                                                    ${mode === 'reorder' ? 'cursor-grab active:cursor-grabbing hover:border-primary/20 hover:shadow-md' : ''}
                                                                     ${snapshot.isDragging ? 'shadow-lg rotate-1 scale-[1.02]' : ''}
                                                                     ${isHighlighted
                                                                         ? 'bg-primary/5 dark:bg-primary/8 border-primary/20 shadow-sm shadow-primary/5 pulse-glow'
@@ -641,32 +643,30 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                             >
                                                                 {/* Active indicator bar */}
                                                                 {isHighlighted && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-r-full"></div>}
-
-                                                                {/* Drag handle */}
-                                                                {mode === 'edit' && (
+ 
+                                                                {/* Drag handle UI */}
+                                                                {mode === 'reorder' && (
                                                                     <div
-                                                                        {...provided.dragHandleProps}
-                                                                        className="absolute top-1.5 left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted rounded-md z-20 transition-colors"
-                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="absolute top-1.5 left-1/2 -translate-x-1/2 p-0.5 text-muted-foreground/40 rounded-md z-20 pointer-events-none"
                                                                     >
                                                                         <DragHandleIcon style={{ fontSize: 16 }} />
                                                                     </div>
                                                                 )}
 
-                                                                <div className={`flex-1 flex flex-col ${mode === 'edit' ? 'mt-4' : ''}`}>
+                                                                <div className={`flex-1 flex flex-col ${mode === 'edit' || mode === 'reorder' ? 'mt-4' : ''}`}>
                                                                     <div className="flex items-start justify-between mb-1 relative z-10">
                                                                         <div className="min-w-0 flex-1">
-                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'} ${hasSubContent && !isDragging ? 'mb-2' : ''}`}>
+                                                                            <h3 className={`text-[15px] font-bold leading-snug ${isHighlighted ? 'text-foreground' : 'text-foreground'} ${hasSubContent && !isDragging && mode !== 'reorder' ? 'mb-2' : ''}`}>
                                                                                 {item.text}
                                                                             </h3>
-                                                                            {!isDragging && item.location && (
+                                                                            {!isDragging && mode !== 'reorder' && item.location && (
                                                                                 <div className="flex items-center gap-1.5 mt-1.5 min-h-[25px]">
                                                                                     <LocationOnIcon style={{ fontSize: 14 }} className="text-muted-foreground" />
                                                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{item.location}</span>
                                                                                 </div>
                                                                             )}
                                                                             {/* Links */}
-                                                                            {!isDragging && Array.isArray(item.links) && item.links.length > 0 && (
+                                                                            {!isDragging && mode !== 'reorder' && Array.isArray(item.links) && item.links.length > 0 && (
                                                                                 <div className="flex flex-col gap-2 mt-2">
                                                                                     {item.links.map((link, li) => (
                                                                                         link.url ? (
@@ -707,7 +707,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                         )}
                                                                     </div>
 
-                                                                    {!isDragging && item.remarks && (
+                                                                    {!isDragging && mode !== 'reorder' && item.remarks && (
                                                                         <div
                                                                             className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
                                                                             dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
