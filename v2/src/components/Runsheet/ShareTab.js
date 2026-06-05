@@ -55,7 +55,8 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
     const [removeConfirm, setRemoveConfirm] = useState({ open: false, email: null });
 
     const [plainTextDialog, setPlainTextDialog] = useState(false);
-    const [plainTextContent, setPlainTextContent] = useState('');
+    const [includeDescriptions, setIncludeDescriptions] = useState(true);
+    const [includeDuration, setIncludeDuration] = useState(true);
     // Whether the current user can manage editors (must be editor or owner)
     const canManage = hasEditAccess(currentUserRole);
 
@@ -183,7 +184,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         displayUsers = displayUsers.filter(u => u.role === 'owner' || u.email === user?.email);
     }
 
-    const handleSharePlainText = () => {
+    const getPlainText = (isWhatsapp = false) => {
         let text = `${runsheetName}\n`;
         if (runsheet?.date) {
             text += `${moment(runsheet.date).format('D MMMM YYYY (ddd)')}\n`;
@@ -193,17 +194,37 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
             let itemsText = [];
             programme.forEach(item => {
                 const timeStrInfo = timings[item.id];
-                const itemTitle = item.text || item.title || item.name || '';
+                const rawTitle = item.text || item.title || item.name || '';
+                const itemTitle = (isWhatsapp && rawTitle) ? `*${rawTitle.trim()}*` : rawTitle;
                 let line = '';
+                const durationSuffix = (includeDuration && item.duration) ? ` (${item.duration}min)` : '';
                 if (timeStrInfo) {
                     const timeStr = `${timeStrInfo.start.replace(':', '.')}${timeStrInfo.amPm.toLowerCase()}`;
-                    const durationStr = item.duration ? `(${item.duration}min)` : '';
-                    line = `${timeStr} - ${itemTitle} ${durationStr}`.trim();
+                    line = `${timeStr} - ${itemTitle}${durationSuffix}`.trim();
                 } else {
-                    const durationStr = item.duration ? `(${item.duration}min)` : '';
-                    line = `${itemTitle} ${durationStr}`.trim();
+                    line = `${itemTitle}${durationSuffix}`.trim();
                 }
                 itemsText.push(line);
+
+                if (includeDescriptions && item.remarks) {
+                    const cleanedRemarks = item.remarks
+                        .replace(/<br\s*\/?>/gi, '\n')
+                        .replace(/<\/p>/gi, '\n')
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>');
+                    const indentedRemarks = cleanedRemarks
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .map(line => `  ${line}`)
+                        .join('\n');
+                    if (indentedRemarks) {
+                        itemsText.push(indentedRemarks);
+                    }
+                }
             });
             text += '\n' + itemsText.join('\n') + '\n';
         }
@@ -211,8 +232,10 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         const updatedTime = runsheet?.lastUpdated || new Date().toISOString();
         text += `\n[Info last updated at ${moment(updatedTime).format('DD/MM/YY hh:mm a')}]`;
         text += `\n${shareUrl}`;
+        return text;
+    };
 
-        setPlainTextContent(text);
+    const handleSharePlainText = () => {
         setPlainTextDialog(true);
     };
 
@@ -419,19 +442,47 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                     <DialogHeader>
                         <DialogTitle>Share as Plain Text</DialogTitle>
                     </DialogHeader>
+                    <div className="flex flex-col gap-2.5 py-1 border-b border-border/40 pb-3">
+                        <label className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={includeDescriptions}
+                                onChange={(e) => setIncludeDescriptions(e.target.checked)}
+                                className="rounded border-input text-primary focus:ring-ring h-4 w-4 bg-background dark:bg-input/80 border cursor-pointer accent-primary"
+                            />
+                            <span>Include all item descriptions</span>
+                        </label>
+                        <label className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={includeDuration}
+                                onChange={(e) => setIncludeDuration(e.target.checked)}
+                                className="rounded border-input text-primary focus:ring-ring h-4 w-4 bg-background dark:bg-input/80 border cursor-pointer accent-primary"
+                            />
+                            <span>Include duration</span>
+                        </label>
+                    </div>
                     <div className="grid gap-4 py-2">
                         <Textarea
                             readOnly
-                            value={plainTextContent}
-                            className="h-[50vh] resize-none font-mono text-xs rounded-xl"
+                            value={getPlainText()}
+                            className="h-[45vh] resize-none font-mono text-xs rounded-xl"
                         />
                     </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setPlainTextDialog(false)} className="rounded-xl">
-                            Close
-                        </Button>
+                    <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
                         <Button onClick={() => {
-                            navigator.clipboard.writeText(plainTextContent);
+                            const whatsappText = getPlainText(true);
+                            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`, '_blank');
+                        }} className="rounded-xl gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent dark:bg-[#25D366] dark:hover:bg-[#25D366]/90 dark:text-black">
+                            <WhatsAppIcon className="h-4 w-4" />
+                            Send to WhatsApp
+                        </Button>
+                        <Button onClick={async () => {
+                            try {
+                                await navigator.clipboard.writeText(getPlainText(false));
+                            } catch (err) {
+                                console.error("Clipboard copy failed: ", err);
+                            }
                             setPlainTextDialog(false);
                         }} className="rounded-xl">
                             <ContentCopyIcon className="h-4 w-4 mr-2" />
