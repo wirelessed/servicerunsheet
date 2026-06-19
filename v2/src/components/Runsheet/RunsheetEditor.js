@@ -643,7 +643,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                             >
                                                                 {/* Active indicator bar */}
                                                                 {isHighlighted && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-r-full"></div>}
- 
+
                                                                 {/* Drag handle UI */}
                                                                 {mode === 'reorder' && (
                                                                     <div
@@ -676,7 +676,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                                                 target="_blank"
                                                                                                 rel="noopener noreferrer"
                                                                                                 onClick={e => e.stopPropagation()}
-                                                                                                className="flex items-center justify-between gap-3 min-h-[28px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold uppercase tracking-wider text-primary/70 transition-colors hover:bg-primary/5 hover:border-primary/50 hover:text-primary w-full"
+                                                                                                className="flex items-center bg-background mt-1 justify-between gap-3 min-h-[32px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[11px] font-bold uppercase tracking-wider text-primary/70 transition-colors hover:bg-primary/5 hover:border-primary/50 hover:text-primary w-full"
                                                                                             >
                                                                                                 <div className="flex items-center gap-1.5">
                                                                                                     <span className="text-sm dark:brightness-[1.2] dark:saturate-[1.1]">{link.emoji}</span>
@@ -687,7 +687,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                                         ) : link.name ? (
                                                                                             <span
                                                                                                 key={li}
-                                                                                                className="flex items-center gap-1.5 min-h-[28px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold uppercase tracking-wider text-primary/70 w-full"
+                                                                                                className="flex items-center bg-background mt-1 gap-1.5 min-h-[32px] px-2.5 py-1.5 rounded-lg border border-primary/30 text-[11px] font-bold uppercase tracking-wider text-primary/70 w-full"
                                                                                             >
                                                                                                 <span className="text-sm dark:brightness-[1.2] dark:saturate-[1.1]">{link.emoji}</span>
                                                                                                 <span>{link.name}</span>
@@ -1349,11 +1349,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
             {/* Desktop Ops Clock: center align bottom */}
             {mode === 'ops' && (
-                <div 
+                <div
                     className={`
                         hidden md:flex fixed bottom-6 -translate-x-1/2 z-50 px-6 py-3 bg-background/80 backdrop-blur-md border border-border/80 rounded-2xl shadow-xl items-center justify-center animate-in slide-in-from-bottom-4 transition-all duration-300
-                        ${effectiveListSidebarOpen 
-                            ? 'left-[calc(50%+140px)] lg:left-[calc(50%+170px)]' 
+                        ${effectiveListSidebarOpen
+                            ? 'left-[calc(50%+140px)] lg:left-[calc(50%+170px)]'
                             : 'left-[calc(50%+80px)]'
                         }
                     `}
