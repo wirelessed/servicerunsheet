@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import NotesIcon from '@mui/icons-material/Notes';
 import moment from "moment";
 import { db } from '../../lib/firebase';
-import { doc, setDoc, deleteDoc, onSnapshot, collection, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, onSnapshot, collection, updateDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 
@@ -98,6 +98,17 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         setIsLoading(true);
         try {
             const email = newEmail.trim().toLowerCase();
+
+            // Check if this user already exists in the runsheet — don't overwrite their role
+            const existingUserSnap = await getDoc(doc(db, `runsheets/${runsheetId}/users`, email));
+            if (existingUserSnap.exists()) {
+                const existingRole = existingUserSnap.data().role;
+                alert(`${email} already has the "${existingRole}" role on this runsheet.`);
+                setNewEmail('');
+                setIsLoading(false);
+                return;
+            }
+
             // Default new users as 'viewer'
             await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), {
                 email,

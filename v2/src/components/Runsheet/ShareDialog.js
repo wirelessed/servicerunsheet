@@ -68,6 +68,17 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
         setIsLoading(true);
         try {
             const email = newEditorEmail.trim().toLowerCase();
+
+            // Check if this user already exists in the runsheet — don't overwrite their role
+            const existingUserSnap = await getDoc(doc(db, `runsheets/${runsheetId}/users`, email));
+            if (existingUserSnap.exists()) {
+                const existingRole = existingUserSnap.data().role;
+                alert(`${email} already has the "${existingRole}" role on this runsheet.`);
+                setNewEditorEmail('');
+                setIsLoading(false);
+                return;
+            }
+
             await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), { email, role: 'editor', addedAt: new Date().toISOString(), addedBy: user.email });
             await setDoc(doc(db, `users/${email}/runsheets`, runsheetId), { id: runsheetId, role: 'editor', sharedBy: user.email, sharedAt: new Date().toISOString() });
 
