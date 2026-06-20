@@ -1,6 +1,6 @@
 'use client';
 import { useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, collection, query, orderBy, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
@@ -16,6 +16,7 @@ export default function RunsheetPage() {
     const [metaLoading, setMetaLoading] = useState(true);
     const [programmeLoading, setProgrammeLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const accessCheckedRef = useRef({ id: null, email: null });
 
     // Resolve the real ID from params or URL
     useEffect(() => {
@@ -87,6 +88,8 @@ export default function RunsheetPage() {
     // ── Phase 3: Automatic Access ──
     useEffect(() => {
         if (!id || id === 'fallback' || !user?.email || !runsheet) return;
+        if (accessCheckedRef.current.id === id && accessCheckedRef.current.email === user.email) return;
+        accessCheckedRef.current = { id, email: user.email };
 
         const grantViewerAccess = async () => {
             try {
@@ -98,25 +101,55 @@ export default function RunsheetPage() {
                     getDoc(rsUserRef)
                 ]);
 
-                // If user already has a role in the subcollection, just ensure personal ref exists
+                // If user already has a role in the subcollection, ensure all references match
                 if (rsUserSnap.exists()) {
-                    if (!userSnap.exists()) {
+                    const subRole = rsUserSnap.data().role || 'viewer';
+                    const mainRole = runsheet.roles?.[user.email];
+                    const inMemberEmails = runsheet.memberEmails?.includes(user.email);
+
+                    const needsPersonalRef = !userSnap.exists();
+                    const needsMainDocUpdate = !mainRole || !inMemberEmails;
+
+                    if (needsPersonalRef || needsMainDocUpdate) {
                         const batch = writeBatch(db);
-                        batch.set(userRsRef, { id });
+                        if (needsPersonalRef) {
+                            batch.set(userRsRef, { id });
+                        }
+                        if (needsMainDocUpdate) {
+                            const currentEmails = runsheet.memberEmails || [];
+                            const currentRoles = runsheet.roles || {};
+                            const updates = {};
+                            if (!currentEmails.includes(user.email)) {
+                                updates.memberEmails = [...currentEmails, user.email];
+                            }
+                            if (currentRoles[user.email] !== subRole) {
+                                updates.roles = { ...currentRoles, [user.email]: subRole };
+                            }
+                            batch.update(doc(db, 'runsheets', id), updates);
+                        }
                         await batch.commit();
                     }
                     return;
                 }
 
-                // Also check the main document's roles map — the subcollection doc
-                // may not have been written yet (race condition during creation)
+                // If user has a role in the main doc roles map but not in subcollection, heal it
                 const mainDocRole = runsheet.roles?.[user.email];
                 if (mainDocRole) {
-                    // User has a role in the main doc but not in subcollection yet — skip,
-                    // the creation writes will complete shortly
-                    if (!userSnap.exists()) {
+                    const needsPersonalRef = !userSnap.exists();
+                    const needsSubcollectionRef = !rsUserSnap.exists();
+
+                    if (needsPersonalRef || needsSubcollectionRef) {
                         const batch = writeBatch(db);
-                        batch.set(userRsRef, { id });
+                        if (needsPersonalRef) {
+                            batch.set(userRsRef, { id });
+                        }
+                        if (needsSubcollectionRef) {
+                            batch.set(rsUserRef, {
+                                id: user.email,
+                                email: user.email,
+                                role: mainDocRole
+                            });
+                        }
                         await batch.commit();
                     }
                     return;
@@ -132,7 +165,7 @@ export default function RunsheetPage() {
                     addedAt: new Date().toISOString()
                 });
 
-                // Also update memberEmails and roles on the main runsheet document
+                // Update memberEmails and roles on the main runsheet document
                 const currentEmails = runsheet.memberEmails || [];
                 const currentRoles = runsheet.roles || {};
                 if (!currentEmails.includes(user.email)) {

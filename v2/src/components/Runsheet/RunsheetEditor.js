@@ -150,7 +150,13 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             try {
                 const userRef = doc(db, `runsheets/${runsheet.id}/users`, user.email);
                 const userSnap = await getDoc(userRef);
-                const role = userSnap.exists() ? userSnap.data().role : null;
+                let role = userSnap.exists() ? userSnap.data().role : null;
+
+                // Fallback to roles map on main runsheet document to prevent race conditions
+                if (!role && runsheet?.roles) {
+                    role = runsheet.roles[user.email] || null;
+                }
+
                 setUserRole(role);
                 // owner and editor both count as having edit access
                 if (role === 'editor' || role === 'owner') {
@@ -169,7 +175,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             }
         };
         checkPermissions();
-    }, [user, runsheet.id]);
+    }, [user, runsheet]);
 
     useEffect(() => {
         const interval = setInterval(() => setNow(moment()), 60000);

@@ -1,7 +1,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -75,22 +75,62 @@ export default function SharePage() {
                     if (user?.email) {
                         try {
                             const userRoleRef = doc(db, `runsheets/${id}/users`, user.email);
-                            const existing = await getDoc(userRoleRef);
-                            if (!existing.exists()) {
-                                await setDoc(userRoleRef, { role: 'viewer', email: user.email, id: user.email });
-                                await setDoc(doc(db, `users/${user.email}/runsheets`, id), { id });
-                                
-                                // Also update memberEmails and roles on the main runsheet document
-                                const currentEmails = docSnap.data().memberEmails || [];
-                                const currentRoles = docSnap.data().roles || {};
-                                await updateDoc(docRef, {
-                                    memberEmails: [...new Set([...currentEmails, user.email])],
-                                    roles: {
-                                        ...currentRoles,
-                                        [user.email]: 'viewer'
+                            const userRsRef = doc(db, `users/${user.email}/runsheets`, id);
+
+                            const [existing, userRsSnap] = await Promise.all([
+                                getDoc(userRoleRef),
+                                getDoc(userRsRef)
+                            ]);
+
+                            const docData = docSnap.data();
+                            const mainRole = docData.roles?.[user.email];
+                            const inMemberEmails = docData.memberEmails?.includes(user.email);
+
+                            if (existing.exists() || mainRole) {
+                                // User already has a role — don't overwrite, but heal if out of sync
+                                const subRole = existing.exists() ? existing.data().role : null;
+                                const needsPersonalRef = !userRsSnap.exists();
+                                const needsSubcollectionRef = mainRole && !existing.exists();
+                                const needsMainDocUpdate = subRole && (!mainRole || !inMemberEmails);
+
+                                if (needsPersonalRef || needsSubcollectionRef || needsMainDocUpdate) {
+                                    const batch = writeBatch(db);
+                                    if (needsPersonalRef) {
+                                        batch.set(userRsRef, { id });
                                     }
-                                });
-                                
+                                    if (needsSubcollectionRef) {
+                                        batch.set(userRoleRef, { role: mainRole, email: user.email, id: user.email });
+                                    }
+                                    if (needsMainDocUpdate) {
+                                        const currentEmails = docData.memberEmails || [];
+                                        const updates = {};
+                                        if (!currentEmails.includes(user.email)) {
+                                            updates.memberEmails = [...currentEmails, user.email];
+                                        }
+                                        updates[`roles.${user.email}`] = subRole;
+                                        batch.update(docRef, updates);
+                                    }
+                                    await batch.commit();
+                                }
+                                setEnrolled(true);
+                            } else {
+                                // Truly new viewer — no role anywhere
+                                const batch = writeBatch(db);
+                                batch.set(userRoleRef, { role: 'viewer', email: user.email, id: user.email });
+                                batch.set(userRsRef, { id });
+
+                                const currentEmails = docData.memberEmails || [];
+                                const currentRoles = docData.roles || {};
+                                if (!currentEmails.includes(user.email)) {
+                                    batch.update(docRef, {
+                                        memberEmails: [...new Set([...currentEmails, user.email])],
+                                        roles: {
+                                            ...currentRoles,
+                                            [user.email]: 'viewer'
+                                        }
+                                    });
+                                }
+                                await batch.commit();
                                 setEnrolled(true);
                             }
                         } catch (e) {

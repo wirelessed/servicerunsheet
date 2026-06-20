@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot, FieldPath } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import moment from 'moment';
@@ -14,12 +14,7 @@ export const DashboardContextProvider = ({ children }) => {
     const [runsheets, setRunsheets] = useState([]);
     const [groups, setGroups] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
-    const [activeFilter, setActiveFilter] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('dashboard_filter') || 'upcoming';
-        }
-        return 'upcoming';
-    });
+    const [activeFilter, setActiveFilter] = useState('upcoming');
     const [migrationState, setMigrationState] = useState({ status: 'idle', total: 0, migrated: 0 });
     const enrolledGroupsRef = useRef(new Set());
     const hasMigratedRef = useRef(false);
@@ -27,9 +22,40 @@ export const DashboardContextProvider = ({ children }) => {
     // Persist activeFilter to localStorage whenever it changes
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            localStorage.setItem('dashboard_filter', activeFilter);
+            if (user?.email) {
+                localStorage.setItem(`dashboard_filter_${user.email}`, activeFilter);
+            } else {
+                localStorage.setItem('dashboard_filter', activeFilter);
+            }
         }
-    }, [activeFilter]);
+    }, [activeFilter, user]);
+
+    // Load activeFilter based on user context and consume generic temp filter if present
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const tempFilter = localStorage.getItem('dashboard_filter');
+
+        if (user?.email) {
+            const userFilterKey = `dashboard_filter_${user.email}`;
+            const savedFilter = localStorage.getItem(userFilterKey);
+
+            if (tempFilter) {
+                setActiveFilter(tempFilter);
+                localStorage.setItem(userFilterKey, tempFilter);
+                localStorage.removeItem('dashboard_filter');
+            } else if (savedFilter) {
+                setActiveFilter(savedFilter);
+            } else {
+                setActiveFilter('upcoming');
+            }
+        } else {
+            if (tempFilter) {
+                setActiveFilter(tempFilter);
+            } else {
+                setActiveFilter('upcoming');
+            }
+        }
+    }, [user]);
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
     const runMigration = useCallback(async () => {
@@ -135,6 +161,17 @@ export const DashboardContextProvider = ({ children }) => {
         if (enrolledGroupsRef.current.has(groupId)) return; // Already enrolled this session
         enrolledGroupsRef.current.add(groupId);
 
+        // Track this group as joined in user-specific localStorage
+        if (typeof window !== 'undefined') {
+            const joinedKey = `joinedGroups_${user.email}`;
+            try {
+                const joined = JSON.parse(localStorage.getItem(joinedKey) || '[]');
+                if (!joined.includes(groupId)) {
+                    localStorage.setItem(joinedKey, JSON.stringify([...joined, groupId]));
+                }
+            } catch (e) {}
+        }
+
         try {
             const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
             const groupRsSnap = await getDocs(groupRsQuery);
@@ -145,15 +182,43 @@ export const DashboardContextProvider = ({ children }) => {
 
             for (const rsDoc of groupRsSnap.docs) {
                 const rsId = rsDoc.id;
+                const rsData = rsDoc.data();
 
-                // Check if user already has a role in this runsheet's users subcollection
+                // Check if user already has a role in subcollection OR in the main doc's roles map
                 const existingUserSnap = await getDoc(doc(db, `runsheets/${rsId}/users`, user.email));
-                if (existingUserSnap.exists()) {
-                    // User already has a role — don't overwrite, but ensure personal list exists
+                const mainDocRole = rsData.roles?.[user.email];
+
+                if (existingUserSnap.exists() || mainDocRole) {
+                    // User already has a role — don't overwrite, but ensure all references match
                     const userRsRef = doc(db, `users/${user.email}/runsheets`, rsId);
                     const userRsSnap = await getDoc(userRsRef);
-                    if (!userRsSnap.exists()) {
-                        batch.set(userRsRef, { id: rsId });
+
+                    const needsPersonalRef = !userRsSnap.exists();
+                    const subRole = existingUserSnap.exists() ? existingUserSnap.data().role : null;
+
+                    const needsSubcollectionRef = mainDocRole && !existingUserSnap.exists();
+                    const needsMainDocUpdate = subRole && (!mainDocRole || !rsData.memberEmails?.includes(user.email));
+
+                    if (needsPersonalRef || needsSubcollectionRef || needsMainDocUpdate) {
+                        if (needsPersonalRef) {
+                            batch.set(userRsRef, { id: rsId });
+                        }
+                        if (needsSubcollectionRef) {
+                            batch.set(doc(db, `runsheets/${rsId}/users`, user.email), {
+                                id: user.email,
+                                email: user.email,
+                                role: mainDocRole
+                            });
+                        }
+                        if (needsMainDocUpdate) {
+                            const currentEmails = rsData.memberEmails || [];
+                            const updates = {};
+                            if (!currentEmails.includes(user.email)) {
+                                updates.memberEmails = [...currentEmails, user.email];
+                            }
+                            updates[`roles.${user.email}`] = subRole;
+                            batch.update(doc(db, 'runsheets', rsId), updates);
+                        }
                         needsCommit = true;
                     }
                     continue;
@@ -162,22 +227,20 @@ export const DashboardContextProvider = ({ children }) => {
                 // New user for this runsheet — enroll as viewer
                 batch.set(doc(db, `runsheets/${rsId}/users`, user.email), { id: user.email, email: user.email, role: 'viewer' });
                 batch.set(doc(db, `users/${user.email}/runsheets`, rsId), { id: rsId });
-                
-                // Also update memberEmails and roles on the main runsheet document
-                const currentEmails = rsDoc.data().memberEmails || [];
-                const currentRoles = rsDoc.data().roles || {};
+
+                // Update memberEmails and roles on the main runsheet document using standard dot notation
+                const currentEmails = rsData.memberEmails || [];
                 if (!currentEmails.includes(user.email)) {
                     batch.update(doc(db, 'runsheets', rsId), {
-                        memberEmails: [...currentEmails, user.email]
+                        memberEmails: [...currentEmails, user.email],
+                        [`roles.${user.email}`]: 'viewer'
                     });
-                    batch.update(doc(db, 'runsheets', rsId), new FieldPath('roles', user.email), 'viewer');
                 }
                 needsCommit = true;
 
-                const data = rsDoc.data();
                 newRunsheets.push({
-                    id: rsDoc.id, ...data,
-                    category: data.category || 'active',
+                    id: rsDoc.id, ...rsData,
+                    category: rsData.category || 'active',
                     role: 'viewer',
                     isEditor: false
                 });
@@ -269,8 +332,19 @@ export const DashboardContextProvider = ({ children }) => {
 
                 // 2. Identify referenced groups that we don't own
                 const groupIds = [...new Set(fetchedRunsheets.map(r => r.groupId).filter(Boolean))];
+
+                // Add groups joined via token/link (from localStorage)
+                let joinedGroupIds = [];
+                if (typeof window !== 'undefined') {
+                    try {
+                        joinedGroupIds = JSON.parse(localStorage.getItem(`joinedGroups_${user.email}`) || '[]');
+                    } catch (e) {}
+                }
+
+                // Combine referenced and joined group IDs
+                const combinedGroupIds = [...new Set([...groupIds, ...joinedGroupIds])];
                 const ownedGroupIds = new Set(ownedGroups.map(g => g.id));
-                const remainingGroupIds = groupIds.filter(id => !ownedGroupIds.has(id));
+                const remainingGroupIds = combinedGroupIds.filter(id => !ownedGroupIds.has(id));
 
                 let allGroups = [...ownedGroups];
 

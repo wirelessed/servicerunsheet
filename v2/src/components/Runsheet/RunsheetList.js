@@ -334,11 +334,7 @@ export default function RunsheetList() {
                     roles: { [user.email]: 'owner' }
                 };
 
-                // Optimistic Update
-                setRunsheets(prev => [...prev, { id: newId, ...newRunsheet, role: 'owner', isEditor: true }]);
-                setMetadataDialog({ open: false, data: null });
-
-                // Background write
+                // Write all documents before dismissing
                 await setDoc(runsheetRef, newRunsheet);
                 await setDoc(doc(db, `users/${user.email}/runsheets`, newId), { id: newId });
                 await setDoc(doc(db, `runsheets/${newId}/users`, user.email), {
@@ -346,6 +342,10 @@ export default function RunsheetList() {
                     role: 'owner',
                     email: user.email
                 });
+
+                // Now safe to update UI
+                setRunsheets(prev => [...prev, { id: newId, ...newRunsheet, role: 'owner', isEditor: true }]);
+                setMetadataDialog({ open: false, data: null });
             }
         } catch (err) {
             console.error("Error saving runsheet", err);
@@ -457,53 +457,45 @@ export default function RunsheetList() {
                 roles: { [user.email]: 'owner' }
             };
 
-            // Optimistic Update
+            // Write all documents before dismissing
+            await setDoc(newDocRef, newRunsheet);
+            await setDoc(doc(db, `users/${user.email}/runsheets`, newId), { id: newId });
+            const batch = writeBatch(db);
+            batch.set(doc(db, `runsheets/${newId}/users`, user.email), {
+                id: user.email,
+                role: 'owner',
+                email: user.email
+            });
+
+            if (copyCollaborators && (runsheet.role === 'owner' || runsheet.role === 'editor')) {
+                const usersSnap = await getDocs(collection(db, `runsheets/${runsheet.id}/users`));
+                const memberEmails = [user.email];
+                const roles = { [user.email]: 'owner' };
+
+                usersSnap.docs.forEach(userDoc => {
+                    if (userDoc.id !== user.email) {
+                        const userData = userDoc.data();
+                        batch.set(doc(db, `runsheets/${newId}/users`, userDoc.id), userData);
+                        batch.set(doc(db, `users/${userDoc.id}/runsheets`, newId), { id: newId });
+
+                        const email = userDoc.id.trim().toLowerCase();
+                        memberEmails.push(email);
+                        roles[email] = userData.role || 'viewer';
+                    }
+                });
+
+                batch.update(newDocRef, { memberEmails, roles });
+            }
+
+            items.forEach((item) => {
+                batch.set(doc(collection(db, `runsheets/${newId}/programme`)), item);
+            });
+            await batch.commit();
+
+            // Now safe to update UI
             setRunsheets(prev => [...prev, { ...newRunsheet, id: newId, role: 'owner', isEditor: true }]);
             setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false });
             setIsActionLoading(false);
-
-            // Background writes
-            const runDuplicateWrite = async () => {
-                await setDoc(newDocRef, newRunsheet);
-                await setDoc(doc(db, `users/${user.email}/runsheets`, newId), { id: newId });
-                const batch = writeBatch(db);
-                batch.set(doc(db, `runsheets/${newId}/users`, user.email), {
-                    id: user.email,
-                    role: 'owner',
-                    email: user.email
-                });
-
-                if (copyCollaborators && (runsheet.role === 'owner' || runsheet.role === 'editor')) {
-                    const usersSnap = await getDocs(collection(db, `runsheets/${runsheet.id}/users`));
-                    const memberEmails = [user.email];
-                    const roles = { [user.email]: 'owner' };
-
-                    usersSnap.docs.forEach(userDoc => {
-                        if (userDoc.id !== user.email) {
-                            const userData = userDoc.data();
-                            batch.set(doc(db, `runsheets/${newId}/users`, userDoc.id), userData);
-                            batch.set(doc(db, `users/${userDoc.id}/runsheets`, newId), { id: newId });
-
-                            const email = userDoc.id.trim().toLowerCase();
-                            memberEmails.push(email);
-                            roles[email] = userData.role || 'viewer';
-                        }
-                    });
-
-                    batch.update(newDocRef, { memberEmails, roles });
-                }
-
-                items.forEach((item) => {
-                    batch.set(doc(collection(db, `runsheets/${newId}/programme`)), item);
-                });
-                await batch.commit();
-            };
-
-            runDuplicateWrite().catch(err => {
-                console.error("Error committing duplicated runsheet", err);
-                setRunsheets(prev => prev.filter(r => r.id !== newId));
-                alert("Failed to duplicate runsheet.");
-            });
 
         } catch (err) {
             console.error("Error duplicating runsheet", err);
