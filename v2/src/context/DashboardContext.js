@@ -4,7 +4,6 @@ import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot 
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import moment from 'moment';
-import { usePathname } from 'next/navigation';
 
 const DashboardContext = createContext({});
 
@@ -12,7 +11,6 @@ export const useDashboard = () => useContext(DashboardContext);
 
 export const DashboardContextProvider = ({ children }) => {
     const { user } = useAuth();
-    const pathname = usePathname();
     const [runsheets, setRunsheets] = useState([]);
     const [groups, setGroups] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -32,32 +30,18 @@ export const DashboardContextProvider = ({ children }) => {
         }
     }, [activeFilter, user]);
 
-    // Load activeFilter based on user context and consume generic temp filter if present
+    // Load activeFilter based on user context
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const tempFilter = localStorage.getItem('dashboard_filter');
+        if (typeof window === 'undefined' || !user?.email) return;
+        const userFilterKey = `dashboard_filter_${user.email}`;
+        const savedFilter = localStorage.getItem(userFilterKey);
 
-        if (user?.email) {
-            const userFilterKey = `dashboard_filter_${user.email}`;
-            const savedFilter = localStorage.getItem(userFilterKey);
-
-            if (tempFilter) {
-                setActiveFilter(tempFilter);
-                localStorage.setItem(userFilterKey, tempFilter);
-                localStorage.removeItem('dashboard_filter');
-            } else if (savedFilter) {
-                setActiveFilter(savedFilter);
-            } else {
-                setActiveFilter('upcoming');
-            }
+        if (savedFilter) {
+            setActiveFilter(savedFilter);
         } else {
-            if (tempFilter) {
-                setActiveFilter(tempFilter);
-            } else {
-                setActiveFilter('upcoming');
-            }
+            setActiveFilter('upcoming');
         }
-    }, [user, pathname]);
+    }, [user?.email]);
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
     const runMigration = useCallback(async () => {

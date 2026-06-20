@@ -43,6 +43,15 @@ export default function RunsheetList() {
 
     const [theme, setTheme] = useState('dark');
 
+    // Consume temporary redirect filter from group share links
+    useEffect(() => {
+        const tempFilter = localStorage.getItem('dashboard_filter');
+        if (tempFilter) {
+            setActiveFilter(tempFilter);
+            localStorage.removeItem('dashboard_filter');
+        }
+    }, [setActiveFilter]);
+
     // Auto-enroll in group when switching to a group filter
     useEffect(() => {
         if (activeFilter && !['upcoming', 'past', 'archive'].includes(activeFilter)) {
