@@ -43,14 +43,25 @@ export default function RunsheetList() {
 
     const [theme, setTheme] = useState('dark');
 
-    // Consume temporary redirect filter from group share links
+    // Load activeFilter on mount / user resolution, consuming redirects if present
     useEffect(() => {
+        if (!user?.email) return;
+
         const tempFilter = localStorage.getItem('dashboard_filter');
         if (tempFilter) {
             setActiveFilter(tempFilter);
+            localStorage.setItem(`dashboard_filter_${user.email}`, tempFilter);
             localStorage.removeItem('dashboard_filter');
+        } else {
+            const userFilterKey = `dashboard_filter_${user.email}`;
+            const savedFilter = localStorage.getItem(userFilterKey);
+            if (savedFilter) {
+                setActiveFilter(savedFilter);
+            } else {
+                setActiveFilter('upcoming');
+            }
         }
-    }, [setActiveFilter]);
+    }, [user, setActiveFilter]);
 
     // Auto-enroll in group when switching to a group filter
     useEffect(() => {

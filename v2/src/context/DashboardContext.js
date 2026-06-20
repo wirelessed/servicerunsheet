@@ -30,28 +30,7 @@ export const DashboardContextProvider = ({ children }) => {
         }
     }, [activeFilter, user]);
 
-    // Load activeFilter based on user context
-    useEffect(() => {
-        if (typeof window === 'undefined' || !user?.email) return;
-        const userFilterKey = `dashboard_filter_${user.email}`;
 
-        // Prioritize and consume temporary redirect filter from group share links on user load
-        const tempRedirectFilter = localStorage.getItem('dashboard_filter');
-        if (tempRedirectFilter) {
-            setActiveFilter(tempRedirectFilter);
-            localStorage.setItem(userFilterKey, tempRedirectFilter);
-            localStorage.removeItem('dashboard_filter');
-            return;
-        }
-
-        const savedFilter = localStorage.getItem(userFilterKey);
-
-        if (savedFilter) {
-            setActiveFilter(savedFilter);
-        } else {
-            setActiveFilter('upcoming');
-        }
-    }, [user?.email]);
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
     const runMigration = useCallback(async () => {
