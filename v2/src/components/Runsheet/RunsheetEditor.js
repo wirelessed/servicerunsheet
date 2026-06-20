@@ -909,7 +909,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         let groupRunsheets = [];
         let showLoadMore = false;
 
-        if (activeFilter === 'upcoming') {
+        if (runsheet?.groupId) {
+            // "if i'm in a group, the leftmost plane should show my group"
+            const currentGroup = groups?.find(g => g.id === runsheet.groupId);
+            groupName = currentGroup ? currentGroup.name : 'Runsheets';
+            groupRunsheets = runsheets?.filter(r => r.groupId === runsheet.groupId) || [];
+        } else if (activeFilter === 'upcoming') {
             groupName = 'Upcoming';
             groupRunsheets = runsheets?.filter(r =>
                 !moment(r.date).isBefore(moment(), 'day') &&
@@ -940,17 +945,9 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                 if (list.length > 7) showLoadMore = true;
             }
         } else {
-            // "if i'm in a group, the leftmost plane should show my group"
-            const currentGroup = groups?.find(g => g.id === runsheet.groupId || g.id === activeFilter);
+            const currentGroup = groups?.find(g => g.id === activeFilter);
             groupName = currentGroup ? currentGroup.name : 'Runsheets';
-
-            const filterGroupId = runsheet.groupId || activeFilter;
-            groupRunsheets = runsheets?.filter(r => r.groupId === filterGroupId) || [];
-
-            const currentIsPast = moment(runsheet.date).isBefore(moment(), 'day');
-            if (!currentIsPast && !filterGroupId) {
-                groupRunsheets = groupRunsheets.filter(r => !moment(r.date).isBefore(moment(), 'day'));
-            }
+            groupRunsheets = runsheets?.filter(r => r.groupId === activeFilter) || [];
         }
 
         const grouped = {};

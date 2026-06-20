@@ -4,6 +4,7 @@ import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot 
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import moment from 'moment';
+import { usePathname } from 'next/navigation';
 
 const DashboardContext = createContext({});
 
@@ -11,6 +12,7 @@ export const useDashboard = () => useContext(DashboardContext);
 
 export const DashboardContextProvider = ({ children }) => {
     const { user } = useAuth();
+    const pathname = usePathname();
     const [runsheets, setRunsheets] = useState([]);
     const [groups, setGroups] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -55,7 +57,7 @@ export const DashboardContextProvider = ({ children }) => {
                 setActiveFilter('upcoming');
             }
         }
-    }, [user]);
+    }, [user, pathname]);
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
     const runMigration = useCallback(async () => {
