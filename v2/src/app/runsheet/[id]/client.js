@@ -98,22 +98,51 @@ export default function RunsheetPage() {
                     getDoc(rsUserRef)
                 ]);
 
-                // If user doesn't have the runsheet in their list, or doesn't have a role assigned
-                if (!userSnap.exists() || !rsUserSnap.exists()) {
-                    const batch = writeBatch(db);
-                    batch.set(userRsRef, { id });
-                    
-                    // Only assign 'viewer' if they don't have ANY role yet
-                    if (!rsUserSnap.exists()) {
-                        batch.set(rsUserRef, {
-                            id: user.email,
-                            email: user.email,
-                            role: 'viewer',
-                            addedAt: new Date().toISOString()
-                        });
+                // If user already has a role in the subcollection, just ensure personal ref exists
+                if (rsUserSnap.exists()) {
+                    if (!userSnap.exists()) {
+                        const batch = writeBatch(db);
+                        batch.set(userRsRef, { id });
+                        await batch.commit();
                     }
-                    await batch.commit();
+                    return;
                 }
+
+                // Also check the main document's roles map — the subcollection doc
+                // may not have been written yet (race condition during creation)
+                const mainDocRole = runsheet.roles?.[user.email];
+                if (mainDocRole) {
+                    // User has a role in the main doc but not in subcollection yet — skip,
+                    // the creation writes will complete shortly
+                    if (!userSnap.exists()) {
+                        const batch = writeBatch(db);
+                        batch.set(userRsRef, { id });
+                        await batch.commit();
+                    }
+                    return;
+                }
+
+                // Truly new viewer — no role anywhere
+                const batch = writeBatch(db);
+                batch.set(userRsRef, { id });
+                batch.set(rsUserRef, {
+                    id: user.email,
+                    email: user.email,
+                    role: 'viewer',
+                    addedAt: new Date().toISOString()
+                });
+
+                // Also update memberEmails and roles on the main runsheet document
+                const currentEmails = runsheet.memberEmails || [];
+                const currentRoles = runsheet.roles || {};
+                if (!currentEmails.includes(user.email)) {
+                    batch.update(doc(db, 'runsheets', id), {
+                        memberEmails: [...currentEmails, user.email],
+                        roles: { ...currentRoles, [user.email]: 'viewer' }
+                    });
+                }
+
+                await batch.commit();
             } catch (err) {
                 console.error("Error granting viewer access:", err);
             }

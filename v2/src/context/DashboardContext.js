@@ -22,6 +22,7 @@ export const DashboardContextProvider = ({ children }) => {
     });
     const [migrationState, setMigrationState] = useState({ status: 'idle', total: 0, migrated: 0 });
     const enrolledGroupsRef = useRef(new Set());
+    const hasMigratedRef = useRef(false);
 
     // Persist activeFilter to localStorage whenever it changes
     useEffect(() => {
@@ -32,7 +33,8 @@ export const DashboardContextProvider = ({ children }) => {
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
     const runMigration = useCallback(async () => {
-        if (!user?.email) return;
+        if (!user?.email || hasMigratedRef.current) return;
+        hasMigratedRef.current = true;
         setMigrationState({ status: 'checking', total: 0, migrated: 0 });
         try {
             const userRunsheetsRef = collection(db, `users/${user.email}/runsheets`);

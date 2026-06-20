@@ -289,8 +289,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         // Map current time to startTime's date to ignore runsheet day differences
         let currentAdjusted = startTime.clone().hours(currentMoment.hours()).minutes(currentMoment.minutes()).seconds(currentMoment.seconds());
 
-        // If the logged time looks like it's from the "next day" (e.g., passed midnight)
-        if (currentAdjusted.isBefore(startTime) && startTime.diff(currentAdjusted, 'hours') > 12) {
+        // Adjust day if the transition crosses midnight to minimize absolute difference with start time
+        const diffMinutesRaw = currentAdjusted.diff(startTime, 'minutes');
+        if (diffMinutesRaw > 720) {
+            currentAdjusted.subtract(1, 'day');
+        } else if (diffMinutesRaw < -720) {
             currentAdjusted.add(1, 'day');
         }
 
@@ -327,8 +330,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         // Map logged time to startTime's date to ignore runsheet day differences
         let loggedAdjusted = startTime.clone().hours(loggedMoment.hours()).minutes(loggedMoment.minutes()).seconds(0);
 
-        // If the logged time looks like it's from the "next day" (e.g., passed midnight)
-        if (loggedAdjusted.isBefore(startTime) && startTime.diff(loggedAdjusted, 'hours') > 12) {
+        // Adjust day if the transition crosses midnight to minimize absolute difference with start time
+        const diffMinutesRaw = loggedAdjusted.diff(startTime, 'minutes');
+        if (diffMinutesRaw > 720) {
+            loggedAdjusted.subtract(1, 'day');
+        } else if (diffMinutesRaw < -720) {
             loggedAdjusted.add(1, 'day');
         }
 
