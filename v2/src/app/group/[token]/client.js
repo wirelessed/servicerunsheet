@@ -63,10 +63,16 @@ export default function GroupPageClient() {
 
     const activeId = resolvedGroupId || rawToken;
 
+    // Save filter immediately when resolved, regardless of auth state
+    useEffect(() => {
+        if (!resolving && activeId && activeId !== 'fallback' && activeId !== '[token]') {
+            localStorage.setItem('dashboard_filter', activeId);
+        }
+    }, [resolving, activeId]);
+
     // ── LOGGED-IN: redirect to /dashboard with the group filter ──
     useEffect(() => {
         if (!resolving && user && activeId && activeId !== 'fallback' && activeId !== '[token]' && !redirected) {
-            localStorage.setItem('dashboard_filter', activeId);
             setRedirected(true);
             router.replace('/dashboard');
         }
