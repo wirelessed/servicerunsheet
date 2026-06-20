@@ -344,7 +344,6 @@ export default function RunsheetList() {
                 });
 
                 // Now safe to update UI
-                setRunsheets(prev => [...prev, { id: newId, ...newRunsheet, role: 'owner', isEditor: true }]);
                 setMetadataDialog({ open: false, data: null });
             }
         } catch (err) {
@@ -493,7 +492,6 @@ export default function RunsheetList() {
             await batch.commit();
 
             // Now safe to update UI
-            setRunsheets(prev => [...prev, { ...newRunsheet, id: newId, role: 'owner', isEditor: true }]);
             setDuplicateDialog({ open: false, runsheet: null, copyCollaborators: false });
             setIsActionLoading(false);
 
