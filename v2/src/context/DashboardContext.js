@@ -34,6 +34,16 @@ export const DashboardContextProvider = ({ children }) => {
     useEffect(() => {
         if (typeof window === 'undefined' || !user?.email) return;
         const userFilterKey = `dashboard_filter_${user.email}`;
+
+        // Prioritize and consume temporary redirect filter from group share links on user load
+        const tempRedirectFilter = localStorage.getItem('dashboard_filter');
+        if (tempRedirectFilter) {
+            setActiveFilter(tempRedirectFilter);
+            localStorage.setItem(userFilterKey, tempRedirectFilter);
+            localStorage.removeItem('dashboard_filter');
+            return;
+        }
+
         const savedFilter = localStorage.getItem(userFilterKey);
 
         if (savedFilter) {
