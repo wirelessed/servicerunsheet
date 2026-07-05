@@ -27,6 +27,7 @@ const ShareGroupDialog = dynamic(() => import('./ShareGroupDialog'), { ssr: fals
 const WhatsNewDialog = dynamic(() => import('./WhatsNewDialog'), { ssr: false });
 
 import { useDashboard } from '../../context/DashboardContext';
+import SidebarFooter from './SidebarFooter';
 
 export default function RunsheetList() {
     const { user, logOut } = useAuth();
@@ -1075,75 +1076,7 @@ export default function RunsheetList() {
                 </div>
 
                 {/* Bottom section */}
-                <div className="flex flex-col gap-1 px-4">
-                    <div className="border-t border-border pt-4 mb-2"></div>
-                    <button
-                        onClick={toggleTheme}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                    </button>
-
-                    {/* User profile */}
-                    {user && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all w-full text-left">
-                                    <Avatar className="h-7 w-7">
-                                        <AvatarImage src={user.photoURL} alt={user.displayName} />
-                                        <AvatarFallback className="text-[11px] font-bold bg-primary/10 text-primary">{user.displayName?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <span className="truncate flex-1">{user.displayName}</span>
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" side="top" className="w-52">
-                                <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user.email}</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onClick={() => window.location.href = '/feedback'}
-                                    className="cursor-pointer"
-                                >
-                                    <span className="material-symbols-outlined text-base mr-2">feedback</span>
-                                    Feedback
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onClick={async () => {
-                                        try {
-                                            // Clear localStorage caches
-                                            Object.keys(localStorage).forEach(key => {
-                                                if (key.startsWith('runsheetsCache_') || key.startsWith('groupsCache_') || key.startsWith('public_group')) {
-                                                    localStorage.removeItem(key);
-                                                }
-                                            });
-                                            // Clear Firestore IndexedDB persistence
-                                            const dbs = await window.indexedDB.databases();
-                                            for (const dbInfo of dbs) {
-                                                if (dbInfo.name && dbInfo.name.startsWith('firebaseLocalStorage')) {
-                                                    window.indexedDB.deleteDatabase(dbInfo.name);
-                                                }
-                                            }
-                                            window.location.reload();
-                                        } catch (e) {
-                                            console.error('Error clearing cache:', e);
-                                            window.location.reload();
-                                        }
-                                    }}
-                                    className="cursor-pointer"
-                                >
-                                    <span className="material-symbols-outlined text-base mr-2">cached</span>
-                                    Clear Cache
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={logOut} className="text-destructive focus:text-destructive">
-                                    <span className="material-symbols-outlined text-base mr-2">logout</span>
-                                    Log Out
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </div>
+                <SidebarFooter theme={theme} toggleTheme={toggleTheme} layout="full" />
             </aside>
 
             {/* ── Main Content ── */}

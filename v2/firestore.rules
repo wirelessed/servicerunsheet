@@ -1,0 +1,442 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: runsheets
+// Document ID: Auto-generated
+// Fields:
+//   - name: string (required, max 500 chars) - runsheet title
+//   - date: string (optional, max 20 chars) - ISO date string
+//   - time: string (optional, max 10 chars) - "HHmm" format
+//   - category: string (required, 'active' | 'archive')
+//   - groupId: string|null (optional, max 100 chars) - FK to groups
+//   - orderCount: number (optional) - legacy ordering
+//   - lastUpdated: string (optional, max 50 chars) - moment ISO string
+//   - notes: string (optional, max 50000 chars) - HTML from rich editor
+//   - memberEmails: list (required) - array of member email strings
+//   - roles: map (required) - { email: role } mapping
+//
+// Subcollection: runsheets/{id}/users
+// Document ID: email address
+// Fields:
+//   - id: string (required) - email address (same as doc ID)
+//   - email: string (required) - email address
+//   - role: string (required) - 'owner' | 'editor' | 'ops' | 'viewer'
+//   - addedAt: string (optional) - ISO date string
+//   - addedBy: string (optional) - email of who added them
+//
+// Subcollection: runsheets/{id}/programme
+// Document ID: Auto-generated
+// Fields:
+//   - text: string (optional, max 1000 chars) - item title
+//   - remarks: string (optional, max 10000 chars) - description
+//   - duration: number (optional) - minutes
+//   - location: string (optional, max 500 chars)
+//   - links: list (optional, max 20 items) - link objects
+//   - orderCount: number (optional) - sort order
+//   - originalDuration: number (optional) - planned duration
+//
+// Collection: users/{email}/runsheets
+// Document ID: runsheet ID
+// Fields:
+//   - id: string (required) - runsheet ID
+//   - role: string (optional) - role string
+//   - sharedBy: string (optional) - email of sharer
+//   - sharedAt: string (optional) - ISO date string
+//
+// Collection: groups
+// Document ID: Auto-generated
+// Fields:
+//   - name: string (required, max 200 chars) - group name
+//   - createdBy: string (required) - email of creator
+//   - createdAt: string (optional, max 50 chars)
+//   - archived: bool (optional)
+//
+// Collection: groupTokens
+// Document ID: share token string
+// Fields:
+//   - groupId: string (required) - FK to groups collection
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the authenticated user's email
+    function userEmail() {
+      return request.auth.token.email;
+    }
+
+    // Validate required fields exist in the incoming data
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate document only contains allowed fields
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Check if a field was not modified in an update
+    function fieldUnchanged(field) {
+      return !(field in request.resource.data) ||
+        request.resource.data[field] == resource.data[field];
+    }
+
+    // Check which fields were actually changed
+    function onlyTheseFieldsChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Valid role values
+    function isValidRole(role) {
+      return role in ['owner', 'editor', 'ops', 'viewer'];
+    }
+
+    // Valid category values
+    function isValidCategory(category) {
+      return category in ['active', 'archive'];
+    }
+
+    // ===============================================================
+    // Runsheet-level role lookups
+    // ===============================================================
+
+    // Get a user's role from the runsheet's users subcollection
+    function getUserRole(runsheetId, email) {
+      return get(/databases/$(database)/documents/runsheets/$(runsheetId)/users/$(email)).data.role;
+    }
+
+    // Check if a user has a role document in the runsheet
+    function hasUserRole(runsheetId, email) {
+      return exists(/databases/$(database)/documents/runsheets/$(runsheetId)/users/$(email));
+    }
+
+    // Check if user is the runsheet owner
+    function isRunsheetOwner(runsheetId) {
+      return isAuthenticated() &&
+        hasUserRole(runsheetId, userEmail()) &&
+        getUserRole(runsheetId, userEmail()) == 'owner';
+    }
+
+    // Check if user is an editor (owner or editor role)
+    function isRunsheetEditor(runsheetId) {
+      return isAuthenticated() &&
+        hasUserRole(runsheetId, userEmail()) &&
+        getUserRole(runsheetId, userEmail()) in ['owner', 'editor'];
+    }
+
+    // Check if user is ops
+    function isRunsheetOps(runsheetId) {
+      return isAuthenticated() &&
+        hasUserRole(runsheetId, userEmail()) &&
+        getUserRole(runsheetId, userEmail()) == 'ops';
+    }
+
+    // Check if user is a member (any role)
+    function isRunsheetMember(runsheetId) {
+      return isAuthenticated() &&
+        hasUserRole(runsheetId, userEmail());
+    }
+
+    // ===============================================================
+    // Collection: runsheets
+    // ===============================================================
+    match /runsheets/{runsheetId} {
+
+      // --- Validation ---
+      function isValidRunsheetCreate() {
+        let data = request.resource.data;
+        return hasRequiredFields(['name', 'category', 'memberEmails', 'roles']) &&
+          hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
+            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles']) &&
+          data.name is string && data.name.size() > 0 && data.name.size() <= 500 &&
+          isValidCategory(data.category) &&
+          data.memberEmails is list && data.memberEmails.size() <= 200 &&
+          data.roles is map &&
+          // Creator must be in memberEmails and have owner role
+          userEmail() in data.memberEmails &&
+          data.roles[userEmail()] == 'owner' &&
+          // Optional field validation
+          (!('date' in data) || (data.date is string && data.date.size() <= 20)) &&
+          (!('time' in data) || (data.time is string && data.time.size() <= 10)) &&
+          (!('groupId' in data) || data.groupId == null || (data.groupId is string && data.groupId.size() <= 100)) &&
+          (!('orderCount' in data) || data.orderCount is number) &&
+          (!('lastUpdated' in data) || (data.lastUpdated is string && data.lastUpdated.size() <= 50)) &&
+          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000));
+      }
+
+      function isValidRunsheetUpdate() {
+        let data = request.resource.data;
+        return hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
+            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles']) &&
+          // Validate types on fields being written
+          (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 500)) &&
+          (!('category' in data) || isValidCategory(data.category)) &&
+          (!('memberEmails' in data) || (data.memberEmails is list && data.memberEmails.size() <= 200)) &&
+          (!('roles' in data) || data.roles is map) &&
+          (!('date' in data) || (data.date is string && data.date.size() <= 20)) &&
+          (!('time' in data) || (data.time is string && data.time.size() <= 10)) &&
+          (!('groupId' in data) || data.groupId == null || (data.groupId is string && data.groupId.size() <= 100)) &&
+          (!('orderCount' in data) || data.orderCount is number) &&
+          (!('lastUpdated' in data) || (data.lastUpdated is string && data.lastUpdated.size() <= 50)) &&
+          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000));
+      }
+
+      // READ: Anyone can read a runsheet if they have the ID.
+      // This supports unauthenticated access for print pages, share links,
+      // and direct runsheet links. The dashboard query uses
+      // where('memberEmails', 'array-contains', email) to scope results.
+      allow read: if true;
+
+      // CREATE: Any authenticated user can create a runsheet (they become owner)
+      allow create: if isAuthenticated() && isValidRunsheetCreate();
+
+      // UPDATE: Editors can update metadata; members can update memberEmails/roles
+      // for enrollment purposes (adding themselves as viewer)
+      allow update: if isAuthenticated() && isValidRunsheetUpdate() && (
+        // Case 1: Editors can update any allowed field
+        isRunsheetEditor(runsheetId) ||
+
+        // Case 2: Ops can only update lastUpdated (for logging transitions)
+        (isRunsheetOps(runsheetId) &&
+          onlyTheseFieldsChanged(['lastUpdated'])) ||
+
+        // Case 3: Self-enrollment as viewer — authenticated user adds ONLY
+        // themselves to memberEmails and roles with 'viewer' role.
+        // This supports the auto-enrollment flow from /runsheet/ and /share/ pages.
+        (onlyTheseFieldsChanged(['memberEmails', 'roles']) &&
+          // User must be adding themselves (new email in memberEmails)
+          userEmail() in request.resource.data.memberEmails &&
+          // User must be setting their own role to 'viewer' only
+          request.resource.data.roles[userEmail()] == 'viewer' &&
+          // All previous members must still be present
+          resource.data.memberEmails.hasAll(
+            request.resource.data.memberEmails.removeAll([userEmail()])
+                .removeAll([userEmail()])) &&
+          // All previous roles must be unchanged (only the new user's role is added)
+          resource.data.roles.keys().hasAll(
+            request.resource.data.roles.keys().removeAll([userEmail()])))
+      );
+
+      // DELETE: Only the owner can delete a runsheet
+      allow delete: if isRunsheetOwner(runsheetId);
+
+
+      // =============================================================
+      // Subcollection: runsheets/{id}/users
+      // =============================================================
+      match /users/{memberEmail} {
+
+        function isValidUserDoc() {
+          let data = request.resource.data;
+          return hasRequiredFields(['id', 'email', 'role']) &&
+            hasOnlyAllowedFields(['id', 'email', 'role', 'addedAt', 'addedBy']) &&
+            data.id is string && data.id.size() <= 200 &&
+            data.email is string && data.email.size() <= 200 &&
+            data.id == memberEmail &&
+            data.email == memberEmail &&
+            isValidRole(data.role) &&
+            (!('addedAt' in data) || (data.addedAt is string && data.addedAt.size() <= 50)) &&
+            (!('addedBy' in data) || (data.addedBy is string && data.addedBy.size() <= 200));
+        }
+
+        // READ: Members can read user docs for their runsheet
+        allow read: if isRunsheetMember(runsheetId) ||
+          // Allow authenticated users to check their own membership
+          (isAuthenticated() && memberEmail == userEmail());
+
+        // CREATE:
+        allow create: if isAuthenticated() && isValidUserDoc() && (
+          // Case 1: Editors/owners can add any user with any role (except owner)
+          (isRunsheetEditor(runsheetId) && request.resource.data.role != 'owner') ||
+
+          // Case 2: Self-enrollment — user adds themselves as viewer only
+          (memberEmail == userEmail() && request.resource.data.role == 'viewer') ||
+
+          // Case 3: Creator adding themselves as owner during runsheet creation
+          // (uses getAfter to check the runsheet doc being created in the same batch)
+          (memberEmail == userEmail() && request.resource.data.role == 'owner' &&
+            getAfter(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles[userEmail()] == 'owner')
+        );
+
+        // UPDATE:
+        allow update: if isAuthenticated() && isValidUserDoc() && (
+          // Only owners can change roles
+          (isRunsheetOwner(runsheetId) &&
+            // Cannot change the owner's own role document to non-owner
+            // (prevents owner from accidentally demoting themselves via this path)
+            (memberEmail != userEmail() || request.resource.data.role == 'owner')) ||
+
+          // Self-healing: a user can update their own doc if role stays the same
+          (memberEmail == userEmail() && fieldUnchanged('role'))
+        );
+
+        // DELETE: Only editors/owners can remove users (but not the owner)
+        allow delete: if isRunsheetEditor(runsheetId) &&
+          // Cannot remove the owner
+          resource.data.role != 'owner';
+      }
+
+
+      // =============================================================
+      // Subcollection: runsheets/{id}/programme
+      // =============================================================
+      match /programme/{itemId} {
+
+        function isValidProgrammeItem() {
+          let data = request.resource.data;
+          return hasOnlyAllowedFields(['text', 'remarks', 'duration', 'location',
+              'links', 'orderCount', 'originalDuration']) &&
+            (!('text' in data) || (data.text is string && data.text.size() <= 1000)) &&
+            (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 10000)) &&
+            (!('duration' in data) || data.duration is number) &&
+            (!('location' in data) || (data.location is string && data.location.size() <= 500)) &&
+            (!('links' in data) || (data.links is list && data.links.size() <= 20)) &&
+            (!('orderCount' in data) || data.orderCount is number) &&
+            (!('originalDuration' in data) || data.originalDuration is number);
+        }
+
+        // READ: Anyone can read programme items (supports print page
+        // and unauthenticated runsheet viewing)
+        allow read: if true;
+
+        // CREATE: Only editors can add items
+        allow create: if isRunsheetEditor(runsheetId) && isValidProgrammeItem();
+
+        // UPDATE: Editors can update all fields; Ops can only update duration fields
+        allow update: if isValidProgrammeItem() && (
+          isRunsheetEditor(runsheetId) ||
+          // Ops: can only change duration and originalDuration (for logging transitions)
+          (isRunsheetOps(runsheetId) &&
+            onlyTheseFieldsChanged(['duration', 'originalDuration']))
+        );
+
+        // DELETE: Only editors can delete items
+        allow delete: if isRunsheetEditor(runsheetId);
+      }
+    }
+
+
+    // ===============================================================
+    // Collection: users/{email}/runsheets (personal references)
+    // ===============================================================
+    match /users/{userEmailId}/runsheets/{runsheetId} {
+
+      function isValidUserRunsheetRef() {
+        let data = request.resource.data;
+        return hasRequiredFields(['id']) &&
+          hasOnlyAllowedFields(['id', 'role', 'sharedBy', 'sharedAt']) &&
+          data.id is string && data.id.size() <= 100 &&
+          data.id == runsheetId &&
+          (!('role' in data) || (data.role is string && isValidRole(data.role))) &&
+          (!('sharedBy' in data) || (data.sharedBy is string && data.sharedBy.size() <= 200)) &&
+          (!('sharedAt' in data) || (data.sharedAt is string && data.sharedAt.size() <= 50));
+      }
+
+      // READ: Users can only read their own personal references
+      allow read: if isAuthenticated() && userEmail() == userEmailId;
+
+      // CREATE: An authenticated user can create a ref in their own collection,
+      // OR an editor can create a ref in another user's collection (sharing)
+      allow create: if isAuthenticated() && isValidUserRunsheetRef() && (
+        // Self-enrollment or runsheet creation
+        userEmail() == userEmailId ||
+        // Editor sharing with another user
+        isRunsheetEditor(runsheetId)
+      );
+
+      // UPDATE: Owner of the ref can update, or an editor on the runsheet
+      allow update: if isAuthenticated() && isValidUserRunsheetRef() && (
+        userEmail() == userEmailId ||
+        isRunsheetEditor(runsheetId)
+      );
+
+      // DELETE: Owner of the ref can delete, or an editor on the runsheet
+      // (for when removing a user from a runsheet)
+      allow delete: if isAuthenticated() && (
+        userEmail() == userEmailId ||
+        isRunsheetEditor(runsheetId)
+      );
+    }
+
+
+    // ===============================================================
+    // Collection: groups
+    // ===============================================================
+    match /groups/{groupId} {
+
+      function isValidGroupCreate() {
+        let data = request.resource.data;
+        return hasRequiredFields(['name', 'createdBy']) &&
+          hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived']) &&
+          data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+          data.createdBy is string && data.createdBy == userEmail() &&
+          (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+          (!('archived' in data) || data.archived is bool);
+      }
+
+      function isValidGroupUpdate() {
+        let data = request.resource.data;
+        return hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived']) &&
+          // createdBy is immutable
+          fieldUnchanged('createdBy') &&
+          (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 200)) &&
+          (!('archived' in data) || data.archived is bool) &&
+          (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50));
+      }
+
+      // Check if user is the group creator
+      function isGroupOwner() {
+        return isAuthenticated() && resource.data.createdBy == userEmail();
+      }
+
+      // READ: Anyone can read group metadata.
+      // This supports the public /group/[token] page which shows group info
+      // and its runsheets without requiring authentication.
+      allow read: if true;
+
+      // CREATE: Any authenticated user can create a group
+      allow create: if isAuthenticated() && isValidGroupCreate();
+
+      // UPDATE: Only the group creator can update
+      allow update: if isGroupOwner() && isValidGroupUpdate();
+
+      // DELETE: Only the group creator can delete
+      allow delete: if isGroupOwner();
+    }
+
+
+    // ===============================================================
+    // Collection: groupTokens (read-only from client)
+    // ===============================================================
+    match /groupTokens/{tokenId} {
+
+      // READ: Anyone can resolve group tokens
+      // This is used by the public /group/[token] page to look up the group
+      allow read: if true;
+
+      // No client-side writes allowed — tokens are managed server-side
+      allow write: if false;
+    }
+
+
+    // ===============================================================
+    // Default deny — catch-all for any unmatched paths
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

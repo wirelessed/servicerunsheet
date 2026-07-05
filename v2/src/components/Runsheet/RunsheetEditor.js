@@ -39,19 +39,37 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import SidebarFooter from './SidebarFooter';
 
 import { useRouter } from 'next/navigation';
 
 const AdvancedGrid = dynamic(() => import('./AdvancedGrid'), { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center bg-card rounded-xl border border-border/50 animate-pulse text-muted-foreground"><span className="material-symbols-outlined text-4xl mb-4 p-4 bg-muted rounded-full">grid_on</span></div> });
 
 export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false, isAuthenticated = true }) {
-    const { user } = useAuth();
+    const { user, logOut } = useAuth();
     const { runsheets, groups, activeFilter, setActiveFilter } = useDashboard();
     const router = useRouter();
     const [items, setItems] = useState(initialProgramme);
     const [timings, setTimings] = useState({});
     const [originalTimings, setOriginalTimings] = useState({});
     const [theme, setTheme] = useState('dark');
+
+    useEffect(() => {
+        const storedTheme = localStorage.getItem('theme');
+        if (storedTheme) {
+            setTheme(storedTheme);
+            document.documentElement.classList.toggle('dark', storedTheme === 'dark');
+        } else {
+            setTheme('dark');
+        }
+    }, []);
+
+    const toggleTheme = () => {
+        const newTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    };
     const [now, setNow] = useState(moment());
     const [clock, setClock] = useState(moment());
     const [isEditor, setIsEditor] = useState(false);
@@ -1090,8 +1108,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             </div>
 
             {/* Bottom section */}
-            <div className="flex flex-col gap-3 px-4 pb-2">
-            </div>
+            <SidebarFooter theme={theme} toggleTheme={toggleTheme} layout="compact" />
         </aside>
     );
 
