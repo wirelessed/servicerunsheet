@@ -317,6 +317,9 @@ export default function RunsheetList() {
             if (!user?.email) return;
 
             if (metadataDialog.data) {
+                const targetRunsheet = runsheets.find(r => r.id === metadataDialog.data.id);
+                if (!targetRunsheet || !targetRunsheet.isEditor) return;
+
                 const runsheetRef = doc(db, 'runsheets', metadataDialog.data.id);
                 const originalRunsheets = [...runsheets];
 
@@ -418,6 +421,9 @@ export default function RunsheetList() {
     };
 
     const handleSetGroup = async (runsheetId, groupId) => {
+        const targetRunsheet = runsheets.find(r => r.id === runsheetId);
+        if (!targetRunsheet || !targetRunsheet.isEditor) return;
+
         const originalRunsheets = [...runsheets];
         try {
             // Optimistic Update
@@ -438,6 +444,9 @@ export default function RunsheetList() {
     const handleRemoveFromGroup = async () => {
         if (!removeFromGroupDialog.runsheet) return;
         const runsheetId = removeFromGroupDialog.runsheet.id;
+        const targetRunsheet = runsheets.find(r => r.id === runsheetId);
+        if (!targetRunsheet || !targetRunsheet.isEditor) return;
+
         const originalRunsheets = [...runsheets];
         try {
             // Optimistic Update
@@ -522,10 +531,12 @@ export default function RunsheetList() {
             alert("Failed to duplicate runsheet.");
         }
     };
-
     const handleDelete = async () => {
         if (!deleteDialog.runsheetId) return;
         const runsheetId = deleteDialog.runsheetId;
+        const targetRunsheet = runsheets.find(r => r.id === runsheetId);
+        if (!targetRunsheet || !targetRunsheet.isEditor) return;
+
         const originalRunsheets = [...runsheets];
         try {
             // Optimistic Update
@@ -547,6 +558,8 @@ export default function RunsheetList() {
     const handleArchiveToggle = async () => {
         if (!archiveDialog.runsheet) return;
         const runsheet = archiveDialog.runsheet;
+        if (!runsheet.isEditor) return;
+
         const newCategory = runsheet.category === 'archive' ? 'active' : 'archive';
         const originalRunsheets = [...runsheets];
         try {

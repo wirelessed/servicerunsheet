@@ -6,6 +6,7 @@ import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore'
 import { db } from '../../../../lib/firebase';
 import moment from 'moment';
 import { QRCodeSVG } from 'qrcode.react';
+import DOMPurify from 'isomorphic-dompurify';
 
 export default function RunsheetPrintPage() {
     const params = useParams();
@@ -221,7 +222,7 @@ export default function RunsheetPrintPage() {
                                         {item.remarks && (
                                             <div
                                                 className="text-[0.8rem] leading-relaxed mt-2 text-gray-700 prose prose-sm max-w-none print:text-gray-800"
-                                                dangerouslySetInnerHTML={{ __html: item.remarks.replace(/\n/g, '<br />') }}
+                                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.remarks.replace(/\n/g, '<br />')) }}
                                             />
                                         )}
                                     </div>

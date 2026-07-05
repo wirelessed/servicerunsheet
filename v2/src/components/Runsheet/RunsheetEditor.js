@@ -29,6 +29,7 @@ import ShareTab from './ShareTab';
 import RunsheetMetadataDialog from './RunsheetMetadataDialog';
 import NotesTab from './NotesTab';
 import ConfirmationDialog from '../ConfirmationDialog';
+import DOMPurify from 'isomorphic-dompurify';
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -218,6 +219,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     const onDragEnd = async (result) => {
         setIsDragging(false);
+        if (!isEditor) return;
         if (!result.destination) return;
         const newItems = reorder(items, result.source.index, result.destination.index);
         setItems(newItems);
@@ -230,6 +232,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const handleAddItem = async (data) => {
+        if (!isEditor) return;
         try {
             let insertIndex = items.length;
             if (currentItem && typeof currentItem.insertAtIndex === 'number') insertIndex = currentItem.insertAtIndex;
@@ -256,6 +259,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const handleEditItem = async (data) => {
+        if (!isEditor) return;
         if (!currentItem || !currentItem.id) return;
         const updatedItems = items.map(item =>
             item.id === currentItem.id ? { ...item, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] } : item
@@ -268,6 +272,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const handleDeleteItem = async () => {
+        if (!isEditor) return;
         if (!deleteItemDialog.itemId) return;
         const newItems = items.filter(item => item.id !== deleteItemDialog.itemId);
         setItems(newItems);
@@ -277,6 +282,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const quickUpdateItem = async (itemId, updates) => {
+        if (!isEditor && userRole !== 'ops') return;
         // For local state: strip null values so fields are removed from the object entirely
         const localUpdates = Object.fromEntries(
             Object.entries(updates).filter(([, v]) => v !== null)
@@ -395,6 +401,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     };
 
     const handleMetadataUpdate = async (formData) => {
+        if (!isEditor) return;
         setIsMetadataDialogOpen(false);
         try {
             await updateDoc(doc(db, 'runsheets', runsheet.id), { name: formData.name, date: formData.date, time: formData.time, lastUpdated: moment().format() });
@@ -740,7 +747,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                                                                     {!isDragging && mode !== 'reorder' && item.remarks && (
                                                                         <div
                                                                             className={`text-sm leading-relaxed mt-2 relative z-10 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-p:min-h-[1em] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0.5 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal ${isHighlighted ? 'text-foreground/80' : 'text-muted-foreground'}`}
-                                                                            dangerouslySetInnerHTML={{ __html: item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />') }}
+                                                                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.remarks.includes('<') ? item.remarks : item.remarks.replace(/\n/g, '<br />')) }}
                                                                         />
                                                                     )}
 

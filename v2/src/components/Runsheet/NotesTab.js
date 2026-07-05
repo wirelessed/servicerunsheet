@@ -4,6 +4,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Button } from "@/components/ui/button";
 import dynamic from 'next/dynamic';
+import DOMPurify from 'isomorphic-dompurify';
 
 const MinimalTiptapEditor = dynamic(
     () => import('@/components/ui/minimal-tiptap/minimal-tiptap').then(mod => mod.MinimalTiptapEditor),
@@ -76,7 +77,7 @@ export default function NotesTab({ runsheet, isEditor, mode }) {
                         {notes ? (
                             <div
                                 className="prose prose-sm md:prose-base max-w-none dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1 prose-a:text-primary prose-a:underline-offset-[3px] hover:prose-a:text-primary/80 prose-ul:list-disc prose-ol:list-decimal"
-                                dangerouslySetInnerHTML={{ __html: notes }}
+                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notes) }}
                             />
                         ) : (
                             <div className="text-center text-muted-foreground mt-4 py-12 border-2 border-dashed border-border/50 rounded-xl bg-muted/20">
