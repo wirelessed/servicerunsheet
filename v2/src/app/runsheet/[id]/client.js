@@ -21,7 +21,7 @@ export default function RunsheetPage() {
     // Resolve the real ID from params or URL
     useEffect(() => {
         let currentId = params?.id;
-        if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D') {
+        if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D' || currentId === '[id]') {
             const segments = window.location.pathname.split('/');
             const runsheetIndex = segments.indexOf('runsheet');
             if (runsheetIndex !== -1 && segments.length > runsheetIndex + 1) {
