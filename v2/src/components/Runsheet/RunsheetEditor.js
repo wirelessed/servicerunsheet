@@ -1073,6 +1073,8 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         </div>
                     </div>
                 )}
+                {!effectiveListSidebarOpen && <div className="flex-1" />}
+                <SidebarFooter theme={theme} toggleTheme={toggleTheme} layout={effectiveListSidebarOpen ? "full" : "compact"} />
             </aside>
         );
     };
@@ -1113,9 +1115,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     </button>
                 </div>
             </div>
-
-            {/* Bottom section */}
-            <SidebarFooter theme={theme} toggleTheme={toggleTheme} layout="compact" />
         </aside>
     );
 
