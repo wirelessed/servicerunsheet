@@ -239,7 +239,7 @@ function PublicGroupView({ id }) {
                                     return (
                                         <Link
                                             key={rs.id}
-                                            href={`/runsheet/${rs.id}?fromGroup=true`}
+                                            href={`/runsheet/${rs.id}`}
                                             className="flex items-center gap-4 p-4 rounded-2xl bg-background border border-border/50 hover:border-primary/30 hover:shadow-md transition-all group"
                                         >
                                             <div className={`

@@ -106,16 +106,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             localStorage.setItem('runsheetListSidebarOpen', isListSidebarOpen);
         }
     }, [isListSidebarOpen, isSidebarInitialized]);
-    const [fromGroup, setFromGroup] = useState(false);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('fromGroup') === 'true') {
-                setFromGroup(true);
-            }
-        }
-    }, []);
     // Dialogs
     const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
@@ -536,7 +526,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     // ── Mobile header ──
     const renderMobileHeader = () => {
-        const showBackButton = !!user || fromGroup;
+        const showBackButton = !!user || !!runsheet?.groupId;
         return (
             <header className="md:hidden sticky top-0 z-50 bg-background border-b border-border/30 px-3 pt-3 pb-2">
                 <div className="flex items-center justify-between">
@@ -983,7 +973,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         });
         const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
 
-        const showBackButton = !!user || fromGroup;
+        const showBackButton = !!user || !!runsheet?.groupId;
 
         return (
             <aside className={`hidden md:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${effectiveListSidebarOpen ? 'w-[200px] lg:w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[80px]'}`}>
