@@ -53,9 +53,11 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
     const [newEmail, setNewEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [removeConfirm, setRemoveConfirm] = useState({ open: false, email: null });
+    const [loadingLink, setLoadingLink] = useState(true);
 
     useEffect(() => {
         if (!runsheetId) return;
+        setLoadingLink(true);
 
         const checkToken = async () => {
             let token = runsheet?.shareToken;
@@ -79,6 +81,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
             } else {
                 setShareUrl(`${origin}/share/${runsheetId}`);
             }
+            setLoadingLink(false);
         };
 
         checkToken();
@@ -288,9 +291,11 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Viewing Link</h4>
                     <div className="flex items-center gap-2">
                         <Input
-                            value={shareUrl}
+                            value={loadingLink ? '' : shareUrl}
+                            placeholder={loadingLink ? 'Generating link...' : ''}
                             readOnly
                             className="bg-muted/60 focus-visible:ring-0 text-sm rounded-xl"
+                            disabled={loadingLink}
                         />
                         <Button
                             size="icon"
@@ -298,16 +303,22 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                             variant={copied ? 'outline' : 'default'}
                             className="shrink-0 rounded-xl"
                             title="Copy Link"
+                            disabled={loadingLink}
                         >
-                            {copied
-                                ? <CheckIcon className="h-4 w-4 text-green-500" />
-                                : <ContentCopyIcon className="h-4 w-4" />}
+                            {loadingLink ? (
+                                <div className="w-4 h-4 rounded-full border-2 border-muted border-t-foreground animate-spin" />
+                            ) : copied ? (
+                                <CheckIcon className="h-4 w-4 text-green-500" />
+                            ) : (
+                                <ContentCopyIcon className="h-4 w-4" />
+                            )}
                         </Button>
                     </div>
                     <Button
                         onClick={handleShareWhatsApp}
                         variant="outline"
                         className="w-full rounded-xl gap-2 bg-muted border text-emerald-700 hover:bg-muted/80 border-emerald-700/20 dark:bg-transparent dark:text-[#25D366] dark:border-[#25D366]/30 dark:hover:bg-[#25D366]/10"
+                        disabled={loadingLink}
                     >
                         <WhatsAppIcon className="h-4 w-4" />
                         Share via WhatsApp
@@ -316,6 +327,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                         onClick={handleExportPDF}
                         variant="outline"
                         className="w-full rounded-xl gap-2 bg-muted border text-foreground hover:bg-muted/80 border-border dark:bg-transparent dark:text-primary dark:border-primary/30 dark:hover:bg-primary/10"
+                        disabled={loadingLink}
                     >
                         <PrintIcon className="h-4 w-4" />
                         Export as PDF
@@ -324,6 +336,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
                         onClick={handleSharePlainText}
                         variant="outline"
                         className="w-full rounded-xl gap-2 bg-muted border text-foreground hover:bg-muted/80 border-border dark:bg-transparent dark:text-primary dark:border-primary/30 dark:hover:bg-primary/10"
+                        disabled={loadingLink}
                     >
                         <NotesIcon className="h-4 w-4" />
                         Share as Plain Text

@@ -23,10 +23,13 @@ import { doc, getDoc, writeBatch } from 'firebase/firestore';
 export default function ShareGroupDialog({ open, onClose, group }) {
     const [shareUrl, setShareUrl] = useState('');
     const [copied, setCopied] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!open || !group) return;
+        setShareUrl('');
         setCopied(false);
+        setLoading(true);
 
         const checkGroupToken = async () => {
             const groupRef = doc(db, 'groups', group.id);
@@ -56,6 +59,8 @@ export default function ShareGroupDialog({ open, onClose, group }) {
             } catch (err) {
                 console.error("Failed to check or generate group share token", err);
                 setShareUrl(`${window.location.origin}/group/${group.id}`);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -63,7 +68,7 @@ export default function ShareGroupDialog({ open, onClose, group }) {
     }, [open, group]);
 
     const handleCopy = () => {
-        if (!shareUrl) return;
+        if (!shareUrl || loading) return;
         navigator.clipboard.writeText(shareUrl);
         setCopied(true);
         setTimeout(() => setCopied(false), 2500);
@@ -85,24 +90,30 @@ export default function ShareGroupDialog({ open, onClose, group }) {
                     </p>
 
                     <div className="flex gap-2 mt-2">
-
-                            <Input
-                                value={shareUrl}
-                                readOnly
-                                className="rounded-xl text-sm bg-muted/40 border-border/60 font-mono"
-                                onClick={(e) => e.target.select()}
-                            />
-                            <Button
-                                onClick={handleCopy}
-                                className="rounded-xl shrink-0 gap-1.5"
-                                variant={copied ? 'outline' : 'default'}
-                            >
+                        <Input
+                            value={loading ? '' : shareUrl}
+                            placeholder={loading ? 'Generating link...' : ''}
+                            readOnly
+                            className="rounded-xl text-sm bg-muted/40 border-border/60 font-mono"
+                            onClick={(e) => !loading && e.target.select()}
+                            disabled={loading}
+                        />
+                        <Button
+                            onClick={handleCopy}
+                            className="rounded-xl shrink-0 gap-1.5"
+                            variant={copied ? 'outline' : 'default'}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <div className="w-4 h-4 rounded-full border-2 border-muted border-t-background animate-spin" />
+                            ) : (
                                 <span className="material-symbols-outlined text-[16px]">
                                     {copied ? 'check' : 'content_copy'}
                                 </span>
-                                {copied ? 'Copied!' : 'Copy'}
-                            </Button>
-                        </div>
+                            )}
+                            {loading ? '...' : copied ? 'Copied!' : 'Copy'}
+                        </Button>
+                    </div>
                     <Button
                         onClick={() => {
                             const text = `Check out this runsheet group: ${group?.name}`;
@@ -110,11 +121,12 @@ export default function ShareGroupDialog({ open, onClose, group }) {
                         }}
                         variant="outline"
                         className="w-full rounded-xl gap-2 bg-muted border text-emerald-700 hover:bg-muted/80 border-emerald-700/20 dark:bg-transparent dark:text-[#25D366] dark:border-[#25D366]/30 dark:hover:bg-[#25D366]/10"
+                        disabled={loading}
                     >
                         <WhatsAppIcon className="h-4 w-4" />
                         Share Group to Whatsapp
                     </Button>
-                    </div>
+                </div>
             </DialogContent>
         </Dialog>
     );

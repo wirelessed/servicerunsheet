@@ -42,6 +42,10 @@ export const AuthContextProvider = ({ children }) => {
     const logOut = async () => {
         try {
             await signOut(auth);
+            if (typeof window !== 'undefined') {
+                localStorage.clear();
+                sessionStorage.clear();
+            }
             router.push('/');
         } catch (error) {
             console.error("Error signing out", error);

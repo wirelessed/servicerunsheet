@@ -51,7 +51,11 @@ export default function GroupPageClient() {
             try {
                 const tokenDoc = await getDoc(doc(db, 'groupTokens', rawToken));
                 if (tokenDoc.exists()) {
-                    setResolvedGroupId(tokenDoc.data().groupId);
+                    const resolvedId = tokenDoc.data().groupId;
+                    setResolvedGroupId(resolvedId);
+                    if (typeof window !== 'undefined') {
+                        sessionStorage.setItem(`groupToken_${resolvedId}`, rawToken);
+                    }
                 } else {
                     const groupDoc = await getDoc(doc(db, 'groups', rawToken));
                     if (groupDoc.exists()) {

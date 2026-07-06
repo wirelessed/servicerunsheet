@@ -376,9 +376,30 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         });
     };
 
-    const handleBackToDashboard = () => {
+    const handleBackToDashboard = async () => {
         if (!user && runsheet?.groupId) {
-            // Logged-out user viewing a group's runsheet → go to public group page
+            const cachedToken = typeof window !== 'undefined' ? sessionStorage.getItem(`groupToken_${runsheet.groupId}`) : null;
+            if (cachedToken) {
+                router.replace(`/group/${cachedToken}`);
+                return;
+            }
+
+            try {
+                const groupSnap = await getDoc(doc(db, 'groups', runsheet.groupId));
+                if (groupSnap.exists()) {
+                    const groupData = groupSnap.data();
+                    if (groupData.shareToken) {
+                        if (typeof window !== 'undefined') {
+                            sessionStorage.setItem(`groupToken_${runsheet.groupId}`, groupData.shareToken);
+                        }
+                        router.replace(`/group/${groupData.shareToken}`);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch group shareToken for back navigation", e);
+            }
+
             router.replace(`/group/${runsheet.groupId}`);
             return;
         }
