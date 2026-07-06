@@ -125,29 +125,34 @@ service cloud.firestore {
 
     // Check if user is the runsheet owner
     function isRunsheetOwner(runsheetId) {
-      return isAuthenticated() &&
-        hasUserRole(runsheetId, userEmail()) &&
-        getUserRole(runsheetId, userEmail()) == 'owner';
+      return isAuthenticated() && (
+        (hasUserRole(runsheetId, userEmail()) && getUserRole(runsheetId, userEmail()) == 'owner') ||
+        (get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) == 'owner')
+      );
     }
 
     // Check if user is an editor (owner or editor role)
     function isRunsheetEditor(runsheetId) {
-      return isAuthenticated() &&
-        hasUserRole(runsheetId, userEmail()) &&
-        getUserRole(runsheetId, userEmail()) in ['owner', 'editor'];
+      return isAuthenticated() && (
+        (hasUserRole(runsheetId, userEmail()) && getUserRole(runsheetId, userEmail()) in ['owner', 'editor']) ||
+        (get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) in ['owner', 'editor'])
+      );
     }
 
     // Check if user is ops
     function isRunsheetOps(runsheetId) {
-      return isAuthenticated() &&
-        hasUserRole(runsheetId, userEmail()) &&
-        getUserRole(runsheetId, userEmail()) == 'ops';
+      return isAuthenticated() && (
+        (hasUserRole(runsheetId, userEmail()) && getUserRole(runsheetId, userEmail()) == 'ops') ||
+        (get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) == 'ops')
+      );
     }
 
     // Check if user is a member (any role)
     function isRunsheetMember(runsheetId) {
-      return isAuthenticated() &&
-        hasUserRole(runsheetId, userEmail());
+      return isAuthenticated() && (
+        hasUserRole(runsheetId, userEmail()) ||
+        userEmail() in get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).keys()
+      );
     }
 
     // ===============================================================
