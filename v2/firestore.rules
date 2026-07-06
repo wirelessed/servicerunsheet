@@ -75,7 +75,7 @@ service cloud.firestore {
 
     // Get the authenticated user's email
     function userEmail() {
-      return request.auth.token.email;
+      return request.auth.token.email.lower();
     }
 
     // Validate required fields exist in the incoming data
