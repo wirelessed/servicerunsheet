@@ -275,10 +275,10 @@ export default function RunsheetList() {
         if (user) {
             const isMigrationDoneOrNotNeeded = migrationState.status === 'none';
             if (isMigrationDoneOrNotNeeded) {
-                const hasSeenWhatsNew = localStorage.getItem('hasSeenWhatsNew_v2');
+                const hasSeenWhatsNew = localStorage.getItem('hasSeenWhatsNew_v4.1');
                 if (!hasSeenWhatsNew) {
                     setWhatsNewDialog(true);
-                    localStorage.setItem('hasSeenWhatsNew_v2', 'true');
+                    localStorage.setItem('hasSeenWhatsNew_v4.1', 'true');
                 }
             }
         }

@@ -112,9 +112,9 @@ export default function GroupPageClient() {
                 <div className="w-16 h-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
                     <span className="material-symbols-outlined text-3xl">warning</span>
                 </div>
-                <h1 className="text-3xl font-extrabold tracking-tighter text-foreground">Old Group Share Link</h1>
+                <h1 className="text-3xl font-extrabold tracking-tighter text-foreground">Expired Group Share Link</h1>
                 <p className="text-muted-foreground max-w-sm">
-                    This is an old group share link. Please request a new link from the creator.
+                    This link has expired. Please request for a new link from the runsheet owner.
                 </p>
                 <button
                     onClick={() => router.push('/')}
@@ -125,7 +125,7 @@ export default function GroupPageClient() {
             </div>
         );
     }
- 
+
     // ── AUTH LOADING ──
     if (authLoading) {
         return (
@@ -161,7 +161,7 @@ function PublicGroupView({ id }) {
 
         const cacheKeyGroup = `public_group_${id}`;
         const cacheKeyRunsheets = `public_group_runsheets_${id}`;
-        
+
         let hasCache = false;
         try {
             const cachedGroup = localStorage.getItem(cacheKeyGroup);
@@ -272,7 +272,7 @@ function PublicGroupView({ id }) {
                             <p className="font-semibold">No runsheets in this group yet.</p>
                         </div>
                     )}
-                    
+
                     {sortedKeys.map(groupKey => (
                         <div key={groupKey} className="mb-2">
                             {/* Month header */}

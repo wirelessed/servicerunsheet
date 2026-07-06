@@ -62,7 +62,7 @@ export default function SharePage() {
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    
+
                     // Validate token
                     const runsheetToken = data.shareToken;
                     if (!token || !runsheetToken || token !== runsheetToken) {
@@ -182,9 +182,9 @@ export default function SharePage() {
                 <div className="w-16 h-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
                     <span className="material-symbols-outlined text-3xl">warning</span>
                 </div>
-                <h1 className="text-3xl font-extrabold tracking-tighter text-foreground">Old or Invalid Share Link</h1>
+                <h1 className="text-3xl font-extrabold tracking-tighter text-foreground">Expired Share Link</h1>
                 <p className="text-muted-foreground max-w-sm">
-                    This share link is missing a valid security token or has expired. Please request a new share link from the runsheet owner.
+                    This link has expired. Please request for a new link from the runsheet owner.
                 </p>
                 <Button onClick={() => router.push('/')} variant="outline" className="rounded-xl mt-2">
                     Go Home
@@ -214,7 +214,7 @@ export default function SharePage() {
     return (
         <div className="flex flex-col min-h-screen">
             {!user && <LoginBanner message="Log in to save this runsheet" />}
-            
+
             {enrolled && (
                 <div className="container mx-auto px-4 mt-4 max-w-7xl">
                     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold shadow-sm">

@@ -19,6 +19,8 @@ export default function RunsheetPage() {
     const [notFound, setNotFound] = useState(false);
     const accessCheckedRef = useRef({ id: null, email: null });
 
+    const [accessDenied, setAccessDenied] = useState(false);
+
     // Resolve the real ID from params or URL
     useEffect(() => {
         let currentId = params?.id;
@@ -32,13 +34,55 @@ export default function RunsheetPage() {
         setId(currentId);
     }, [params, pathname]);
 
+    // Client-side access gating
+    useEffect(() => {
+        if (authLoading || !runsheet) return;
+
+        let hasAccess = false;
+
+        // 1. Logged in member
+        if (user?.email && runsheet.memberEmails?.includes(user.email)) {
+            hasAccess = true;
+        }
+
+        // 2. Query param ?token=
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token');
+            if (urlToken && runsheet.shareToken && urlToken === runsheet.shareToken) {
+                hasAccess = true;
+                sessionStorage.setItem(`runsheetToken_${runsheet.id}`, urlToken);
+            }
+
+            // 3. sessionStorage runsheet token
+            const cachedToken = sessionStorage.getItem(`runsheetToken_${runsheet.id}`);
+            if (cachedToken && runsheet.shareToken && cachedToken === runsheet.shareToken) {
+                hasAccess = true;
+            }
+
+            // 4. sessionStorage group token
+            if (runsheet.groupId) {
+                const cachedGroupToken = sessionStorage.getItem(`groupToken_${runsheet.groupId}`);
+                if (cachedGroupToken) {
+                    hasAccess = true;
+                }
+            }
+        }
+
+        if (!hasAccess) {
+            setAccessDenied(true);
+        } else {
+            setAccessDenied(false);
+        }
+    }, [runsheet, user, authLoading]);
+
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
 
         // ── Phase 1: Runsheet metadata ──
         let metaSnapshotFired = false;
         let notFoundTimer = null;
-        
+
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
             if (docSnap.exists()) {
                 if (notFoundTimer) clearTimeout(notFoundTimer);
@@ -113,6 +157,28 @@ export default function RunsheetPage() {
                 </div>
                 <p className="text-base font-semibold text-foreground">Runsheet not found</p>
                 <p className="text-sm text-muted-foreground">The runsheet you&apos;re looking for doesn&apos;t exist.</p>
+            </div>
+        );
+    }
+
+    if (accessDenied) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 gap-6">
+                <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive">
+                    <span className="material-symbols-outlined text-3xl">lock</span>
+                </div>
+                <div className="text-center space-y-2 max-w-sm">
+                    <h2 className="text-xl font-bold text-foreground">Expired Share Link</h2>
+                    <p className="text-sm text-muted-foreground">
+                        This link has expired. Please request for a new link from the runsheet owner.
+                    </p>
+                </div>
+                <button
+                    onClick={() => { window.location.href = '/upcoming'; }}
+                    className="inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-6 gap-2 cursor-pointer"
+                >
+                    Back to Dashboard
+                </button>
             </div>
         );
     }
