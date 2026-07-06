@@ -1,6 +1,6 @@
 {
   "name": "v4",
-  "version": "4.1.42",
+  "version": "4.1.43",
   "private": true,
   "scripts": {
     "dev": "next dev",

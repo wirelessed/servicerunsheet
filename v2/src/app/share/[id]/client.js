@@ -10,6 +10,7 @@ import moment from 'moment';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import RunsheetEditor from '../../../components/Runsheet/RunsheetEditor';
 
 export default function SharePage() {
     const params = useParams();
@@ -210,61 +211,25 @@ export default function SharePage() {
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-muted/30">
+        <div className="flex flex-col min-h-screen">
             {!user && <LoginBanner message="Log in to save this runsheet" />}
             
-            {user && (
-                <div className="container mx-auto px-4 mt-6 max-w-4xl">
-                    <button
-                        onClick={handleBackToDashboard}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                    >
-                        <ArrowBackIcon style={{ fontSize: 14 }} />
-                        Dashboard
-                    </button>
-                </div>
-            )}
-
-            <div className="container mx-auto px-4 mt-8 mb-20 max-w-4xl">
-                {/* Enrolled badge */}
-                {enrolled && (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold">
+            {enrolled && (
+                <div className="container mx-auto px-4 mt-4 max-w-7xl">
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold shadow-sm">
                         <span className="material-symbols-outlined text-[18px]">check_circle</span>
                         Saved to your runsheet list!
                     </div>
-                )}
-                <div className="mb-12 text-center space-y-2">
-                    <h1 className="text-5xl font-extrabold tracking-tighter">{runsheet.name}</h1>
-                    <p className="text-xl text-muted-foreground font-semibold">
-                        {moment(runsheet.date).format("dddd, D MMMM YYYY")}
-                    </p>
                 </div>
+            )}
 
-                <Card className="shadow-2xl border-none overflow-hidden bg-background">
-                    <CardContent className="p-0">
-                        <div className="flex flex-col">
-                            {programme.map((item, index) => (
-                                <div key={item.id}>
-                                    <div className="flex items-start p-8 group hover:bg-muted/10 transition-colors">
-                                        <div className="min-w-[110px] mr-8 text-right flex-shrink-0">
-                                            <p className="font-black text-xl text-primary tracking-tighter">
-                                                {timings[item.id]}
-                                            </p>
-                                            <p className="text-[10px] font-bold text-muted-foreground/60 tracking-widest uppercase">
-                                                {item.duration} MIN
-                                            </p>
-                                        </div>
-                                        <div className="flex-grow">
-                                            <p className="text-2xl font-bold tracking-tight mb-2 text-foreground/90">{item.text}</p>
-                                            <p className="text-muted-foreground text-sm leading-relaxed font-medium whitespace-pre-line italic">{item.remarks}</p>
-                                        </div>
-                                    </div>
-                                    {index < programme.length - 1 && <Separator className="bg-muted" />}
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="flex-1">
+                <RunsheetEditor
+                    runsheet={runsheet}
+                    items={programme}
+                    timings={timings}
+                    mode="view"
+                />
             </div>
         </div>
     );
