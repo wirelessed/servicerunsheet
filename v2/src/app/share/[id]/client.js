@@ -226,9 +226,9 @@ export default function SharePage() {
             <div className="flex-1">
                 <RunsheetEditor
                     runsheet={runsheet}
-                    items={programme}
-                    timings={timings}
-                    mode="view"
+                    initialProgramme={programme}
+                    programmeLoading={false}
+                    isAuthenticated={!!user}
                 />
             </div>
         </div>
