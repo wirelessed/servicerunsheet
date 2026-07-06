@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -33,6 +33,17 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
     const [isLoading, setIsLoading] = useState(false);
     const [currentUserIsEditor, setCurrentUserIsEditor] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, email: null });
+    const [loading, setLoading] = useState(true);
+    const hasAttemptedRef = useRef(false);
+
+    useEffect(() => {
+        if (!open) {
+            setShareUrl('');
+            setCopied(false);
+            setLoading(true);
+            hasAttemptedRef.current = false;
+        }
+    }, [open]);
 
     useEffect(() => {
         if (!open || !runsheetId) return;
@@ -47,14 +58,19 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                     const data = snap.data();
                     let token = data.shareToken;
 
-                    if (!token) {
+                    if (!token && !hasAttemptedRef.current) {
+                        hasAttemptedRef.current = true;
                         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                         let newToken = '';
                         for (let i = 0; i < 6; i++) {
                             newToken += chars.charAt(Math.floor(Math.random() * chars.length));
                         }
-                        await updateDoc(runsheetRef, { shareToken: newToken });
-                        token = newToken;
+                        try {
+                            await updateDoc(runsheetRef, { shareToken: newToken });
+                            token = newToken;
+                        } catch (e) {
+                            console.error("Failed to generate runsheet token in ShareDialog", e);
+                        }
                     }
 
                     if (token) {
@@ -65,12 +81,16 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                 }
             } catch (err) {
                 console.error("Error checking runsheet share token", err);
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
             }
         };
 
         checkToken();
         return () => { active = false; };
-    }, [open, runsheetId, currentUserIsEditor, origin]);
+    }, [open, runsheetId, origin]);
 
     useEffect(() => {
         if (!open || !runsheetId) return;
@@ -185,15 +205,36 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                         <div className="space-y-2.5">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Viewing Link</h4>
                             <div className="flex items-center gap-2">
-                                <Input value={shareUrl} readOnly className="bg-muted/60 focus-visible:ring-0 text-sm rounded-xl" />
-                                <Button size="icon" onClick={copyToClipboard} variant={copied ? "outline" : "default"} className="shrink-0 rounded-xl" title="Copy Link">
-                                    {copied ? <CheckIcon className="h-4 w-4 text-success" /> : <ContentCopyIcon className="h-4 w-4" />}
+                                <Input
+                                    value={loading ? '' : shareUrl}
+                                    placeholder={loading ? 'Generating link...' : ''}
+                                    readOnly
+                                    className="bg-muted/60 focus-visible:ring-0 text-sm rounded-xl font-mono"
+                                    onClick={(e) => !loading && e.target.select()}
+                                    disabled={loading}
+                                />
+                                <Button
+                                    size="icon"
+                                    onClick={copyToClipboard}
+                                    variant={copied ? "outline" : "default"}
+                                    className="shrink-0 rounded-xl"
+                                    title="Copy Link"
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <div className="w-4 h-4 rounded-full border-2 border-muted border-t-background animate-spin" />
+                                    ) : copied ? (
+                                        <CheckIcon className="h-4 w-4 text-success" />
+                                    ) : (
+                                        <ContentCopyIcon className="h-4 w-4" />
+                                    )}
                                 </Button>
                             </div>
                             <Button
                                 onClick={handleShareWhatsApp}
                                 variant="outline"
                                 className="w-full rounded-xl gap-2 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                                disabled={loading}
                             >
                                 <WhatsAppIcon className="h-4 w-4" />
                                 Share via WhatsApp
@@ -202,6 +243,7 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                                 onClick={handleExportPDF}
                                 variant="outline"
                                 className="w-full rounded-xl gap-2 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary"
+                                disabled={loading}
                             >
                                 <PrintIcon className="h-4 w-4" />
                                 Export as PDF

@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 
 const GroupDialog = dynamic(() => import('./GroupDialog'), { ssr: false });
 const ShareGroupDialog = dynamic(() => import('./ShareGroupDialog'), { ssr: false });
+const ShareDialog = dynamic(() => import('./ShareDialog'), { ssr: false });
 const WhatsNewDialog = dynamic(() => import('./WhatsNewDialog'), { ssr: false });
 
 import { useDashboard } from '../../context/DashboardContext';
@@ -84,6 +85,7 @@ export default function RunsheetList() {
     const [removeFromGroupDialog, setRemoveFromGroupDialog] = useState({ open: false, runsheet: null });
     const [groupDialog, setGroupDialog] = useState({ open: false, runsheet: null });
     const [shareGroupDialog, setShareGroupDialog] = useState({ open: false, group: null });
+    const [shareDialog, setShareDialog] = useState({ open: false, runsheetId: null, runsheetName: null });
     const [whatsNewDialog, setWhatsNewDialog] = useState(false);
     const [renameGroupDialog, setRenameGroupDialog] = useState({ open: false, groupId: null, currentName: '' });
     const [archiveGroupDialog, setArchiveGroupDialog] = useState({ open: false, groupId: null });
@@ -739,26 +741,9 @@ export default function RunsheetList() {
                                                         Duplicate
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                     <DropdownMenuItem onClick={() => {
-                                                         const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                         const shareUrl = runsheet.shareToken
-                                                             ? `${origin}/share/${runsheet.id}?token=${runsheet.shareToken}`
-                                                             : `${origin}/share/${runsheet.id}`;
-                                                         navigator.clipboard.writeText(shareUrl);
-                                                     }}>
-                                                         <span className="material-symbols-outlined text-base mr-2">link</span>
-                                                         Copy Link
-                                                     </DropdownMenuItem>
-                                                     <DropdownMenuItem onClick={() => {
-                                                         const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                         const shareUrl = runsheet.shareToken
-                                                             ? `${origin}/share/${runsheet.id}?token=${runsheet.shareToken}`
-                                                             : `${origin}/share/${runsheet.id}`;
-                                                         const text = `Check out this runsheet: ${runsheet.name}`;
-                                                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
-                                                     }}>
-                                                         <WhatsAppIcon className="mr-2" style={{ fontSize: '24px' }} />
-                                                         Share Link to Whatsapp
+                                                     <DropdownMenuItem onClick={() => setShareDialog({ open: true, runsheetId: runsheet.id, runsheetName: runsheet.name })}>
+                                                         <span className="material-symbols-outlined text-base mr-2">share</span>
+                                                         Share
                                                      </DropdownMenuItem>
                                                     {runsheet.isEditor && (
                                                         <>
@@ -1692,6 +1677,13 @@ export default function RunsheetList() {
                         open={shareGroupDialog.open}
                         onClose={() => setShareGroupDialog({ open: false, group: null })}
                         group={shareGroupDialog.group}
+                    />
+
+                    <ShareDialog
+                        open={shareDialog.open}
+                        onClose={() => setShareDialog({ open: false, runsheetId: null, runsheetName: null })}
+                        runsheetId={shareDialog.runsheetId}
+                        runsheetName={shareDialog.runsheetName}
                     />
 
                     <WhatsNewDialog
