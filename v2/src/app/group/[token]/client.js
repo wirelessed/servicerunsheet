@@ -1,5 +1,5 @@
 'use client';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, getDocs, query, where, collection, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -15,18 +15,17 @@ export default function GroupPageClient() {
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const pathname = usePathname();
     const { user, loading: authLoading } = useAuth();
 
     let rawSegment = params?.token;
     if (!rawSegment || rawSegment === 'fallback' || rawSegment === '[token]' || rawSegment === '%5Btoken%5D') {
-        if (typeof window !== 'undefined') {
-            const segments = window.location.pathname.split('/');
-            const groupIndex = segments.indexOf('group');
-            if (groupIndex !== -1 && segments.length > groupIndex + 1) {
-                const t = segments[groupIndex + 1];
-                if (t && t !== 'fallback' && t !== '[token]') {
-                    rawSegment = decodeURIComponent(t);
-                }
+        const segments = pathname.split('/');
+        const groupIndex = segments.indexOf('group');
+        if (groupIndex !== -1 && segments.length > groupIndex + 1) {
+            const t = segments[groupIndex + 1];
+            if (t && t !== 'fallback' && t !== '[token]') {
+                rawSegment = decodeURIComponent(t);
             }
         }
     }

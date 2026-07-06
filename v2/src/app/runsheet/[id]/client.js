@@ -1,5 +1,5 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, collection, query, orderBy, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -9,6 +9,7 @@ import RunsheetEditor from '../../../components/Runsheet/RunsheetEditor';
 
 export default function RunsheetPage() {
     const params = useParams();
+    const pathname = usePathname();
     const { user, loading: authLoading } = useAuth();
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
@@ -22,14 +23,14 @@ export default function RunsheetPage() {
     useEffect(() => {
         let currentId = params?.id;
         if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D' || currentId === '[id]') {
-            const segments = window.location.pathname.split('/');
+            const segments = pathname.split('/');
             const runsheetIndex = segments.indexOf('runsheet');
             if (runsheetIndex !== -1 && segments.length > runsheetIndex + 1) {
                 currentId = segments[runsheetIndex + 1];
             }
         }
         setId(currentId);
-    }, [params]);
+    }, [params, pathname]);
 
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
@@ -56,6 +57,10 @@ export default function RunsheetPage() {
                 metaSnapshotFired = true;
                 setMetaLoading(false);
             }
+        }, (error) => {
+            console.error("Runsheet metadata listener error:", error);
+            setNotFound(true);
+            setMetaLoading(false);
         });
 
         // ── Phase 2: Programme items (independent) ──
@@ -68,6 +73,9 @@ export default function RunsheetPage() {
                 programmeSnapshotFired = true;
                 setProgrammeLoading(false);
             }
+        }, (error) => {
+            console.error("Programme listener error:", error);
+            setProgrammeLoading(false);
         });
 
         // Failsafe timeouts — must be longer than the notFoundTimer (5s)

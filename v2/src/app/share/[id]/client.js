@@ -1,5 +1,5 @@
 'use client';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -15,6 +15,8 @@ import RunsheetEditor from '../../../components/Runsheet/RunsheetEditor';
 export default function SharePage() {
     const params = useParams();
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { user } = useAuth();
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
@@ -36,7 +38,7 @@ export default function SharePage() {
     useEffect(() => {
         let currentId = params?.id;
         if (!currentId || currentId === 'fallback' || currentId === '%5Bid%5D' || currentId === '[id]') {
-            const segments = window.location.pathname.split('/');
+            const segments = pathname.split('/');
             const shareIndex = segments.indexOf('share');
             if (shareIndex !== -1 && segments.length > shareIndex + 1) {
                 currentId = segments[shareIndex + 1];
@@ -44,11 +46,10 @@ export default function SharePage() {
         }
         setId(currentId);
 
-        if (typeof window !== 'undefined') {
-            const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams) {
             setToken(searchParams.get('token'));
         }
-    }, [params]);
+    }, [params, pathname, searchParams]);
 
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
