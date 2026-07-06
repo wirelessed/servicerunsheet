@@ -33,9 +33,9 @@ export default function WhatsNewDialog({ open, onClose }) {
                             <span className="material-symbols-outlined text-xl">security</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-bold text-foreground text-sm tracking-tight leading-snug">New Security Improvements</span>
+                            <span className="font-bold text-foreground text-sm tracking-tight leading-snug">New Sharing Links</span>
                             <span className="text-muted-foreground text-xs font-medium leading-relaxed mt-1">
-                                To ensure security, runsheets and groups must now be shared explicitly using links generated via the Share button. Old runsheet links are no longer supported.
+                                For better security, generate links to runsheets and groups using the Share button. Links generated before 6 July 2026 will no longer work.
                             </span>
                         </div>
                     </div>
@@ -53,7 +53,7 @@ export default function WhatsNewDialog({ open, onClose }) {
                                 keyboard_arrow_down
                             </span>
                         </button>
-                        
+
                         {showPrevious && (
                             <div className="flex flex-col gap-4 mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                 {features.map((feature, index) => (
