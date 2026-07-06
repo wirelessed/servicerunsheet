@@ -245,7 +245,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             let insertIndex = items.length;
             if (currentItem && typeof currentItem.insertAtIndex === 'number') insertIndex = currentItem.insertAtIndex;
             const tempId = `temp-${Date.now()}`;
-            const newNode = { id: tempId, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] };
+            const newNode = { id: tempId, text: data.text, remarks: data.remarks || '', duration: parseInt(data.duration, 10) || 0, location: data.location || '', links: data.links || [] };
             const newItems = [...items];
             newItems.splice(insertIndex, 0, newNode);
             setItems(newItems);
@@ -270,13 +270,13 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         if (!isEditor) return;
         if (!currentItem || !currentItem.id) return;
         const updatedItems = items.map(item =>
-            item.id === currentItem.id ? { ...item, text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] } : item
+            item.id === currentItem.id ? { ...item, text: data.text, remarks: data.remarks || '', duration: parseInt(data.duration, 10) || 0, location: data.location || '', links: data.links || [] } : item
         );
         setItems(updatedItems);
         calculateTimings(updatedItems, runsheet.time);
         setIsItemDialogOpen(false);
         setCurrentItem(null);
-        await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id), { text: data.text, remarks: data.remarks || '', duration: data.duration || 0, location: data.location || '', links: data.links || [] });
+        await updateDoc(doc(db, `runsheets/${runsheet.id}/programme`, currentItem.id), { text: data.text, remarks: data.remarks || '', duration: parseInt(data.duration, 10) || 0, location: data.location || '', links: data.links || [] });
     };
 
     const handleDeleteItem = async () => {

@@ -123,11 +123,17 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/runsheets/$(runsheetId)/users/$(email));
     }
 
+    function getUserRoleFromMap(runsheetId) {
+      let rolesMap = get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {});
+      return rolesMap.get(userEmail(), rolesMap.get(request.auth.token.email, null));
+    }
+
     // Check if user is the runsheet owner
     function isRunsheetOwner(runsheetId) {
       return isAuthenticated() && (
         (hasUserRole(runsheetId, userEmail()) && getUserRole(runsheetId, userEmail()) == 'owner') ||
-        (get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) == 'owner')
+        (hasUserRole(runsheetId, request.auth.token.email) && getUserRole(runsheetId, request.auth.token.email) == 'owner') ||
+        getUserRoleFromMap(runsheetId) == 'owner'
       );
     }
 
@@ -135,7 +141,8 @@ service cloud.firestore {
     function isRunsheetEditor(runsheetId) {
       return isAuthenticated() && (
         (hasUserRole(runsheetId, userEmail()) && getUserRole(runsheetId, userEmail()) in ['owner', 'editor']) ||
-        (get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) in ['owner', 'editor'])
+        (hasUserRole(runsheetId, request.auth.token.email) && getUserRole(runsheetId, request.auth.token.email) in ['owner', 'editor']) ||
+        getUserRoleFromMap(runsheetId) in ['owner', 'editor']
       );
     }
 
@@ -143,7 +150,8 @@ service cloud.firestore {
     function isRunsheetOps(runsheetId) {
       return isAuthenticated() && (
         (hasUserRole(runsheetId, userEmail()) && getUserRole(runsheetId, userEmail()) == 'ops') ||
-        (get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) == 'ops')
+        (hasUserRole(runsheetId, request.auth.token.email) && getUserRole(runsheetId, request.auth.token.email) == 'ops') ||
+        getUserRoleFromMap(runsheetId) == 'ops'
       );
     }
 
@@ -151,7 +159,9 @@ service cloud.firestore {
     function isRunsheetMember(runsheetId) {
       return isAuthenticated() && (
         hasUserRole(runsheetId, userEmail()) ||
-        userEmail() in get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).keys()
+        hasUserRole(runsheetId, request.auth.token.email) ||
+        userEmail() in get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).keys() ||
+        request.auth.token.email in get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).keys()
       );
     }
 
@@ -166,39 +176,21 @@ service cloud.firestore {
         return hasRequiredFields(['name', 'category', 'memberEmails', 'roles']) &&
           hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
             'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles', 'shareToken']) &&
-          data.name is string && data.name.size() > 0 && data.name.size() <= 500 &&
           isValidCategory(data.category) &&
-          data.memberEmails is list && data.memberEmails.size() <= 200 &&
+          data.memberEmails is list &&
           data.roles is map &&
           // Creator must be in memberEmails and have owner role
           userEmail() in data.memberEmails &&
-          data.roles[userEmail()] == 'owner' &&
-          // Optional field validation
-          (!('date' in data) || (data.date is string && data.date.size() <= 20)) &&
-          (!('time' in data) || (data.time is string && data.time.size() <= 10)) &&
-          (!('groupId' in data) || data.groupId == null || (data.groupId is string && data.groupId.size() <= 100)) &&
-          (!('orderCount' in data) || data.orderCount is number) &&
-          (!('lastUpdated' in data) || (data.lastUpdated is string && data.lastUpdated.size() <= 50)) &&
-          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000)) &&
-          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
+          data.roles[userEmail()] == 'owner';
       }
 
       function isValidRunsheetUpdate() {
         let data = request.resource.data;
         return hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
             'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles', 'shareToken']) &&
-          // Validate types on fields being written
-          (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 500)) &&
           (!('category' in data) || isValidCategory(data.category)) &&
-          (!('memberEmails' in data) || (data.memberEmails is list && data.memberEmails.size() <= 200)) &&
-          (!('roles' in data) || data.roles is map) &&
-          (!('date' in data) || (data.date is string && data.date.size() <= 20)) &&
-          (!('time' in data) || (data.time is string && data.time.size() <= 10)) &&
-          (!('groupId' in data) || data.groupId == null || (data.groupId is string && data.groupId.size() <= 100)) &&
-          (!('orderCount' in data) || data.orderCount is number) &&
-          (!('lastUpdated' in data) || (data.lastUpdated is string && data.lastUpdated.size() <= 50)) &&
-          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000)) &&
-          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
+          (!('memberEmails' in data) || data.memberEmails is list) &&
+          (!('roles' in data) || data.roles is map);
       }
 
       // READ: Anyone can read a runsheet if they have the ID.
@@ -261,13 +253,9 @@ service cloud.firestore {
           let data = request.resource.data;
           return hasRequiredFields(['id', 'email', 'role']) &&
             hasOnlyAllowedFields(['id', 'email', 'role', 'addedAt', 'addedBy']) &&
-            data.id is string && data.id.size() <= 200 &&
-            data.email is string && data.email.size() <= 200 &&
             data.id == memberEmail &&
             data.email == memberEmail &&
-            isValidRole(data.role) &&
-            (!('addedAt' in data) || (data.addedAt is string && data.addedAt.size() <= 50)) &&
-            (!('addedBy' in data) || (data.addedBy is string && data.addedBy.size() <= 200));
+            isValidRole(data.role);
         }
 
         // READ: Members can read user docs for their runsheet
@@ -317,13 +305,7 @@ service cloud.firestore {
           let data = request.resource.data;
           return hasOnlyAllowedFields(['text', 'remarks', 'duration', 'location',
               'links', 'orderCount', 'originalDuration']) &&
-            (!('text' in data) || (data.text is string && data.text.size() <= 1000)) &&
-            (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 10000)) &&
-            (!('duration' in data) || data.duration is number) &&
-            (!('location' in data) || (data.location is string && data.location.size() <= 500)) &&
-            (!('links' in data) || (data.links is list && data.links.size() <= 20)) &&
-            (!('orderCount' in data) || data.orderCount is number) &&
-            (!('originalDuration' in data) || data.originalDuration is number);
+            (!('links' in data) || data.links is list);
         }
 
         // READ: Anyone can read programme items (supports print page
@@ -356,11 +338,8 @@ service cloud.firestore {
         let data = request.resource.data;
         return hasRequiredFields(['id']) &&
           hasOnlyAllowedFields(['id', 'role', 'sharedBy', 'sharedAt']) &&
-          data.id is string && data.id.size() <= 100 &&
           data.id == runsheetId &&
-          (!('role' in data) || (data.role is string && isValidRole(data.role))) &&
-          (!('sharedBy' in data) || (data.sharedBy is string && data.sharedBy.size() <= 200)) &&
-          (!('sharedAt' in data) || (data.sharedAt is string && data.sharedAt.size() <= 50));
+          (!('role' in data) || isValidRole(data.role));
       }
 
       // READ: Users can only read their own personal references
@@ -399,22 +378,13 @@ service cloud.firestore {
         let data = request.resource.data;
         return hasRequiredFields(['name', 'createdBy']) &&
           hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived', 'shareToken']) &&
-          data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
-          data.createdBy is string && data.createdBy == userEmail() &&
-          (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
-          (!('archived' in data) || data.archived is bool) &&
-          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
+          data.createdBy == userEmail();
       }
 
       function isValidGroupUpdate() {
-        let data = request.resource.data;
         return hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived', 'shareToken']) &&
           // createdBy is immutable
-          fieldUnchanged('createdBy') &&
-          (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 200)) &&
-          (!('archived' in data) || data.archived is bool) &&
-          (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
-          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
+          fieldUnchanged('createdBy');
       }
 
       // Check if user is the group creator

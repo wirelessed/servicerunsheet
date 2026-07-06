@@ -184,11 +184,15 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
             const target = users.find(u => u.email === email);
             if (target?.role === 'owner') return;
 
-            await updateDoc(doc(db, `runsheets/${runsheetId}/users`, email), {
+            await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), {
                 id: email,
+                email: email,
                 role: newRole
-            });
-            await updateDoc(doc(db, `users/${email}/runsheets`, runsheetId), { role: newRole });
+            }, { merge: true });
+            await setDoc(doc(db, `users/${email}/runsheets`, runsheetId), {
+                id: runsheetId,
+                role: newRole
+            }, { merge: true });
 
             // Also update the main runsheet document roles map
             const currentRoles = runsheet.roles || {};
