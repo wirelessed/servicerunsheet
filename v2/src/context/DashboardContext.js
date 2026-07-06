@@ -100,7 +100,7 @@ export const DashboardContextProvider = ({ children }) => {
                                 memberEmails.push(user.email);
                                 roles[user.email] = 'owner';
                                 const subUserRef = doc(db, `runsheets/${rsId}/users`, user.email);
-                                batch.set(subUserRef, { email: user.email, role: 'owner' });
+                                batch.set(subUserRef, { id: user.email, email: user.email, role: 'owner' });
                             }
 
                             batch.update(runsheetRef, {

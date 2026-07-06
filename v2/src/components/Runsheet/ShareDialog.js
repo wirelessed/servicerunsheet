@@ -137,7 +137,7 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                 return;
             }
 
-            await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), { email, role: 'editor', addedAt: new Date().toISOString(), addedBy: user.email });
+            await setDoc(doc(db, `runsheets/${runsheetId}/users`, email), { id: email, email, role: 'editor', addedAt: new Date().toISOString(), addedBy: user.email });
             await setDoc(doc(db, `users/${email}/runsheets`, runsheetId), { id: runsheetId, role: 'editor', sharedBy: user.email, sharedAt: new Date().toISOString() });
 
             // Fetch and update main runsheet document
