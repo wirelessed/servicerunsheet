@@ -1,5 +1,5 @@
 'use client';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, getDocs, query, where, collection, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -14,31 +14,32 @@ const ShareGroupDialog = dynamic(() => import('../../../components/Runsheet/Shar
 export default function GroupPageClient() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, loading: authLoading } = useAuth();
 
-    // 1. Compute the raw token from URL or params synchronously
-    let rawToken = params?.token;
-    if (!rawToken || rawToken === 'fallback' || rawToken === '[token]' || rawToken === '%5Btoken%5D') {
+    let rawSegment = params?.token;
+    if (!rawSegment || rawSegment === 'fallback' || rawSegment === '[token]' || rawSegment === '%5Btoken%5D') {
         if (typeof window !== 'undefined') {
             const segments = window.location.pathname.split('/');
             const groupIndex = segments.indexOf('group');
             if (groupIndex !== -1 && segments.length > groupIndex + 1) {
                 const t = segments[groupIndex + 1];
                 if (t && t !== 'fallback' && t !== '[token]') {
-                    rawToken = decodeURIComponent(t);
+                    rawSegment = decodeURIComponent(t);
                 }
             }
         }
     }
 
-    // 2. State for resolving share tokens
+    const tokenQuery = searchParams ? searchParams.get('token') : null;
+
     const [resolvedGroupId, setResolvedGroupId] = useState(null);
     const [resolving, setResolving] = useState(true);
     const [redirected, setRedirected] = useState(false);
     const [tokenInvalid, setTokenInvalid] = useState(false);
 
     useEffect(() => {
-        if (!rawToken || rawToken === 'fallback' || rawToken === '[token]') {
+        if (!rawSegment || rawSegment === 'fallback' || rawSegment === '[token]') {
             setResolving(false);
             return;
         }
@@ -49,30 +50,47 @@ export default function GroupPageClient() {
 
         const resolveToken = async () => {
             try {
-                const tokenDoc = await getDoc(doc(db, 'groupTokens', rawToken));
+                // 1. Check if legacy link (rawSegment is a short token)
+                const tokenDoc = await getDoc(doc(db, 'groupTokens', rawSegment));
                 if (tokenDoc.exists()) {
-                    const resolvedId = tokenDoc.data().groupId;
-                    setResolvedGroupId(resolvedId);
+                    const groupId = tokenDoc.data().groupId;
                     if (typeof window !== 'undefined') {
-                        sessionStorage.setItem(`groupToken_${resolvedId}`, rawToken);
+                        sessionStorage.setItem(`groupToken_${groupId}`, rawSegment);
+                    }
+                    router.replace(`/group/${groupId}?token=${rawSegment}`);
+                    return;
+                }
+
+                // 2. Otherwise, rawSegment is the groupId
+                const groupDoc = await getDoc(doc(db, 'groups', rawSegment));
+                if (!groupDoc.exists()) {
+                    setResolving(false);
+                    return;
+                }
+
+                const expectedToken = groupDoc.data().shareToken;
+                const cachedToken = typeof window !== 'undefined' ? sessionStorage.getItem(`groupToken_${rawSegment}`) : null;
+                const activeToken = tokenQuery || cachedToken;
+
+                if (expectedToken && activeToken === expectedToken) {
+                    setResolvedGroupId(rawSegment);
+                    if (typeof window !== 'undefined' && tokenQuery) {
+                        sessionStorage.setItem(`groupToken_${rawSegment}`, tokenQuery);
                     }
                 } else {
-                    const groupDoc = await getDoc(doc(db, 'groups', rawToken));
-                    if (groupDoc.exists()) {
-                        setTokenInvalid(true);
-                    }
+                    setTokenInvalid(true);
                 }
             } catch (err) {
-                console.error("Failed to resolve token", err);
+                console.error("Failed to resolve group token", err);
             } finally {
                 setResolving(false);
             }
         };
 
         resolveToken();
-    }, [rawToken]);
+    }, [rawSegment, tokenQuery, router]);
 
-    const activeId = resolvedGroupId || rawToken;
+    const activeId = resolvedGroupId || rawSegment;
 
     // Save filter immediately when resolved, regardless of auth state
     useEffect(() => {

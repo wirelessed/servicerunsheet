@@ -88,6 +88,14 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const effectiveListSidebarOpen = user ? isListSidebarOpen : false;
     const [isDragging, setIsDragging] = useState(false);
     const [hasEntered, setHasEntered] = useState(false);
+    const [hasGroupAccess, setHasGroupAccess] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && runsheet?.groupId) {
+            const token = sessionStorage.getItem(`groupToken_${runsheet.groupId}`);
+            setHasGroupAccess(!!token);
+        }
+    }, [runsheet?.groupId]);
 
     useEffect(() => {
         setHasEntered(false);
@@ -376,31 +384,12 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         });
     };
 
-    const handleBackToDashboard = async () => {
+    const handleBackToDashboard = () => {
         if (!user && runsheet?.groupId) {
             const cachedToken = typeof window !== 'undefined' ? sessionStorage.getItem(`groupToken_${runsheet.groupId}`) : null;
             if (cachedToken) {
-                router.replace(`/group/${cachedToken}`);
-                return;
+                router.replace(`/group/${runsheet.groupId}?token=${cachedToken}`);
             }
-
-            try {
-                const groupSnap = await getDoc(doc(db, 'groups', runsheet.groupId));
-                if (groupSnap.exists()) {
-                    const groupData = groupSnap.data();
-                    if (groupData.shareToken) {
-                        if (typeof window !== 'undefined') {
-                            sessionStorage.setItem(`groupToken_${runsheet.groupId}`, groupData.shareToken);
-                        }
-                        router.replace(`/group/${groupData.shareToken}`);
-                        return;
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to fetch group shareToken for back navigation", e);
-            }
-
-            router.replace(`/group/${runsheet.groupId}`);
             return;
         }
         if (runsheet?.groupId) {
@@ -547,7 +536,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
     // ── Mobile header ──
     const renderMobileHeader = () => {
-        const showBackButton = !!user || !!runsheet?.groupId;
+        const showBackButton = !!user || (!!runsheet?.groupId && hasGroupAccess);
         return (
             <header className="md:hidden sticky top-0 z-50 bg-background border-b border-border/30 px-3 pt-3 pb-2">
                 <div className="flex items-center justify-between">
@@ -994,20 +983,24 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         });
         const sortedKeys = Object.keys(grouped).sort((a, b) => moment(a, 'MMMM YYYY').diff(moment(b, 'MMMM YYYY')));
 
-        const showBackButton = !!user || !!runsheet?.groupId;
+        const showBackButton = !!user || (!!runsheet?.groupId && hasGroupAccess);
 
         return (
             <aside className={`hidden md:flex flex-col border-r border-border bg-muted/90 dark:bg-[#1f2126] pt-4 pb-4 h-screen sticky top-0 shrink-0 z-10 transition-all ${effectiveListSidebarOpen ? 'w-[200px] lg:w-[260px] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]' : 'w-[80px]'}`}>
                 {/* Back and Toggle Header */}
                 <div className={`flex mb-4 px-3 ${effectiveListSidebarOpen ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
                     {effectiveListSidebarOpen ? (
-                        <button
-                            onClick={handleBackToDashboard}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                        >
-                            <ArrowBackIcon style={{ fontSize: 14 }} />
-                            Dashboard
-                        </button>
+                        showBackButton ? (
+                            <button
+                                onClick={handleBackToDashboard}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                            >
+                                <ArrowBackIcon style={{ fontSize: 14 }} />
+                                Dashboard
+                            </button>
+                        ) : (
+                            <div className="w-4" />
+                        )
                     ) : (
                         showBackButton && (
                             <button

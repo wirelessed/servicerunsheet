@@ -54,7 +54,7 @@ export default function ShareGroupDialog({ open, onClose, group }) {
                         token = newToken;
                     }
 
-                    setShareUrl(`${window.location.origin}/group/${token}`);
+                    setShareUrl(`${window.location.origin}/group/${group.id}?token=${token}`);
                 }
             } catch (err) {
                 console.error("Failed to check or generate group share token", err);
