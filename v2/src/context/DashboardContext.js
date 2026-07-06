@@ -161,7 +161,7 @@ export const DashboardContextProvider = ({ children }) => {
 
                 // Check if user already has a role in subcollection OR in the main doc's roles map
                 const existingUserSnap = await getDoc(doc(db, `runsheets/${rsId}/users`, user.email));
-                const mainDocRole = rsData.roles?.[user.email];
+                const mainDocRole = rsData.roles?.[user.email] || (user.email ? rsData.roles?.[user.email.toLowerCase()] : null);
 
                 if (existingUserSnap.exists() || mainDocRole) {
                     // User already has a role — don't overwrite, but ensure all references match

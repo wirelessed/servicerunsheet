@@ -78,6 +78,11 @@ service cloud.firestore {
       return request.auth.token.email.lower();
     }
 
+    // Check if email matches authenticated user (case-insensitive)
+    function isSelf(email) {
+      return isAuthenticated() && (email == request.auth.token.email || email.lower() == request.auth.token.email.lower());
+    }
+
     // Validate required fields exist in the incoming data
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
@@ -221,21 +226,21 @@ service cloud.firestore {
             (isRunsheetOps(runsheetId) &&
               onlyTheseFieldsChanged(['lastUpdated'])) ||
 
-            // Case 3: Self-enrollment as viewer — authenticated user adds ONLY
-            // themselves to memberEmails and roles with 'viewer' role.
-            // This supports the auto-enrollment flow from /runsheet/ and /share/ pages.
+            // Case 3: Self-enrollment / self-healing membership
+            // This supports auto-enrollment from /runsheet/, /share/, and /group/ pages.
             (onlyTheseFieldsChanged(['memberEmails', 'roles']) &&
-              // User must be adding themselves (new email in memberEmails)
-              userEmail() in request.resource.data.memberEmails &&
-              // User must be setting their own role to 'viewer' only
-              request.resource.data.roles[userEmail()] == 'viewer' &&
-              // All previous members must still be present
-              resource.data.memberEmails.hasAll(
-                request.resource.data.memberEmails.removeAll([userEmail()])
-                    .removeAll([userEmail()])) &&
-              // All previous roles must be unchanged (only the new user's role is added)
-              resource.data.roles.keys().hasAll(
-                request.resource.data.roles.keys().removeAll([userEmail()])))
+              // User must be adding their own email (exact or lower) to memberEmails
+              (userEmail() in request.resource.data.memberEmails || request.auth.token.email in request.resource.data.memberEmails) &&
+              // The role being set for this user must either be 'viewer' OR match their existing role in resource.data.roles
+              (
+                request.resource.data.roles.get(userEmail(), request.resource.data.roles.get(request.auth.token.email, 'viewer')) == 'viewer' ||
+                request.resource.data.roles.get(userEmail(), request.resource.data.roles.get(request.auth.token.email, null)) == resource.data.roles.get(userEmail(), resource.data.roles.get(request.auth.token.email, null))
+              ) &&
+              // Cannot add any other new roles or change existing roles of other users
+              request.resource.data.roles.diff(resource.data.get('roles', {})).affectedKeys().hasOnly([userEmail(), request.auth.token.email]) &&
+              // Cannot remove any existing memberEmails (can only add yourself)
+              request.resource.data.memberEmails.hasAll(resource.data.get('memberEmails', []))
+            )
           )
         )
       );
@@ -261,19 +266,24 @@ service cloud.firestore {
         // READ: Members can read user docs for their runsheet
         allow read: if isRunsheetMember(runsheetId) ||
           // Allow authenticated users to check their own membership
-          (isAuthenticated() && memberEmail == userEmail());
+          isSelf(memberEmail);
 
         // CREATE:
         allow create: if isAuthenticated() && isValidUserDoc() && (
           // Case 1: Editors/owners can add any user with any role (except owner)
           (isRunsheetEditor(runsheetId) && request.resource.data.role != 'owner') ||
 
-          // Case 2: Self-enrollment — user adds themselves as viewer only
-          (memberEmail == userEmail() && request.resource.data.role == 'viewer') ||
+          // Case 2: Self-enrollment / self-healing existing role
+          (isSelf(memberEmail) && (
+            request.resource.data.role == 'viewer' ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(memberEmail, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(request.auth.token.email, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(userEmail(), null)
+          )) ||
 
           // Case 3: Creator adding themselves as owner during runsheet creation
           // (uses getAfter to check the runsheet doc being created in the same batch)
-          (memberEmail == userEmail() && request.resource.data.role == 'owner' &&
+          (isSelf(memberEmail) && request.resource.data.role == 'owner' &&
             getAfter(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles[userEmail()] == 'owner')
         );
 
@@ -283,10 +293,15 @@ service cloud.firestore {
           (isRunsheetOwner(runsheetId) &&
             // Cannot change the owner's own role document to non-owner
             // (prevents owner from accidentally demoting themselves via this path)
-            (memberEmail != userEmail() || request.resource.data.role == 'owner')) ||
+            (!isSelf(memberEmail) || request.resource.data.role == 'owner')) ||
 
-          // Self-healing: a user can update their own doc if role stays the same
-          (memberEmail == userEmail() && fieldUnchanged('role'))
+          // Self-healing / self-update: a user can update their own doc if role stays the same OR matches their role in the main document's roles map
+          (isSelf(memberEmail) && (
+            fieldUnchanged('role') ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(memberEmail, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(request.auth.token.email, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(userEmail(), null)
+          ))
         );
 
         // DELETE: Only editors/owners can remove users (but not the owner)
@@ -343,27 +358,27 @@ service cloud.firestore {
       }
 
       // READ: Users can only read their own personal references
-      allow read: if isAuthenticated() && userEmail() == userEmailId;
+      allow read: if isSelf(userEmailId);
 
       // CREATE: An authenticated user can create a ref in their own collection,
       // OR an editor can create a ref in another user's collection (sharing)
       allow create: if isAuthenticated() && isValidUserRunsheetRef() && (
         // Self-enrollment or runsheet creation
-        userEmail() == userEmailId ||
+        isSelf(userEmailId) ||
         // Editor sharing with another user
         isRunsheetEditor(runsheetId)
       );
 
       // UPDATE: Owner of the ref can update, or an editor on the runsheet
       allow update: if isAuthenticated() && isValidUserRunsheetRef() && (
-        userEmail() == userEmailId ||
+        isSelf(userEmailId) ||
         isRunsheetEditor(runsheetId)
       );
 
       // DELETE: Owner of the ref can delete, or an editor on the runsheet
       // (for when removing a user from a runsheet)
       allow delete: if isAuthenticated() && (
-        userEmail() == userEmailId ||
+        isSelf(userEmailId) ||
         isRunsheetEditor(runsheetId)
       );
     }
