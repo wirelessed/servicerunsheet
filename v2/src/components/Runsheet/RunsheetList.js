@@ -725,22 +725,27 @@ export default function RunsheetList() {
                                                         Duplicate
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => {
-                                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                        navigator.clipboard.writeText(`${origin}/runsheet/${runsheet.id}`);
-                                                    }}>
-                                                        <span className="material-symbols-outlined text-base mr-2">link</span>
-                                                        Copy Link
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => {
-                                                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                                                        const shareUrl = `${origin}/runsheet/${runsheet.id}`;
-                                                        const text = `Check out this runsheet: ${runsheet.name}`;
-                                                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
-                                                    }}>
-                                                        <WhatsAppIcon className="mr-2" style={{ fontSize: '24px' }} />
-                                                        Share Link to Whatsapp
-                                                    </DropdownMenuItem>
+                                                     <DropdownMenuItem onClick={() => {
+                                                         const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                         const shareUrl = runsheet.shareToken
+                                                             ? `${origin}/share/${runsheet.id}?token=${runsheet.shareToken}`
+                                                             : `${origin}/share/${runsheet.id}`;
+                                                         navigator.clipboard.writeText(shareUrl);
+                                                     }}>
+                                                         <span className="material-symbols-outlined text-base mr-2">link</span>
+                                                         Copy Link
+                                                     </DropdownMenuItem>
+                                                     <DropdownMenuItem onClick={() => {
+                                                         const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                                                         const shareUrl = runsheet.shareToken
+                                                             ? `${origin}/share/${runsheet.id}?token=${runsheet.shareToken}`
+                                                             : `${origin}/share/${runsheet.id}`;
+                                                         const text = `Check out this runsheet: ${runsheet.name}`;
+                                                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}%20${encodeURIComponent(shareUrl)}`, '_blank');
+                                                     }}>
+                                                         <WhatsAppIcon className="mr-2" style={{ fontSize: '24px' }} />
+                                                         Share Link to Whatsapp
+                                                     </DropdownMenuItem>
                                                     {runsheet.isEditor && (
                                                         <>
                                                             <DropdownMenuSeparator />

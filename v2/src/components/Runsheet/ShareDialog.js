@@ -25,7 +25,7 @@ import ConfirmationDialog from '../ConfirmationDialog';
 export default function ShareDialog({ open, onClose, runsheetId, runsheetName }) {
     const { user } = useAuth();
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const shareUrl = `${origin}/runsheet/${runsheetId}`;
+    const [shareUrl, setShareUrl] = useState('');
     const [copied, setCopied] = useState(false);
 
     const [editors, setEditors] = useState([]);
@@ -33,6 +33,44 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
     const [isLoading, setIsLoading] = useState(false);
     const [currentUserIsEditor, setCurrentUserIsEditor] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, email: null });
+
+    useEffect(() => {
+        if (!open || !runsheetId) return;
+        
+        let active = true;
+        const runsheetRef = doc(db, 'runsheets', runsheetId);
+
+        const checkToken = async () => {
+            try {
+                const snap = await getDoc(runsheetRef);
+                if (snap.exists() && active) {
+                    const data = snap.data();
+                    let token = data.shareToken;
+
+                    if (!token && currentUserIsEditor) {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        let newToken = '';
+                        for (let i = 0; i < 6; i++) {
+                            newToken += chars.charAt(Math.floor(Math.random() * chars.length));
+                        }
+                        await updateDoc(runsheetRef, { shareToken: newToken });
+                        token = newToken;
+                    }
+
+                    if (token) {
+                        setShareUrl(`${origin}/share/${runsheetId}?token=${token}`);
+                    } else {
+                        setShareUrl(`${origin}/share/${runsheetId}`);
+                    }
+                }
+            } catch (err) {
+                console.error("Error checking runsheet share token", err);
+            }
+        };
+
+        checkToken();
+        return () => { active = false; };
+    }, [open, runsheetId, currentUserIsEditor, origin]);
 
     useEffect(() => {
         if (!open || !runsheetId) return;

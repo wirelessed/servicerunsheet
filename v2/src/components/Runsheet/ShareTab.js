@@ -45,7 +45,7 @@ const ROLE_LABELS = {
 export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet, programme, timings }) {
     const { user } = useAuth();
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const shareUrl = `${origin}/runsheet/${runsheetId}`;
+    const [shareUrl, setShareUrl] = useState('');
 
     const [copied, setCopied] = useState(false);
     const [users, setUsers] = useState([]);
@@ -53,6 +53,36 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
     const [newEmail, setNewEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [removeConfirm, setRemoveConfirm] = useState({ open: false, email: null });
+
+    useEffect(() => {
+        if (!runsheetId) return;
+
+        const checkToken = async () => {
+            let token = runsheet?.shareToken;
+            
+            if (!token && isEditor) {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let newToken = '';
+                for (let i = 0; i < 6; i++) {
+                    newToken += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                try {
+                    await updateDoc(doc(db, 'runsheets', runsheetId), { shareToken: newToken });
+                    token = newToken;
+                } catch (e) {
+                    console.error("Failed to generate runsheet token", e);
+                }
+            }
+
+            if (token) {
+                setShareUrl(`${origin}/share/${runsheetId}?token=${token}`);
+            } else {
+                setShareUrl(`${origin}/share/${runsheetId}`);
+            }
+        };
+
+        checkToken();
+    }, [runsheetId, runsheet?.shareToken, isEditor, origin]);
 
     const [plainTextDialog, setPlainTextDialog] = useState(false);
     const [includeDescriptions, setIncludeDescriptions] = useState(true);

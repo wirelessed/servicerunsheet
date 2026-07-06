@@ -9,6 +9,7 @@ import LoginBanner from '../../../components/LoginBanner';
 import moment from 'moment';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 
 export default function SharePage() {
     const params = useParams();
@@ -20,6 +21,8 @@ export default function SharePage() {
     const [loading, setLoading] = useState(true);
     const [timings, setTimings] = useState({});
     const [enrolled, setEnrolled] = useState(false);
+    const [token, setToken] = useState(null);
+    const [tokenInvalid, setTokenInvalid] = useState(false);
 
     const handleBackToDashboard = () => {
         if (runsheet?.groupId) {
@@ -39,6 +42,11 @@ export default function SharePage() {
             }
         }
         setId(currentId);
+
+        if (typeof window !== 'undefined') {
+            const searchParams = new URLSearchParams(window.location.search);
+            setToken(searchParams.get('token'));
+        }
     }, [params]);
 
     useEffect(() => {
@@ -51,7 +59,17 @@ export default function SharePage() {
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
-                    setRunsheet({ id: docSnap.id, ...docSnap.data() });
+                    const data = docSnap.data();
+                    
+                    // Validate token
+                    const runsheetToken = data.shareToken;
+                    if (!token || !runsheetToken || token !== runsheetToken) {
+                        setTokenInvalid(true);
+                        setLoading(false);
+                        return;
+                    }
+
+                    setRunsheet({ id: docSnap.id, ...data });
 
                     // Fetch Programme
                     const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
@@ -155,6 +173,23 @@ export default function SharePage() {
 
         return () => clearTimeout(timer);
     }, [id, user]);
+
+    if (tokenInvalid) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-background gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
+                    <span className="material-symbols-outlined text-3xl">warning</span>
+                </div>
+                <h1 className="text-3xl font-extrabold tracking-tighter text-foreground">Old or Invalid Share Link</h1>
+                <p className="text-muted-foreground max-w-sm">
+                    This share link is missing a valid security token or has expired. Please request a new share link from the runsheet owner.
+                </p>
+                <Button onClick={() => router.push('/')} variant="outline" className="rounded-xl mt-2">
+                    Go Home
+                </Button>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

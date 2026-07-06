@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
+import { db } from '../../lib/firebase';
+import { doc, getDoc, writeBatch } from 'firebase/firestore';
+
 /**
  * ShareGroupDialog
  * Props:
@@ -23,8 +26,40 @@ export default function ShareGroupDialog({ open, onClose, group }) {
 
     useEffect(() => {
         if (!open || !group) return;
-        setShareUrl(`${window.location.origin}/group/${group.id}`);
         setCopied(false);
+
+        const checkGroupToken = async () => {
+            const groupRef = doc(db, 'groups', group.id);
+            try {
+                const groupSnap = await getDoc(groupRef);
+                if (groupSnap.exists()) {
+                    const groupData = groupSnap.data();
+                    let token = groupData.shareToken;
+
+                    if (!token) {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        let newToken = '';
+                        for (let i = 0; i < 6; i++) {
+                            newToken += chars.charAt(Math.floor(Math.random() * chars.length));
+                        }
+
+                        const batch = writeBatch(db);
+                        batch.update(groupRef, { shareToken: newToken });
+                        batch.set(doc(db, 'groupTokens', newToken), { groupId: group.id });
+                        await batch.commit();
+
+                        token = newToken;
+                    }
+
+                    setShareUrl(`${window.location.origin}/group/${token}`);
+                }
+            } catch (err) {
+                console.error("Failed to check or generate group share token", err);
+                setShareUrl(`${window.location.origin}/group/${group.id}`);
+            }
+        };
+
+        checkGroupToken();
     }, [open, group]);
 
     const handleCopy = () => {

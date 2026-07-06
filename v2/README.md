@@ -202,3 +202,12 @@ npx -y firebase-tools@latest hosting:channel:deploy runsheetprobeta --expires 30
 npm run build
 npx -y firebase-tools@latest deploy --project servicerunsheet
 ```
+
+### Security
+
+- Firestore Security Rules Deployed: Version-controlled rules are live on Firebase, completely locking down write access based on user roles and separating public reads from private edits.
+- Client-Side Authorization Gates: Hardened the Next.js React code by checking roles before firing any state mutations or Firestore calls.
+- XSS Sanitization Active: Installed isomorphic-dompurify and sanitized all user-generated HTML rendered via dangerouslySetInnerHTML.
+- Pruned Vulnerable Packages: Removed firebase-admin from the client-side dependencies.
+- Clickjacking & MIME Protection: Added X-Frame-Options and X-Content-Type-Options security headers directly inside your firebase.json configuration to protect against frame injection and MIME-sniffing.
+- Gated Auto-Enrollment: Restricted runsheet and group enrollments so that unauthorized users can no longer add themselves to documents without a valid token.

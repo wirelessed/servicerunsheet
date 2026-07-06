@@ -35,6 +35,7 @@ export default function GroupPageClient() {
     const [resolvedGroupId, setResolvedGroupId] = useState(null);
     const [resolving, setResolving] = useState(true);
     const [redirected, setRedirected] = useState(false);
+    const [tokenInvalid, setTokenInvalid] = useState(false);
 
     useEffect(() => {
         if (!rawToken || rawToken === 'fallback' || rawToken === '[token]') {
@@ -44,12 +45,18 @@ export default function GroupPageClient() {
 
         setResolving(true);
         setResolvedGroupId(null);
+        setTokenInvalid(false);
 
         const resolveToken = async () => {
             try {
                 const tokenDoc = await getDoc(doc(db, 'groupTokens', rawToken));
                 if (tokenDoc.exists()) {
                     setResolvedGroupId(tokenDoc.data().groupId);
+                } else {
+                    const groupDoc = await getDoc(doc(db, 'groups', rawToken));
+                    if (groupDoc.exists()) {
+                        setTokenInvalid(true);
+                    }
                 }
             } catch (err) {
                 console.error("Failed to resolve token", err);
@@ -78,6 +85,26 @@ export default function GroupPageClient() {
         }
     }, [resolving, user, activeId, router, redirected]);
 
+    if (tokenInvalid) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-background gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
+                    <span className="material-symbols-outlined text-3xl">warning</span>
+                </div>
+                <h1 className="text-3xl font-extrabold tracking-tighter text-foreground">Old Group Share Link</h1>
+                <p className="text-muted-foreground max-w-sm">
+                    This is an old group share link. Please request a new link from the creator.
+                </p>
+                <button
+                    onClick={() => router.push('/')}
+                    className="px-4 py-2 text-sm font-semibold border rounded-xl hover:bg-muted transition-colors mt-2"
+                >
+                    Go Home
+                </button>
+            </div>
+        );
+    }
+ 
     // ── AUTH LOADING ──
     if (authLoading) {
         return (
