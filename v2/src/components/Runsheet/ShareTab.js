@@ -56,13 +56,13 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
     const [loadingLink, setLoadingLink] = useState(true);
 
     useEffect(() => {
-        if (!runsheetId) return;
+        if (!runsheetId || !runsheet) return;
         setLoadingLink(true);
 
         const checkToken = async () => {
             let token = runsheet?.shareToken;
             
-            if (!token) {
+            if (!token && isEditor) {
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                 let newToken = '';
                 for (let i = 0; i < 6; i++) {
@@ -85,7 +85,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         };
 
         checkToken();
-    }, [runsheetId, runsheet?.shareToken, origin]);
+    }, [runsheetId, runsheet, isEditor, origin]);
 
     const [plainTextDialog, setPlainTextDialog] = useState(false);
     const [includeDescriptions, setIncludeDescriptions] = useState(true);
