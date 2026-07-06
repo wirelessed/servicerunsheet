@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -54,15 +54,16 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
     const [isLoading, setIsLoading] = useState(false);
     const [removeConfirm, setRemoveConfirm] = useState({ open: false, email: null });
     const [loadingLink, setLoadingLink] = useState(true);
+    const hasAttemptedRef = useRef(false);
 
     useEffect(() => {
         if (!runsheetId || !runsheet) return;
-        setLoadingLink(true);
 
         const checkToken = async () => {
             let token = runsheet?.shareToken;
             
-            if (!token && isEditor) {
+            if (!token && !hasAttemptedRef.current) {
+                hasAttemptedRef.current = true;
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                 let newToken = '';
                 for (let i = 0; i < 6; i++) {
@@ -85,7 +86,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         };
 
         checkToken();
-    }, [runsheetId, runsheet, isEditor, origin]);
+    }, [runsheetId, runsheet?.shareToken, origin]);
 
     const [plainTextDialog, setPlainTextDialog] = useState(false);
     const [includeDescriptions, setIncludeDescriptions] = useState(true);
