@@ -179,21 +179,17 @@ service cloud.firestore {
       function isValidRunsheetCreate() {
         let data = request.resource.data;
         return hasRequiredFields(['name', 'category', 'memberEmails', 'roles']) &&
-          hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
-            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles', 'shareToken']) &&
           isValidCategory(data.category) &&
           data.memberEmails is list &&
           data.roles is map &&
           // Creator must be in memberEmails and have owner role
-          userEmail() in data.memberEmails &&
-          data.roles[userEmail()] == 'owner';
+          (userEmail() in data.memberEmails || request.auth.token.email in data.memberEmails) &&
+          (data.roles.get(userEmail(), null) == 'owner' || data.roles.get(request.auth.token.email, null) == 'owner');
       }
 
       function isValidRunsheetUpdate() {
         let data = request.resource.data;
-        return hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
-            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles', 'shareToken']) &&
-          (!('category' in data) || isValidCategory(data.category)) &&
+        return (!('category' in data) || isValidCategory(data.category)) &&
           (!('memberEmails' in data) || data.memberEmails is list) &&
           (!('roles' in data) || data.roles is map);
       }
@@ -234,7 +230,7 @@ service cloud.firestore {
               // The role being set for this user must either be 'viewer' OR match their existing role in resource.data.roles
               (
                 request.resource.data.roles.get(userEmail(), request.resource.data.roles.get(request.auth.token.email, 'viewer')) == 'viewer' ||
-                request.resource.data.roles.get(userEmail(), request.resource.data.roles.get(request.auth.token.email, null)) == resource.data.roles.get(userEmail(), resource.data.roles.get(request.auth.token.email, null))
+                request.resource.data.roles.get(userEmail(), request.resource.data.roles.get(request.auth.token.email, null)) == resource.data.get('roles', {}).get(userEmail(), resource.data.get('roles', {}).get(request.auth.token.email, null))
               ) &&
               // Cannot add any other new roles or change existing roles of other users
               request.resource.data.roles.diff(resource.data.get('roles', {})).affectedKeys().hasOnly([userEmail(), request.auth.token.email]) &&
@@ -257,7 +253,6 @@ service cloud.firestore {
         function isValidUserDoc() {
           let data = request.resource.data;
           return hasRequiredFields(['id', 'email', 'role']) &&
-            hasOnlyAllowedFields(['id', 'email', 'role', 'addedAt', 'addedBy']) &&
             data.id == memberEmail &&
             data.email == memberEmail &&
             isValidRole(data.role);
@@ -276,15 +271,15 @@ service cloud.firestore {
           // Case 2: Self-enrollment / self-healing existing role
           (isSelf(memberEmail) && (
             request.resource.data.role == 'viewer' ||
-            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(memberEmail, null) ||
-            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(request.auth.token.email, null) ||
-            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(userEmail(), null)
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(memberEmail, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(request.auth.token.email, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null)
           )) ||
 
           // Case 3: Creator adding themselves as owner during runsheet creation
           // (uses getAfter to check the runsheet doc being created in the same batch)
           (isSelf(memberEmail) && request.resource.data.role == 'owner' &&
-            getAfter(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles[userEmail()] == 'owner')
+            getAfter(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null) == 'owner')
         );
 
         // UPDATE:
@@ -298,9 +293,9 @@ service cloud.firestore {
           // Self-healing / self-update: a user can update their own doc if role stays the same OR matches their role in the main document's roles map
           (isSelf(memberEmail) && (
             fieldUnchanged('role') ||
-            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(memberEmail, null) ||
-            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(request.auth.token.email, null) ||
-            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.roles.get(userEmail(), null)
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(memberEmail, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(request.auth.token.email, null) ||
+            request.resource.data.role == get(/databases/$(database)/documents/runsheets/$(runsheetId)).data.get('roles', {}).get(userEmail(), null)
           ))
         );
 
@@ -352,7 +347,6 @@ service cloud.firestore {
       function isValidUserRunsheetRef() {
         let data = request.resource.data;
         return hasRequiredFields(['id']) &&
-          hasOnlyAllowedFields(['id', 'role', 'sharedBy', 'sharedAt']) &&
           data.id == runsheetId &&
           (!('role' in data) || isValidRole(data.role));
       }

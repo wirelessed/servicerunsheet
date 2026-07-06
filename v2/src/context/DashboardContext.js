@@ -205,11 +205,15 @@ export const DashboardContextProvider = ({ children }) => {
 
                 // Update memberEmails and roles on the main runsheet document using standard dot notation
                 const currentEmails = rsData.memberEmails || [];
+                const updates = {};
                 if (!currentEmails.includes(user.email)) {
-                    batch.update(doc(db, 'runsheets', rsId), {
-                        memberEmails: [...currentEmails, user.email],
-                        [`roles.${user.email}`]: 'viewer'
-                    });
+                    updates.memberEmails = [...currentEmails, user.email];
+                }
+                if (!rsData.roles?.[user.email] && !rsData.roles?.[user.email.toLowerCase()]) {
+                    updates[`roles.${user.email}`] = 'viewer';
+                }
+                if (Object.keys(updates).length > 0) {
+                    batch.update(doc(db, 'runsheets', rsId), updates);
                 }
                 needsCommit = true;
 
