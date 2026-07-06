@@ -47,7 +47,7 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
                     const data = snap.data();
                     let token = data.shareToken;
 
-                    if (!token && currentUserIsEditor) {
+                    if (!token) {
                         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                         let newToken = '';
                         for (let i = 0; i < 6; i++) {

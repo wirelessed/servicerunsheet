@@ -160,7 +160,7 @@ service cloud.firestore {
         let data = request.resource.data;
         return hasRequiredFields(['name', 'category', 'memberEmails', 'roles']) &&
           hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
-            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles']) &&
+            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles', 'shareToken']) &&
           data.name is string && data.name.size() > 0 && data.name.size() <= 500 &&
           isValidCategory(data.category) &&
           data.memberEmails is list && data.memberEmails.size() <= 200 &&
@@ -174,13 +174,14 @@ service cloud.firestore {
           (!('groupId' in data) || data.groupId == null || (data.groupId is string && data.groupId.size() <= 100)) &&
           (!('orderCount' in data) || data.orderCount is number) &&
           (!('lastUpdated' in data) || (data.lastUpdated is string && data.lastUpdated.size() <= 50)) &&
-          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000));
+          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000)) &&
+          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
       }
 
       function isValidRunsheetUpdate() {
         let data = request.resource.data;
         return hasOnlyAllowedFields(['name', 'date', 'time', 'category', 'groupId',
-            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles']) &&
+            'orderCount', 'lastUpdated', 'notes', 'memberEmails', 'roles', 'shareToken']) &&
           // Validate types on fields being written
           (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 500)) &&
           (!('category' in data) || isValidCategory(data.category)) &&
@@ -191,7 +192,8 @@ service cloud.firestore {
           (!('groupId' in data) || data.groupId == null || (data.groupId is string && data.groupId.size() <= 100)) &&
           (!('orderCount' in data) || data.orderCount is number) &&
           (!('lastUpdated' in data) || (data.lastUpdated is string && data.lastUpdated.size() <= 50)) &&
-          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000));
+          (!('notes' in data) || (data.notes is string && data.notes.size() <= 50000)) &&
+          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
       }
 
       // READ: Anyone can read a runsheet if they have the ID.
@@ -205,29 +207,35 @@ service cloud.firestore {
 
       // UPDATE: Editors can update metadata; members can update memberEmails/roles
       // for enrollment purposes (adding themselves as viewer)
-      allow update: if isAuthenticated() && isValidRunsheetUpdate() && (
-        // Case 1: Editors can update any allowed field
-        isRunsheetEditor(runsheetId) ||
+      allow update: if isValidRunsheetUpdate() && (
+        // Case 0: Allow setting shareToken if it is currently missing
+        (onlyTheseFieldsChanged(['shareToken']) &&
+          (!('shareToken' in resource.data) || resource.data.shareToken == null)) ||
 
-        // Case 2: Ops can only update lastUpdated (for logging transitions)
-        (isRunsheetOps(runsheetId) &&
-          onlyTheseFieldsChanged(['lastUpdated'])) ||
+        (isAuthenticated() && (
+          // Case 1: Editors can update any allowed field
+          isRunsheetEditor(runsheetId) ||
 
-        // Case 3: Self-enrollment as viewer — authenticated user adds ONLY
-        // themselves to memberEmails and roles with 'viewer' role.
-        // This supports the auto-enrollment flow from /runsheet/ and /share/ pages.
-        (onlyTheseFieldsChanged(['memberEmails', 'roles']) &&
-          // User must be adding themselves (new email in memberEmails)
-          userEmail() in request.resource.data.memberEmails &&
-          // User must be setting their own role to 'viewer' only
-          request.resource.data.roles[userEmail()] == 'viewer' &&
-          // All previous members must still be present
-          resource.data.memberEmails.hasAll(
-            request.resource.data.memberEmails.removeAll([userEmail()])
-                .removeAll([userEmail()])) &&
-          // All previous roles must be unchanged (only the new user's role is added)
-          resource.data.roles.keys().hasAll(
-            request.resource.data.roles.keys().removeAll([userEmail()])))
+          // Case 2: Ops can only update lastUpdated (for logging transitions)
+          (isRunsheetOps(runsheetId) &&
+            onlyTheseFieldsChanged(['lastUpdated'])) ||
+
+          // Case 3: Self-enrollment as viewer — authenticated user adds ONLY
+          // themselves to memberEmails and roles with 'viewer' role.
+          // This supports the auto-enrollment flow from /runsheet/ and /share/ pages.
+          (onlyTheseFieldsChanged(['memberEmails', 'roles']) &&
+            // User must be adding themselves (new email in memberEmails)
+            userEmail() in request.resource.data.memberEmails &&
+            // User must be setting their own role to 'viewer' only
+            request.resource.data.roles[userEmail()] == 'viewer' &&
+            // All previous members must still be present
+            resource.data.memberEmails.hasAll(
+              request.resource.data.memberEmails.removeAll([userEmail()])
+                  .removeAll([userEmail()])) &&
+            // All previous roles must be unchanged (only the new user's role is added)
+            resource.data.roles.keys().hasAll(
+              request.resource.data.roles.keys().removeAll([userEmail()])))
+        ))
       );
 
       // DELETE: Only the owner can delete a runsheet
@@ -380,21 +388,23 @@ service cloud.firestore {
       function isValidGroupCreate() {
         let data = request.resource.data;
         return hasRequiredFields(['name', 'createdBy']) &&
-          hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived']) &&
+          hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived', 'shareToken']) &&
           data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
           data.createdBy is string && data.createdBy == userEmail() &&
           (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
-          (!('archived' in data) || data.archived is bool);
+          (!('archived' in data) || data.archived is bool) &&
+          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
       }
 
       function isValidGroupUpdate() {
         let data = request.resource.data;
-        return hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived']) &&
+        return hasOnlyAllowedFields(['name', 'createdBy', 'createdAt', 'archived', 'shareToken']) &&
           // createdBy is immutable
           fieldUnchanged('createdBy') &&
           (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 200)) &&
           (!('archived' in data) || data.archived is bool) &&
-          (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50));
+          (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+          (!('shareToken' in data) || (data.shareToken is string && data.shareToken.size() == 6));
       }
 
       // Check if user is the group creator
@@ -410,8 +420,12 @@ service cloud.firestore {
       // CREATE: Any authenticated user can create a group
       allow create: if isAuthenticated() && isValidGroupCreate();
 
-      // UPDATE: Only the group creator can update
-      allow update: if isGroupOwner() && isValidGroupUpdate();
+      // UPDATE: Only the group creator can update, or anyone can set shareToken if currently missing
+      allow update: if isValidGroupUpdate() && (
+        isGroupOwner() ||
+        (onlyTheseFieldsChanged(['shareToken']) &&
+          (!('shareToken' in resource.data) || resource.data.shareToken == null))
+      );
 
       // DELETE: Only the group creator can delete
       allow delete: if isGroupOwner();
@@ -424,11 +438,14 @@ service cloud.firestore {
     match /groupTokens/{tokenId} {
 
       // READ: Anyone can resolve group tokens
-      // This is used by the public /group/[token] page to look up the group
       allow read: if true;
 
-      // No client-side writes allowed — tokens are managed server-side
-      allow write: if false;
+      // Anyone can register a token lookup pointing to a valid group
+      allow create: if request.resource.data.keys().hasOnly(['groupId']) &&
+        request.resource.data.groupId is string &&
+        exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId));
+
+      allow update, delete: if false;
     }
 
 

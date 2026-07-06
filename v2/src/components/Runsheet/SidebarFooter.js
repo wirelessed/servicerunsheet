@@ -8,6 +8,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import pkg from '../../../package.json';
 
 export default function SidebarFooter({ theme, toggleTheme, layout = 'full' }) {
     const { user, logOut } = useAuth();
@@ -43,7 +44,8 @@ export default function SidebarFooter({ theme, toggleTheme, layout = 'full' }) {
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" side="right" className="w-52 ml-2">
-                            <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user.email}</DropdownMenuItem>
+                            <DropdownMenuItem disabled className="text-[10px] text-muted-foreground/50 select-none pb-0">Version {pkg.version}</DropdownMenuItem>
+                            <DropdownMenuItem disabled className="text-xs text-muted-foreground pt-1">{user.email}</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 onClick={() => window.location.href = '/feedback'}
@@ -113,7 +115,8 @@ export default function SidebarFooter({ theme, toggleTheme, layout = 'full' }) {
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" side="top" className="w-52">
-                        <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user.email}</DropdownMenuItem>
+                        <DropdownMenuItem disabled className="text-[10px] text-muted-foreground/50 select-none pb-0">Version {pkg.version}</DropdownMenuItem>
+                        <DropdownMenuItem disabled className="text-xs text-muted-foreground pt-1">{user.email}</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             onClick={() => window.location.href = '/feedback'}

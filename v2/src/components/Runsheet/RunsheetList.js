@@ -346,6 +346,12 @@ export default function RunsheetList() {
                 const runsheetRef = doc(collection(db, 'runsheets'));
                 const newId = runsheetRef.id;
 
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let shareToken = '';
+                for (let i = 0; i < 6; i++) {
+                    shareToken += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+
                 const newRunsheet = {
                     name: formData.name,
                     date: formData.date,
@@ -355,7 +361,8 @@ export default function RunsheetList() {
                     category: 'active',
                     groupId: finalGroupId,
                     memberEmails: [user.email],
-                    roles: { [user.email]: 'owner' }
+                    roles: { [user.email]: 'owner' },
+                    shareToken: shareToken
                 };
 
                 // Write all documents before dismissing
@@ -474,6 +481,12 @@ export default function RunsheetList() {
             const newDocRef = doc(collection(db, 'runsheets'));
             const newId = newDocRef.id;
 
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let shareToken = '';
+            for (let i = 0; i < 6; i++) {
+                shareToken += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+
             const newRunsheet = {
                 name: runsheet.name + (runsheet.name.endsWith(' (Copy)') ? '' : ' (Copy)'),
                 date: runsheet.date,
@@ -483,7 +496,8 @@ export default function RunsheetList() {
                 lastUpdated: moment().format(),
                 orderCount: runsheet.orderCount || 0,
                 memberEmails: [user.email],
-                roles: { [user.email]: 'owner' }
+                roles: { [user.email]: 'owner' },
+                shareToken: shareToken
             };
 
             // Write all documents before dismissing

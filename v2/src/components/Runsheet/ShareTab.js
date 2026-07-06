@@ -60,7 +60,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         const checkToken = async () => {
             let token = runsheet?.shareToken;
             
-            if (!token && isEditor) {
+            if (!token) {
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                 let newToken = '';
                 for (let i = 0; i < 6; i++) {
@@ -82,7 +82,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         };
 
         checkToken();
-    }, [runsheetId, runsheet?.shareToken, isEditor, origin]);
+    }, [runsheetId, runsheet?.shareToken, origin]);
 
     const [plainTextDialog, setPlainTextDialog] = useState(false);
     const [includeDescriptions, setIncludeDescriptions] = useState(true);
