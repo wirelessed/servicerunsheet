@@ -91,6 +91,16 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     const [hasGroupAccess, setHasGroupAccess] = useState(false);
 
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam === 'share' || tabParam === 'notes' || tabParam === 'runsheet') {
+                setActiveTab(tabParam);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
         if (typeof window !== 'undefined' && runsheet?.groupId) {
             const token = sessionStorage.getItem(`groupToken_${runsheet.groupId}`);
             setHasGroupAccess(!!token);
