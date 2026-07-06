@@ -30,7 +30,7 @@ import { useDashboard } from '../../context/DashboardContext';
 import SidebarFooter from './SidebarFooter';
 
 export default function RunsheetList() {
-    const { user, logOut } = useAuth();
+    const { user, logOut, userHash } = useAuth();
     const router = useRouter();
     const {
         runsheets, setRunsheets,
@@ -46,15 +46,15 @@ export default function RunsheetList() {
 
     // Load activeFilter on mount / user resolution, consuming redirects if present
     useEffect(() => {
-        if (!user?.email) return;
+        if (!userHash) return;
 
         const tempFilter = localStorage.getItem('dashboard_filter');
         if (tempFilter) {
             setActiveFilter(tempFilter);
-            localStorage.setItem(`dashboard_filter_${user.email}`, tempFilter);
+            localStorage.setItem(`dashboard_filter_${userHash}`, tempFilter);
             localStorage.removeItem('dashboard_filter');
         } else {
-            const userFilterKey = `dashboard_filter_${user.email}`;
+            const userFilterKey = `dashboard_filter_${userHash}`;
             const savedFilter = localStorage.getItem(userFilterKey);
             if (savedFilter) {
                 setActiveFilter(savedFilter);
@@ -62,7 +62,7 @@ export default function RunsheetList() {
                 setActiveFilter('upcoming');
             }
         }
-    }, [user, setActiveFilter]);
+    }, [userHash, setActiveFilter]);
 
     // Auto-enroll in group when switching to a group filter
     useEffect(() => {
@@ -99,13 +99,13 @@ export default function RunsheetList() {
 
     // Load initial pinned group
     useEffect(() => {
-        if (user?.email) {
-            const stored = localStorage.getItem(`lastGroup_${user.email}`);
+        if (userHash) {
+            const stored = localStorage.getItem(`lastGroup_${userHash}`);
             setLastGroupId(stored || '');
         } else {
             setLastGroupId('');
         }
-    }, [user]);
+    }, [userHash]);
 
     // Update pinned group when a group is active
     useEffect(() => {
@@ -114,12 +114,12 @@ export default function RunsheetList() {
             if (groupObj && groupObj.archived === true) {
                 return;
             }
-            if (user?.email) {
-                localStorage.setItem(`lastGroup_${user.email}`, activeFilter);
+            if (userHash) {
+                localStorage.setItem(`lastGroup_${userHash}`, activeFilter);
                 setLastGroupId(activeFilter);
             }
         }
-    }, [activeFilter, groups, user]);
+    }, [activeFilter, groups, userHash]);
 
     // Cleanup pinned group if it gets deleted, becomes empty, or is archived
     useEffect(() => {
@@ -127,8 +127,8 @@ export default function RunsheetList() {
             const exists = groups.find(g => g.id === lastGroupId);
             const hasRunsheets = runsheets.some(r => r.groupId === lastGroupId);
             if (!exists || !hasRunsheets || exists.archived === true) {
-                if (user?.email) {
-                    localStorage.removeItem(`lastGroup_${user.email}`);
+                if (userHash) {
+                    localStorage.removeItem(`lastGroup_${userHash}`);
                 }
                 setLastGroupId('');
             }

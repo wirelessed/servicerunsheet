@@ -10,7 +10,7 @@ const DashboardContext = createContext({});
 export const useDashboard = () => useContext(DashboardContext);
 
 export const DashboardContextProvider = ({ children }) => {
-    const { user } = useAuth();
+    const { user, userHash } = useAuth();
     const [runsheets, setRunsheets] = useState([]);
     const [groups, setGroups] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -22,13 +22,13 @@ export const DashboardContextProvider = ({ children }) => {
     // Persist activeFilter to localStorage whenever it changes
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            if (user?.email) {
-                localStorage.setItem(`dashboard_filter_${user.email}`, activeFilter);
+            if (userHash) {
+                localStorage.setItem(`dashboard_filter_${userHash}`, activeFilter);
             } else {
                 localStorage.setItem('dashboard_filter', activeFilter);
             }
         }
-    }, [activeFilter, user]);
+    }, [activeFilter, userHash]);
 
 
 
@@ -132,13 +132,13 @@ export const DashboardContextProvider = ({ children }) => {
 
     // ── Lightweight group enrollment: runs only once per group per session ──
     const enrollInGroup = useCallback(async (groupId) => {
-        if (!user?.email || !groupId) return;
+        if (!userHash || !groupId) return;
         if (enrolledGroupsRef.current.has(groupId)) return; // Already enrolled this session
         enrolledGroupsRef.current.add(groupId);
 
         // Track this group as joined in user-specific localStorage
         if (typeof window !== 'undefined') {
-            const joinedKey = `joinedGroups_${user.email}`;
+            const joinedKey = `joinedGroups_${userHash}`;
             try {
                 const joined = JSON.parse(localStorage.getItem(joinedKey) || '[]');
                 if (!joined.includes(groupId)) {
@@ -228,19 +228,19 @@ export const DashboardContextProvider = ({ children }) => {
         } catch (err) {
             console.error('Error enrolling in group:', err);
         }
-    }, [user]);
+    }, [user, userHash]);
 
     // Set up Realtime Listener on startup & when user changes
     useEffect(() => {
-        if (!user?.email) {
+        if (!userHash) {
             setRunsheets([]);
             setGroups([]);
             enrolledGroupsRef.current.clear();
             return;
         }
 
-        const cacheKey = `runsheetsCache_${user.email}`;
-        const groupsCacheKey = `groupsCache_${user.email}`;
+        const cacheKey = `runsheetsCache_${userHash}`;
+        const groupsCacheKey = `groupsCache_${userHash}`;
 
         // 1. Initial Load from LocalStorage
         const cachedStr = localStorage.getItem(cacheKey);
@@ -312,7 +312,7 @@ export const DashboardContextProvider = ({ children }) => {
                 let joinedGroupIds = [];
                 if (typeof window !== 'undefined') {
                     try {
-                        joinedGroupIds = JSON.parse(localStorage.getItem(`joinedGroups_${user.email}`) || '[]');
+                        joinedGroupIds = JSON.parse(localStorage.getItem(`joinedGroups_${userHash}`) || '[]');
                     } catch (e) {}
                 }
 
@@ -355,7 +355,7 @@ export const DashboardContextProvider = ({ children }) => {
         runMigration();
 
         return () => unsubscribe();
-    }, [user, runMigration]);
+    }, [user, userHash, runMigration]);
 
     const refresh = useCallback(() => {
         // Realtime listener handles updates, but we re-run migration as a sanity check
