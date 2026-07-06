@@ -206,36 +206,41 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidRunsheetCreate();
 
       // UPDATE: Editors can update metadata; members can update memberEmails/roles
-      // for enrollment purposes (adding themselves as viewer)
-      allow update: if isValidRunsheetUpdate() && (
-        // Case 0: Allow setting shareToken if it is currently missing
-        (onlyTheseFieldsChanged(['shareToken']) &&
-          (!('shareToken' in resource.data) || resource.data.shareToken == null)) ||
+      // for enrollment purposes (adding themselves as viewer).
+      // Also anyone can set shareToken if it is currently missing.
+      allow update: if (
+        // Case 0: Allow setting shareToken if it is currently missing (bypasses full doc validation)
+        onlyTheseFieldsChanged(['shareToken']) &&
+        (!('shareToken' in resource.data) || resource.data.shareToken == null) &&
+        request.resource.data.shareToken is string &&
+        request.resource.data.shareToken.size() == 6
+      ) || (
+        isValidRunsheetUpdate() && (
+          isAuthenticated() && (
+            // Case 1: Editors can update any allowed field
+            isRunsheetEditor(runsheetId) ||
 
-        (isAuthenticated() && (
-          // Case 1: Editors can update any allowed field
-          isRunsheetEditor(runsheetId) ||
+            // Case 2: Ops can only update lastUpdated (for logging transitions)
+            (isRunsheetOps(runsheetId) &&
+              onlyTheseFieldsChanged(['lastUpdated'])) ||
 
-          // Case 2: Ops can only update lastUpdated (for logging transitions)
-          (isRunsheetOps(runsheetId) &&
-            onlyTheseFieldsChanged(['lastUpdated'])) ||
-
-          // Case 3: Self-enrollment as viewer — authenticated user adds ONLY
-          // themselves to memberEmails and roles with 'viewer' role.
-          // This supports the auto-enrollment flow from /runsheet/ and /share/ pages.
-          (onlyTheseFieldsChanged(['memberEmails', 'roles']) &&
-            // User must be adding themselves (new email in memberEmails)
-            userEmail() in request.resource.data.memberEmails &&
-            // User must be setting their own role to 'viewer' only
-            request.resource.data.roles[userEmail()] == 'viewer' &&
-            // All previous members must still be present
-            resource.data.memberEmails.hasAll(
-              request.resource.data.memberEmails.removeAll([userEmail()])
-                  .removeAll([userEmail()])) &&
-            // All previous roles must be unchanged (only the new user's role is added)
-            resource.data.roles.keys().hasAll(
-              request.resource.data.roles.keys().removeAll([userEmail()])))
-        ))
+            // Case 3: Self-enrollment as viewer — authenticated user adds ONLY
+            // themselves to memberEmails and roles with 'viewer' role.
+            // This supports the auto-enrollment flow from /runsheet/ and /share/ pages.
+            (onlyTheseFieldsChanged(['memberEmails', 'roles']) &&
+              // User must be adding themselves (new email in memberEmails)
+              userEmail() in request.resource.data.memberEmails &&
+              // User must be setting their own role to 'viewer' only
+              request.resource.data.roles[userEmail()] == 'viewer' &&
+              // All previous members must still be present
+              resource.data.memberEmails.hasAll(
+                request.resource.data.memberEmails.removeAll([userEmail()])
+                    .removeAll([userEmail()])) &&
+              // All previous roles must be unchanged (only the new user's role is added)
+              resource.data.roles.keys().hasAll(
+                request.resource.data.roles.keys().removeAll([userEmail()])))
+          )
+        )
       );
 
       // DELETE: Only the owner can delete a runsheet
