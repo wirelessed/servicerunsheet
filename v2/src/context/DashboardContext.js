@@ -148,86 +148,45 @@ export const DashboardContextProvider = ({ children }) => {
         }
 
         try {
-            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
-            const groupRsSnap = await getDocs(groupRsQuery);
+            const groupRsSnap = await getDocs(query(collection(db, 'runsheets'), where('groupId', '==', groupId)));
 
             const batch = writeBatch(db);
             let needsCommit = false;
-            const newRunsheets = [];
 
             for (const rsDoc of groupRsSnap.docs) {
                 const rsId = rsDoc.id;
                 const rsData = rsDoc.data();
+                const existingRole = rsData.roles?.[user.email] || rsData.roles?.[user.email.toLowerCase()];
 
-                // Check if user already has a role in subcollection OR in the main doc's roles map
-                const existingUserSnap = await getDoc(doc(db, `runsheets/${rsId}/users`, user.email));
-                const mainDocRole = rsData.roles?.[user.email] || (user.email ? rsData.roles?.[user.email.toLowerCase()] : null);
+                // Skip if user already has a role and is in memberEmails
+                if (existingRole && rsData.memberEmails?.includes(user.email)) continue;
 
-                if (existingUserSnap.exists() || mainDocRole) {
-                    // User already has a role — don't overwrite, but ensure all references match
-                    const userRsRef = doc(db, `users/${user.email}/runsheets`, rsId);
-                    const userRsSnap = await getDoc(userRsRef);
-
-                    const needsPersonalRef = !userRsSnap.exists();
-                    const subRole = existingUserSnap.exists() ? existingUserSnap.data().role : null;
-
-                    const needsSubcollectionRef = mainDocRole && !existingUserSnap.exists();
-                    const needsMainDocUpdate = subRole && (!mainDocRole || !rsData.memberEmails?.includes(user.email));
-
-                    if (needsPersonalRef || needsSubcollectionRef || needsMainDocUpdate) {
-                        if (needsPersonalRef) {
-                            batch.set(userRsRef, { id: rsId });
-                        }
-                        if (needsSubcollectionRef) {
-                            batch.set(doc(db, `runsheets/${rsId}/users`, user.email), {
-                                id: user.email,
-                                email: user.email,
-                                role: mainDocRole
-                            });
-                        }
-                        if (needsMainDocUpdate) {
-                            const currentEmails = rsData.memberEmails || [];
-                            const updates = {};
-                            if (!currentEmails.includes(user.email)) {
-                                updates.memberEmails = [...currentEmails, user.email];
-                            }
-                            updates[`roles.${user.email}`] = subRole;
-                            batch.update(doc(db, 'runsheets', rsId), updates);
-                        }
-                        needsCommit = true;
-                    }
-                    continue;
-                }
-
-                // New user for this runsheet — enroll as viewer
-                batch.set(doc(db, `runsheets/${rsId}/users`, user.email), { id: user.email, email: user.email, role: 'viewer' });
-                batch.set(doc(db, `users/${user.email}/runsheets`, rsId), { id: rsId });
-
-                // Update memberEmails and roles on the main runsheet document using standard dot notation
+                // Ensure user is in memberEmails and roles on main doc
                 const currentEmails = rsData.memberEmails || [];
                 const updates = {};
                 if (!currentEmails.includes(user.email)) {
                     updates.memberEmails = [...currentEmails, user.email];
                 }
-                if (!rsData.roles?.[user.email] && !rsData.roles?.[user.email.toLowerCase()]) {
+                if (!existingRole) {
                     updates[`roles.${user.email}`] = 'viewer';
                 }
                 if (Object.keys(updates).length > 0) {
                     batch.update(doc(db, 'runsheets', rsId), updates);
                 }
-                needsCommit = true;
 
-                newRunsheets.push({
-                    id: rsDoc.id, ...rsData,
-                    category: rsData.category || 'active',
-                    role: 'viewer',
-                    isEditor: false
-                });
+                // Ensure subcollection user doc exists
+                batch.set(doc(db, `runsheets/${rsId}/users`, user.email), {
+                    id: user.email, email: user.email, role: existingRole || 'viewer'
+                }, { merge: true });
+
+                // Ensure personal reference exists
+                batch.set(doc(db, `users/${user.email}/runsheets`, rsId), { id: rsId }, { merge: true });
+
+                needsCommit = true;
             }
 
             if (needsCommit) {
                 await batch.commit();
-                // State updates are handled automatically by onSnapshot
             }
         } catch (err) {
             console.error('Error enrolling in group:', err);

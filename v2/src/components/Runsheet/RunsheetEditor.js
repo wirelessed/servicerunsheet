@@ -20,7 +20,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 import moment from 'moment';
-import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, getDoc, deleteField } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboard } from '../../context/DashboardContext';
@@ -172,36 +172,20 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
     }, [initialProgramme, runsheet.time, calculateTimings]);
 
     useEffect(() => {
-        const checkPermissions = async () => {
-            if (!user?.email) { setIsEditor(false); setUserRole(null); return; }
-            try {
-                const userRef = doc(db, `runsheets/${runsheet.id}/users`, user.email);
-                const userSnap = await getDoc(userRef);
-                let role = userSnap.exists() ? userSnap.data().role : null;
+        if (!user?.email) { setIsEditor(false); setUserRole(null); return; }
 
-                // Fallback to roles map on main runsheet document to prevent race conditions
-                if (!role && runsheet?.roles) {
-                    role = runsheet.roles[user.email] || null;
-                }
+        const role = runsheet?.roles?.[user.email] || runsheet?.roles?.[user.email.toLowerCase()] || null;
+        setUserRole(role);
 
-                setUserRole(role);
-                // owner and editor both count as having edit access
-                if (role === 'editor' || role === 'owner') {
-                    setIsEditor(true);
-                } else if (role === 'ops') {
-                    setIsEditor(false);
-                    setMode('ops'); // auto-enter ops mode for ops users
-                } else {
-                    setIsEditor(false);
-                    setMode('view');
-                }
-            } catch (error) {
-                console.error("Error checking permissions:", error);
-                setIsEditor(false);
-                setUserRole(null);
-            }
-        };
-        checkPermissions();
+        if (role === 'editor' || role === 'owner') {
+            setIsEditor(true);
+        } else if (role === 'ops') {
+            setIsEditor(false);
+            setMode('ops'); // auto-enter ops mode for ops users
+        } else {
+            setIsEditor(false);
+            setMode('view');
+        }
     }, [user, runsheet]);
 
     useEffect(() => {
