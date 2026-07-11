@@ -40,7 +40,8 @@ export default function RunsheetList() {
         activeFilter, setActiveFilter,
         refresh,
         enrollInGroup,
-        migrationState, setMigrationState
+        migrationState, setMigrationState,
+        showGroupToast, setShowGroupToast
     } = useDashboard();
 
     const [theme, setTheme] = useState('dark');
@@ -1843,6 +1844,18 @@ export default function RunsheetList() {
                                 >
                                     {migrationState.status === 'completed' ? 'Done' : 'Upgrading...'}
                                 </button>
+                            </div>
+                        </div>
+                    )}
+                    {/* Floating Group Enrollment success toast */}
+                    {showGroupToast && (
+                        <div 
+                            onClick={() => setShowGroupToast(false)}
+                            className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-sm px-4 animate-in fade-in slide-in-from-top-4 duration-300 cursor-pointer"
+                        >
+                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-semibold shadow-xl backdrop-blur bg-background/95">
+                                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                <span>Group saved to your runsheet list!</span>
                             </div>
                         </div>
                     )}

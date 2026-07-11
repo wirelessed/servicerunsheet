@@ -24,8 +24,19 @@ export default function SharePage() {
     const [loading, setLoading] = useState(true);
     const [timings, setTimings] = useState({});
     const [enrolled, setEnrolled] = useState(false);
+    const [showToast, setShowToast] = useState(false);
     const [token, setToken] = useState(null);
     const [tokenInvalid, setTokenInvalid] = useState(false);
+
+    useEffect(() => {
+        if (enrolled) {
+            setShowToast(true);
+            const timer = setTimeout(() => {
+                setShowToast(false);
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [enrolled]);
 
     const handleBackToDashboard = () => {
         if (runsheet?.groupId) {
@@ -185,11 +196,14 @@ export default function SharePage() {
         <div className="flex flex-col min-h-screen">
             {!user && <LoginBanner message="Log in to save this runsheet" />}
 
-            {enrolled && (
-                <div className="container mx-auto px-4 mt-4 max-w-7xl">
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold shadow-sm">
+            {showToast && (
+                <div 
+                    onClick={() => setShowToast(false)}
+                    className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-sm px-4 animate-in fade-in slide-in-from-top-4 duration-300 cursor-pointer"
+                >
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-semibold shadow-xl backdrop-blur bg-background/95">
                         <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                        Saved to your runsheet list!
+                        <span>Saved to your runsheet list!</span>
                     </div>
                 </div>
             )}

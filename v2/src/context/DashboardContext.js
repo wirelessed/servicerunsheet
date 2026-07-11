@@ -16,6 +16,7 @@ export const DashboardContextProvider = ({ children }) => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeFilter, setActiveFilter] = useState('upcoming');
     const [migrationState, setMigrationState] = useState({ status: 'idle', total: 0, migrated: 0 });
+    const [showGroupToast, setShowGroupToast] = useState(false);
     const enrolledGroupsRef = useRef(new Set());
     const hasMigratedRef = useRef(false);
 
@@ -29,6 +30,15 @@ export const DashboardContextProvider = ({ children }) => {
             }
         }
     }, [activeFilter, userHash]);
+
+    useEffect(() => {
+        if (showGroupToast) {
+            const timer = setTimeout(() => {
+                setShowGroupToast(false);
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [showGroupToast]);
 
 
 
@@ -134,6 +144,30 @@ export const DashboardContextProvider = ({ children }) => {
     const enrollInGroup = useCallback(async (groupId) => {
         if (!userHash || !groupId) return;
         if (enrolledGroupsRef.current.has(groupId)) return; // Already enrolled this session
+
+        // Verify authorization: is creator, has token in sessionStorage, or already joined in localStorage
+        const groupObj = groups.find(g => g.id === groupId);
+        const isCreator = groupObj && groupObj.createdBy === user?.email;
+        
+        let hasToken = false;
+        if (typeof window !== 'undefined') {
+            hasToken = !!sessionStorage.getItem(`groupToken_${groupId}`);
+        }
+        
+        let isAlreadyJoined = false;
+        if (typeof window !== 'undefined') {
+            const joinedKey = `joinedGroups_${userHash}`;
+            try {
+                const joined = JSON.parse(localStorage.getItem(joinedKey) || '[]');
+                isAlreadyJoined = joined.includes(groupId);
+            } catch (e) {}
+        }
+
+        if (!isCreator && !hasToken && !isAlreadyJoined) {
+            // Not authorized to auto-enroll in all runsheets of this group. Skip!
+            return;
+        }
+
         enrolledGroupsRef.current.add(groupId);
 
         // Track this group as joined in user-specific localStorage
@@ -187,11 +221,12 @@ export const DashboardContextProvider = ({ children }) => {
 
             if (needsCommit) {
                 await batch.commit();
+                setShowGroupToast(true);
             }
         } catch (err) {
             console.error('Error enrolling in group:', err);
         }
-    }, [user, userHash]);
+    }, [user, userHash, groups]);
 
     // Set up Realtime Listener on startup & when user changes
     useEffect(() => {
@@ -279,8 +314,8 @@ export const DashboardContextProvider = ({ children }) => {
                     } catch (e) {}
                 }
 
-                // Combine referenced and joined group IDs
-                const combinedGroupIds = [...new Set([...groupIds, ...joinedGroupIds])];
+                // Combine owned and joined group IDs (exclude groups we only reference because of a shared runsheet)
+                const combinedGroupIds = [...new Set([...ownedGroups.map(g => g.id), ...joinedGroupIds])];
                 const ownedGroupIds = new Set(ownedGroups.map(g => g.id));
                 const remainingGroupIds = combinedGroupIds.filter(id => !ownedGroupIds.has(id));
 
@@ -333,7 +368,8 @@ export const DashboardContextProvider = ({ children }) => {
             activeFilter, setActiveFilter,
             refresh,
             enrollInGroup,
-            migrationState, setMigrationState
+            migrationState, setMigrationState,
+            showGroupToast, setShowGroupToast
         }}>
             {children}
         </DashboardContext.Provider>

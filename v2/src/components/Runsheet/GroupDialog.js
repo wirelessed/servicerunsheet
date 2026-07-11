@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -25,6 +25,12 @@ export default function GroupDialog({ open, onClose, existingGroups = [], onSetG
     const [mode, setMode] = useState('pick'); // 'pick' | 'create'
     const [newGroupName, setNewGroupName] = useState('');
 
+    useEffect(() => {
+        if (!open) {
+            setMode('pick');
+            setNewGroupName('');
+        }
+    }, [open]);
 
     const handleClose = () => {
         setMode('pick');

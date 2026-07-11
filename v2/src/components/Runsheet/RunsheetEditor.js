@@ -238,7 +238,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             setCurrentItem(null);
             const { id, ...nodeData } = newNode;
             const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), nodeData);
-            setItems(prevItems => prevItems.map(item => item.id === tempId ? { ...item, id: docRef.id } : item));
+            setItems(prevItems => {
+                const updated = prevItems.map(item => item.id === tempId ? { ...item, id: docRef.id } : item);
+                calculateTimings(updated, runsheet.time);
+                return updated;
+            });
             const batch = writeBatch(db);
             newItems.forEach((item, index) => {
                 const itemId = item.id === tempId ? docRef.id : item.id;
@@ -519,7 +523,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
 
                         const { id, ...nodeData } = newNode;
                         const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), { ...nodeData, orderCount: items.length });
-                        setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i));
+                        setItems(prev => {
+                            const updated = prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i);
+                            calculateTimings(updated, runsheet.time);
+                            return updated;
+                        });
                     }}
                 >
                     <AddIcon className="mr-1 text-[16px]" /> Add new item
