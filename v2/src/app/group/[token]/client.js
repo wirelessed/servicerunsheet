@@ -16,7 +16,7 @@ export default function GroupPageClient() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
-    const { user, loading: authLoading } = useAuth();
+    const { user, userHash, loading: authLoading } = useAuth();
 
     let rawSegment = params?.token;
     if (!rawSegment || rawSegment === 'fallback' || rawSegment === '[token]' || rawSegment === '%5Btoken%5D') {
@@ -95,8 +95,19 @@ export default function GroupPageClient() {
     useEffect(() => {
         if (!resolving && activeId && activeId !== 'fallback' && activeId !== '[token]') {
             localStorage.setItem('dashboard_filter', activeId);
+            
+            // Add to joined groups list immediately to prevent race conditions during dashboard redirect
+            if (userHash) {
+                const joinedKey = `joinedGroups_${userHash}`;
+                try {
+                    const joined = JSON.parse(localStorage.getItem(joinedKey) || '[]');
+                    if (!joined.includes(activeId)) {
+                        localStorage.setItem(joinedKey, JSON.stringify([...joined, activeId]));
+                    }
+                } catch (e) {}
+            }
         }
-    }, [resolving, activeId]);
+    }, [resolving, activeId, userHash]);
 
     // ── LOGGED-IN: redirect to /dashboard with the group filter ──
     useEffect(() => {
