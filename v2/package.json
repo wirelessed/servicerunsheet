@@ -1,12 +1,13 @@
 {
   "name": "v4",
-  "version": "4.1.62",
+  "version": "4.1.63",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "npm run build && firebase deploy --only hosting:beta"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

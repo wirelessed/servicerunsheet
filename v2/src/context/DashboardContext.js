@@ -314,8 +314,8 @@ export const DashboardContextProvider = ({ children }) => {
                     } catch (e) {}
                 }
 
-                // Combine owned and joined group IDs (exclude groups we only reference because of a shared runsheet)
-                const combinedGroupIds = [...new Set([...ownedGroups.map(g => g.id), ...joinedGroupIds])];
+                // Combine referenced and joined group IDs
+                const combinedGroupIds = [...new Set([...groupIds, ...joinedGroupIds])];
                 const ownedGroupIds = new Set(ownedGroups.map(g => g.id));
                 const remainingGroupIds = combinedGroupIds.filter(id => !ownedGroupIds.has(id));
 
