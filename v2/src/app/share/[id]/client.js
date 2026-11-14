@@ -1,12 +1,11 @@
 'use client';
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, getDocs, query, orderBy, writeBatch } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { getSharedRunsheet } from '../../../lib/firebase';
+import { subscribeSharedRunsheet } from '../../../lib/sharedRunsheet';
 import { useAuth } from '../../../context/AuthContext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LoginBanner from '../../../components/LoginBanner';
-import moment from 'moment';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -17,12 +16,11 @@ export default function SharePage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [id, setId] = useState(null);
     const [runsheet, setRunsheet] = useState(null);
     const [programme, setProgramme] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [timings, setTimings] = useState({});
     const [enrolled, setEnrolled] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [token, setToken] = useState(null);
@@ -64,98 +62,54 @@ export default function SharePage() {
 
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
+        if (authLoading) return;
+        if (!token) {
+            setTokenInvalid(true);
+            setLoading(false);
+            return;
+        }
 
+        if (!user) {
+            const unsub = subscribeSharedRunsheet(id, token, {
+                onMeta: (meta) => {
+                    sessionStorage.setItem(`runsheetToken_${id}`, token);
+                    setRunsheet({ ...meta, roles: {} });
+                    setLoading(false);
+                },
+                onProgramme: setProgramme,
+                onDenied: () => { setTokenInvalid(true); setLoading(false); },
+            });
+            return unsub;
+        }
+
+        let active = true;
         const fetchData = async () => {
             try {
-                // Fetch Runsheet
-                const docRef = doc(db, 'runsheets', id);
-                const docSnap = await getDoc(docRef);
+                // Token is validated server-side; nothing is returned unless it matches.
+                // Signed-in callers are enrolled as viewers by the same call.
+                const res = await getSharedRunsheet(id, token);
+                if (!active) return;
 
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-
-                    // Validate token
-                    const runsheetToken = data.shareToken;
-                    if (!token || !runsheetToken || token !== runsheetToken) {
-                        setTokenInvalid(true);
-                        setLoading(false);
-                        return;
-                    }
-
-                    setRunsheet({ id: docSnap.id, ...data });
-
-                    // Fetch Programme
-                    const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
-                    const querySnapshot = await getDocs(q);
-                    const items = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                    // Calculate timings
-                    const startTimeStr = docSnap.data().time;
-                    let currentTime = moment(startTimeStr, "HHmm");
-                    const newTimings = {};
-
-                    items.forEach(item => {
-                        newTimings[item.id] = currentTime.format("h:mm a");
-                        const duration = parseInt(item.duration) || 0;
-                        currentTime.add(duration, 'minutes');
-                    });
-                    setTimings(newTimings);
-                    setProgramme(items);
-
-                    // Auto-enroll logged-in user as viewer
-                    if (user?.email) {
-                        try {
-                            const existingRole = data.roles?.[user.email] || data.roles?.[user.email.toLowerCase()];
-                            const inMemberEmails = data.memberEmails?.includes(user.email);
-
-                            // Only write if something is missing
-                            if (!existingRole || !inMemberEmails) {
-                                const batch = writeBatch(db);
-
-                                // Ensure user is in memberEmails and roles on main doc
-                                const currentEmails = data.memberEmails || [];
-                                const updates = {};
-                                if (!inMemberEmails) {
-                                    updates.memberEmails = [...currentEmails, user.email];
-                                }
-                                if (!existingRole) {
-                                    updates[`roles.${user.email}`] = 'viewer';
-                                }
-                                if (Object.keys(updates).length > 0) {
-                                    batch.update(docRef, updates);
-                                }
-
-                                // Ensure subcollection user doc and personal ref exist
-                                batch.set(doc(db, `runsheets/${id}/users`, user.email), {
-                                    id: user.email, email: user.email, role: existingRole || 'viewer'
-                                }, { merge: true });
-                                batch.set(doc(db, `users/${user.email}/runsheets`, id), { id }, { merge: true });
-
-                                await batch.commit();
-                            }
-                            setEnrolled(true);
-                        } catch (e) {
-                            console.error('Error auto-enrolling user', e);
-                        }
-                    }
-
-                    setLoading(false);
-                } else {
-                    setLoading(false);
-                }
+                const roles = user?.email && res.role ? { [user.email]: res.role } : {};
+                setRunsheet({ ...res.runsheet, roles });
+                setProgramme(res.programme);
+                sessionStorage.setItem(`runsheetToken_${id}`, token);
+                if (res.enrolled) setEnrolled(true);
             } catch (err) {
-                console.error("Error fetching shared runsheet", err);
-                setLoading(false);
+                if (!active) return;
+                if (err?.code === 'functions/permission-denied') {
+                    setTokenInvalid(true);
+                } else {
+                    console.error("Error fetching shared runsheet", err);
+                }
+            } finally {
+                if (active) setLoading(false);
             }
         };
         fetchData();
 
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 3000);
-
-        return () => clearTimeout(timer);
-    }, [id, user]);
+        return () => { active = false; };
+    }, [id, token, user, authLoading]);
 
     if (tokenInvalid) {
         return (

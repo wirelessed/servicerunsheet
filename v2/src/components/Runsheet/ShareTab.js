@@ -23,7 +23,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import NotesIcon from '@mui/icons-material/Notes';
 import moment from "moment";
-import { db } from '../../lib/firebase';
+import { db, generateShareToken } from '../../lib/firebase';
 import { doc, setDoc, deleteDoc, onSnapshot, collection, updateDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationDialog from '../ConfirmationDialog';
@@ -64,11 +64,7 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
             
             if (!token && !hasAttemptedRef.current) {
                 hasAttemptedRef.current = true;
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                let newToken = '';
-                for (let i = 0; i < 6; i++) {
-                    newToken += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
+                const newToken = generateShareToken();
                 try {
                     await updateDoc(doc(db, 'runsheets', runsheetId), { shareToken: newToken });
                     token = newToken;

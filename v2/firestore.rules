@@ -1,39 +1,125 @@
 rules_version = '2';
 
+// Access model
+// - Runsheets (and their subcollections) are readable only by members:
+//   email in memberEmails, or a runsheets/{id}/users/{email} doc (legacy).
+// - Share links (runsheet/group tokens) are validated server-side by the
+//   getSharedRunsheet / getSharedGroup Cloud Functions, which use the Admin SDK
+//   and bypass these rules. Clients never read a token they weren't given.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Runsheets and all subcollections (users, programme)
-    match /runsheets/{runsheetId} {
-      allow read: if true;
-      allow create, update, delete: if request.auth != null;
+    // Anonymous share-link sessions have no email claim; .get() keeps that a clean false.
+    function signedIn() { return request.auth != null && request.auth.token.get('email', null) != null; }
+    function email() { return request.auth.token.get('email', null); }
+    function rsPath(rsId) { return /databases/$(database)/documents/runsheets/$(rsId); }
+    function subUserPath(rsId) { return /databases/$(database)/documents/runsheets/$(rsId)/users/$(email()); }
 
-      match /{subcollection}/{docId} {
-        allow read: if true;
-        allow create, update, delete: if request.auth != null;
+    function isMemberOf(data, rsId) {
+      return signedIn() && (
+        email() in data.get('memberEmails', [])
+        || exists(subUserPath(rsId))
+      );
+    }
+
+    // Role from the runsheet doc when present (no extra lookups); only legacy runsheets
+    // fall back to the users subcollection. Keeps batched writes under the access-call limit.
+    function roleIn(data, rsId) {
+      return email() in data.get('roles', {})
+        ? data.roles[email()]
+        : (exists(subUserPath(rsId)) ? get(subUserPath(rsId)).data.get('role', 'viewer') : null);
+    }
+
+    function isEditorOf(data, rsId) {
+      return signedIn() && roleIn(data, rsId) in ['owner', 'editor'];
+    }
+
+    // Anonymous share-link visitors: pass issued by getSharedRunsheet, valid only
+    // while it matches the runsheet's current shareToken.
+    function hasViewerPass(rsId) {
+      let pass = /databases/$(database)/documents/runsheets/$(rsId)/viewers/$(request.auth.uid);
+      return request.auth != null
+        && exists(pass)
+        && get(pass).data.token is string
+        && get(pass).data.token == get(rsPath(rsId)).data.get('shareToken', null);
+    }
+
+    // Ops log transitions: they may only change an existing item's timing fields.
+    function isOpsTimingUpdate(data, rsId) {
+      return signedIn()
+        && roleIn(data, rsId) == 'ops'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['duration', 'originalDuration']);
+    }
+
+    match /runsheets/{rsId} {
+      // `get` on a missing doc is allowed so the UI can show "not found".
+      allow get: if resource == null || isMemberOf(resource.data, rsId);
+      // Queries must be constrained to the caller (memberEmails array-contains email).
+      allow list: if signedIn() && email() in resource.data.get('memberEmails', []);
+
+      allow create: if signedIn()
+        && request.resource.data.memberEmails == [email()]
+        && request.resource.data.roles.get(email(), null) == 'owner';
+
+      // Any member may move/archive their runsheets. Checked first: for members listed in
+      // memberEmails it needs no lookups, which matters for group-wide batches.
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['category', 'groupId', 'lastUpdated'])
+            && isMemberOf(resource.data, rsId))
+        || isEditorOf(resource.data, rsId)
+        // One-time legacy migration: populate memberEmails/roles from the users subcollection.
+        || (isMemberOf(resource.data, rsId) && !('memberEmails' in resource.data));
+
+      allow delete: if isEditorOf(resource.data, rsId);
+
+      match /programme/{itemId} {
+        allow read: if isMemberOf(get(rsPath(rsId)).data, rsId) || hasViewerPass(rsId);
+        allow create, delete: if isEditorOf(getAfter(rsPath(rsId)).data, rsId);
+        allow update: if isEditorOf(getAfter(rsPath(rsId)).data, rsId)
+          || isOpsTimingUpdate(getAfter(rsPath(rsId)).data, rsId);
+      }
+
+      // Email-free mirror of the runsheet, written only by Cloud Functions.
+      match /public/{docId} {
+        allow read: if isMemberOf(get(rsPath(rsId)).data, rsId) || hasViewerPass(rsId);
+        allow write: if false;
+      }
+
+      // Viewer passes: Cloud Functions only.
+      match /viewers/{uid} {
+        allow read, write: if false;
+      }
+
+      match /users/{userEmail} {
+        allow read: if isMemberOf(get(rsPath(rsId)).data, rsId);
+        allow write: if isEditorOf(getAfter(rsPath(rsId)).data, rsId);
       }
     }
 
-    // Personal references: users/{email}/runsheets
-    match /users/{userEmailId}/runsheets/{runsheetId} {
-      allow read: if true;
-      allow create, update, delete: if request.auth != null;
+    // Personal index: users/{email}/runsheets. Grants no access on its own.
+    match /users/{userEmail}/runsheets/{rsId} {
+      allow read: if signedIn() && email() == userEmail;
+      allow write: if signedIn() && (
+        email() == userEmail
+        || (exists(rsPath(rsId)) && isEditorOf(getAfter(rsPath(rsId)).data, rsId))
+      );
     }
 
-    // Groups
     match /groups/{groupId} {
-      allow read: if true;
-      allow create, update, delete: if request.auth != null;
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.createdBy == email();
+      allow update, delete: if signedIn() && resource.data.get('createdBy', email()) == email();
     }
 
-    // Group tokens
+    // Legacy group short-link index. Resolved only by the getSharedGroup function.
     match /groupTokens/{tokenId} {
-      allow read: if true;
-      allow create: if request.auth != null;
+      allow read: if false;
+      allow create: if signedIn()
+        && getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('createdBy', null) == email();
       allow update, delete: if false;
     }
 
-    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }

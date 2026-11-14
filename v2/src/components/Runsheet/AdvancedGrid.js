@@ -114,14 +114,18 @@ export default function AdvancedGrid({
                     const state = api.getState();
                     if (state && state.data) {
                         setTimeout(async () => {
-                            const newOrder = api.getState().data;
+                            // Only write the rows whose position actually changed.
+                            const batch = writeBatch(db);
+                            let writes = 0;
+                            const newOrder = api.getState().data.map((item, index) => {
+                                if (item.orderCount === index) return item;
+                                batch.update(doc(db, `runsheets/${runsheetId}/programme`, item.id), { orderCount: index });
+                                writes++;
+                                return { ...item, orderCount: index };
+                            });
                             setItems(newOrder);
                             calculateTimings(newOrder, runsheetTime);
-                            const batch = writeBatch(db);
-                            newOrder.forEach((item, index) => {
-                                batch.update(doc(db, `runsheets/${runsheetId}/programme`, item.id), { orderCount: index });
-                            });
-                            await batch.commit();
+                            if (writes > 0) await batch.commit();
                         }, 100);
                     }
                 });

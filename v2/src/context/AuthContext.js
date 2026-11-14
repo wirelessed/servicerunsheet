@@ -16,7 +16,9 @@ export const AuthContextProvider = ({ children }) => {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
+            // Anonymous sessions exist only to hold share-link viewer passes;
+            // the rest of the app treats them as logged out.
+            if (user && !user.isAnonymous) {
                 setUser({
                     uid: user.uid,
                     email: user.email,

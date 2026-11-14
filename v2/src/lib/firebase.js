@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -25,5 +26,20 @@ const db = typeof window !== "undefined"
   : getFirestore(app);
 
 const googleProvider = new GoogleAuthProvider();
+const functions = getFunctions(app);
 
-export { app, auth, db, googleProvider };
+// Server-validated share-link access (see functions/index.js).
+const getSharedRunsheet = (id, token) =>
+  httpsCallable(functions, "getSharedRunsheet")({ id, token }).then((r) => r.data);
+const getSharedGroup = (groupId, token) =>
+  httpsCallable(functions, "getSharedGroup")({ groupId, token: token || null }).then((r) => r.data);
+
+// Unguessable share token (base62, ~95 bits).
+const generateShareToken = (length = 16) => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+};
+
+export { app, auth, db, googleProvider, functions, getSharedRunsheet, getSharedGroup, generateShareToken };

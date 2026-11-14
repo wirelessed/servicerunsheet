@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
-import { db } from '../../lib/firebase';
+import { db, generateShareToken } from '../../lib/firebase';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 
 /**
@@ -20,7 +20,7 @@ import { doc, getDoc, writeBatch } from 'firebase/firestore';
  *   onClose         - () => void
  *   group           - { id, name }
  */
-export default function ShareGroupDialog({ open, onClose, group }) {
+export default function ShareGroupDialog({ open, onClose, group, token: knownToken }) {
     const [shareUrl, setShareUrl] = useState('');
     const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -32,6 +32,12 @@ export default function ShareGroupDialog({ open, onClose, group }) {
         setLoading(true);
 
         const checkGroupToken = async () => {
+            // Logged-out viewers can't read the group doc; reuse the token they arrived with.
+            if (knownToken) {
+                setShareUrl(`${window.location.origin}/group/${group.id}?token=${knownToken}`);
+                setLoading(false);
+                return;
+            }
             const groupRef = doc(db, 'groups', group.id);
             try {
                 const groupSnap = await getDoc(groupRef);
@@ -40,11 +46,7 @@ export default function ShareGroupDialog({ open, onClose, group }) {
                     let token = groupData.shareToken;
 
                     if (!token) {
-                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                        let newToken = '';
-                        for (let i = 0; i < 6; i++) {
-                            newToken += chars.charAt(Math.floor(Math.random() * chars.length));
-                        }
+                        const newToken = generateShareToken();
 
                         const batch = writeBatch(db);
                         batch.update(groupRef, { shareToken: newToken });
@@ -65,7 +67,7 @@ export default function ShareGroupDialog({ open, onClose, group }) {
         };
 
         checkGroupToken();
-    }, [open, group]);
+    }, [open, group, knownToken]);
 
     const handleCopy = () => {
         if (!shareUrl || loading) return;

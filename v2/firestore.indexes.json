@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "runsheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "memberEmails", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

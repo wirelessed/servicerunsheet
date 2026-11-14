@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { db } from '../../lib/firebase';
+import { db, generateShareToken } from '../../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 export default function ShareDialog({ open, onClose, runsheetId, runsheetName }) {
@@ -47,11 +47,7 @@ export default function ShareDialog({ open, onClose, runsheetId, runsheetName })
 
                     if (!token && !hasAttemptedRef.current) {
                         hasAttemptedRef.current = true;
-                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                        let newToken = '';
-                        for (let i = 0; i < 6; i++) {
-                            newToken += chars.charAt(Math.floor(Math.random() * chars.length));
-                        }
+                        const newToken = generateShareToken();
                         try {
                             await updateDoc(runsheetRef, { shareToken: newToken });
                             token = newToken;

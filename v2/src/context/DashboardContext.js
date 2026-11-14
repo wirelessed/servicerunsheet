@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { collection, query, getDocs, doc, getDoc, writeBatch, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, getSharedGroup } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import moment from 'moment';
 
@@ -19,6 +19,10 @@ export const DashboardContextProvider = ({ children }) => {
     const [showGroupToast, setShowGroupToast] = useState(false);
     const enrolledGroupsRef = useRef(new Set());
     const hasMigratedRef = useRef(false);
+    const loadRestRef = useRef(false);
+    const startRestRef = useRef(null);
+    // True once `runsheets` reflects a live Firestore snapshot (not just the localStorage cache).
+    const [runsheetsLoaded, setRunsheetsLoaded] = useState(false);
 
     // Persist activeFilter to localStorage whenever it changes
     useEffect(() => {
@@ -43,9 +47,17 @@ export const DashboardContextProvider = ({ children }) => {
 
 
     // ── Self-Healing Migration function: run in background to convert legacy runsheets ──
-    const runMigration = useCallback(async () => {
+    const runMigration = useCallback(async (force = false) => {
         if (!user?.email || hasMigratedRef.current) return;
         hasMigratedRef.current = true;
+        // Once a check has come back clean, don't pay for it on every page load.
+        const migrationFlagKey = `migrationChecked_${userHash}`;
+        if (!force && typeof window !== 'undefined' && localStorage.getItem(migrationFlagKey)) {
+            return;
+        }
+        const markChecked = () => {
+            try { localStorage.setItem(migrationFlagKey, '1'); } catch (e) {}
+        };
         setMigrationState({ status: 'checking', total: 0, migrated: 0 });
         try {
             const userRunsheetsRef = collection(db, `users/${user.email}/runsheets`);
@@ -54,6 +66,7 @@ export const DashboardContextProvider = ({ children }) => {
 
             if (allRsIds.length === 0) {
                 setMigrationState({ status: 'none', total: 0, migrated: 0 });
+                markChecked();
                 return;
             }
 
@@ -105,13 +118,9 @@ export const DashboardContextProvider = ({ children }) => {
                                 roles[email] = role;
                             });
 
-                            // Fallback: if users subcollection is empty, default current user as owner
-                            if (memberEmails.length === 0) {
-                                memberEmails.push(user.email);
-                                roles[user.email] = 'owner';
-                                const subUserRef = doc(db, `runsheets/${rsId}/users`, user.email);
-                                batch.set(subUserRef, { id: user.email, email: user.email, role: 'owner' });
-                            }
+                            // No members on record: can't be migrated safely (claiming ownership
+                            // from a personal ref would let anyone take over a runsheet).
+                            if (memberEmails.length === 0) return;
 
                             batch.update(runsheetRef, {
                                 memberEmails,
@@ -131,14 +140,16 @@ export const DashboardContextProvider = ({ children }) => {
                 }
                 console.log("Migration completed.");
                 setMigrationState({ status: 'completed', total: legacyIds.length, migrated: legacyIds.length });
+                // Not marked as checked: unmigratable leftovers get one more look next load.
             } else {
                 setMigrationState({ status: 'none', total: 0, migrated: 0 });
+                markChecked();
             }
         } catch (e) {
             console.error("Migration error:", e);
             setMigrationState({ status: 'none', total: 0, migrated: 0 });
         }
-    }, [user]);
+    }, [user, userHash]);
 
     // ── Lightweight group enrollment: runs only once per group per session ──
     const enrollInGroup = useCallback(async (groupId) => {
@@ -151,7 +162,7 @@ export const DashboardContextProvider = ({ children }) => {
         
         let hasToken = false;
         if (typeof window !== 'undefined') {
-            hasToken = !!sessionStorage.getItem(`groupToken_${groupId}`);
+            hasToken = !!(sessionStorage.getItem(`groupToken_${groupId}`) || localStorage.getItem(`groupToken_${groupId}`));
         }
         
         let isAlreadyJoined = false;
@@ -182,145 +193,107 @@ export const DashboardContextProvider = ({ children }) => {
         }
 
         try {
-            const groupRsSnap = await getDocs(query(collection(db, 'runsheets'), where('groupId', '==', groupId)));
-
-            const batch = writeBatch(db);
-            let needsCommit = false;
-
-            for (const rsDoc of groupRsSnap.docs) {
-                const rsId = rsDoc.id;
-                const rsData = rsDoc.data();
-                const existingRole = rsData.roles?.[user.email] || rsData.roles?.[user.email.toLowerCase()];
-
-                // Skip if user already has a role and is in memberEmails
-                if (existingRole && rsData.memberEmails?.includes(user.email)) continue;
-
-                // Ensure user is in memberEmails and roles on main doc
-                const currentEmails = rsData.memberEmails || [];
-                const updates = {};
-                if (!currentEmails.includes(user.email)) {
-                    updates.memberEmails = [...currentEmails, user.email];
-                }
-                if (!existingRole) {
-                    updates[`roles.${user.email}`] = 'viewer';
-                }
-                if (Object.keys(updates).length > 0) {
-                    batch.update(doc(db, 'runsheets', rsId), updates);
-                }
-
-                // Ensure subcollection user doc exists
-                batch.set(doc(db, `runsheets/${rsId}/users`, user.email), {
-                    id: user.email, email: user.email, role: existingRole || 'viewer'
-                }, { merge: true });
-
-                // Ensure personal reference exists
-                batch.set(doc(db, `users/${user.email}/runsheets`, rsId), { id: rsId }, { merge: true });
-
-                needsCommit = true;
-            }
-
-            if (needsCommit) {
-                await batch.commit();
+            // Server validates the token (or group ownership) and enrolls us in the group's runsheets.
+            const token = (typeof window !== 'undefined')
+                ? (sessionStorage.getItem(`groupToken_${groupId}`) || localStorage.getItem(`groupToken_${groupId}`))
+                : null;
+            const res = await getSharedGroup(groupId, token);
+            if (res?.newlyEnrolled > 0) {
                 setShowGroupToast(true);
             }
         } catch (err) {
-            console.error('Error enrolling in group:', err);
+            if (err?.code !== 'functions/permission-denied') {
+                console.error('Error enrolling in group:', err);
+            }
         }
     }, [user, userHash, groups]);
 
-    // Set up Realtime Listener on startup & when user changes
+    // Loads past/archived runsheets too (group views, Past/Archive tabs, search).
+    const loadAllRunsheets = useCallback(() => {
+        loadRestRef.current = true;
+        if (startRestRef.current) startRestRef.current();
+    }, []);
+
+    // Set up Realtime Listeners on startup & when user changes.
+    // Only upcoming runsheets are listened to by default; the rest are fetched on demand.
     useEffect(() => {
         if (!userHash) {
             setRunsheets([]);
             setGroups([]);
+            setRunsheetsLoaded(false);
+            loadRestRef.current = false;
             enrolledGroupsRef.current.clear();
             return;
         }
 
+        setRunsheetsLoaded(false);
         const cacheKey = `runsheetsCache_${userHash}`;
         const groupsCacheKey = `groupsCache_${userHash}`;
+        // One day of slack so ISO/timezone-suffixed dates near midnight never fall in the wrong bucket.
+        const boundary = moment().subtract(1, 'day').format('YYYY-MM-DD');
+
+        let active = true;
+        let upcomingDocs = null;   // null = not loaded yet
+        let restDocs = null;
+        let cachedRest = [];       // older runsheets from the last session, shown until `rest` loads
+        let cachedGroupIds = [];
+        let lastGroupKey = null;
+        const unsubs = [];
 
         // 1. Initial Load from LocalStorage
-        const cachedStr = localStorage.getItem(cacheKey);
-        const cachedGroupsStr = localStorage.getItem(groupsCacheKey);
+        try {
+            const cachedData = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+            if (Array.isArray(cachedData) && cachedData.length > 0) {
+                const stale = cachedData.map(r => ({ ...r, _stale: true }));
+                setRunsheets(stale);
+                cachedRest = stale.filter(r => !(typeof r.date === 'string' && r.date >= boundary));
+            }
+        } catch (e) {}
 
-        if (cachedStr) {
-            try {
-                const cachedData = JSON.parse(cachedStr);
-                if (Array.isArray(cachedData) && cachedData.length > 0) {
-                    setRunsheets(cachedData);
-                }
-            } catch (e) {}
-        }
-
-        if (cachedGroupsStr) {
-            try {
-                const cachedGroups = JSON.parse(cachedGroupsStr);
-                if (Array.isArray(cachedGroups)) {
-                    setGroups(cachedGroups);
-                }
-            } catch (e) {}
-        }
+        try {
+            const cachedGroups = JSON.parse(localStorage.getItem(groupsCacheKey) || '[]');
+            if (Array.isArray(cachedGroups)) {
+                setGroups(cachedGroups);
+                cachedGroupIds = cachedGroups.map(g => g.id);
+            }
+        } catch (e) {}
 
         setIsSyncing(true);
 
-        // 2. Setup Realtime Listener
-        const q = query(
-            collection(db, 'runsheets'),
-            where('memberEmails', 'array-contains', user.email)
-        );
+        const toRunsheet = (d) => {
+            const data = d.data();
+            const role = data.roles?.[user.email] || null;
+            return {
+                id: d.id,
+                ...data,
+                category: data.category || 'active',
+                role: role,
+                isEditor: role === 'editor' || role === 'owner'
+            };
+        };
 
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-            const fetchedRunsheets = snapshot.docs.map(doc => {
-                const data = doc.data();
-                const role = data.roles?.[user.email] || null;
-                return {
-                    id: doc.id,
-                    ...data,
-                    category: data.category || 'active',
-                    role: role,
-                    isEditor: role === 'editor' || role === 'owner'
-                };
-            });
-
-            fetchedRunsheets.sort((a, b) => {
-                const diff = new Date(a.date) - new Date(b.date);
-                if (diff === 0) {
-                    const timeA = a.time || "";
-                    const timeB = b.time || "";
-                    return timeA.localeCompare(timeB);
-                }
-                return diff;
-            });
-
-            setRunsheets(fetchedRunsheets);
-            localStorage.setItem(cacheKey, JSON.stringify(fetchedRunsheets));
-
-            // Fetch referenced groups and user-owned groups
+        const fetchGroups = async (merged) => {
+            const groupIds = [...new Set(merged.map(r => r.groupId).filter(Boolean))];
+            let joinedGroupIds = [];
             try {
-                // 1. Fetch groups created/owned by this user
-                const ownedQuery = query(collection(db, 'groups'), where('createdBy', '==', user.email));
-                const ownedSnap = await getDocs(ownedQuery);
+                joinedGroupIds = JSON.parse(localStorage.getItem(`joinedGroups_${userHash}`) || '[]');
+            } catch (e) {}
+            // Until older runsheets are loaded, keep groups we knew about last session.
+            const known = restDocs === null ? cachedGroupIds : [];
+            const combinedGroupIds = [...new Set([...groupIds, ...joinedGroupIds, ...known])].sort();
+
+            // Only hit Firestore when the set of groups actually changed.
+            const key = combinedGroupIds.join('|');
+            if (key === lastGroupKey) return;
+            lastGroupKey = key;
+
+            try {
+                const ownedSnap = await getDocs(query(collection(db, 'groups'), where('createdBy', '==', user.email)));
                 const ownedGroups = ownedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                // 2. Identify referenced groups that we don't own
-                const groupIds = [...new Set(fetchedRunsheets.map(r => r.groupId).filter(Boolean))];
-
-                // Add groups joined via token/link (from localStorage)
-                let joinedGroupIds = [];
-                if (typeof window !== 'undefined') {
-                    try {
-                        joinedGroupIds = JSON.parse(localStorage.getItem(`joinedGroups_${userHash}`) || '[]');
-                    } catch (e) {}
-                }
-
-                // Combine referenced and joined group IDs
-                const combinedGroupIds = [...new Set([...groupIds, ...joinedGroupIds])];
                 const ownedGroupIds = new Set(ownedGroups.map(g => g.id));
                 const remainingGroupIds = combinedGroupIds.filter(id => !ownedGroupIds.has(id));
 
                 let allGroups = [...ownedGroups];
-
                 if (remainingGroupIds.length > 0) {
                     const chunks = [];
                     for (let i = 0; i < remainingGroupIds.length; i += 30) {
@@ -331,38 +304,117 @@ export const DashboardContextProvider = ({ children }) => {
                             getDocs(query(collection(db, 'groups'), where('__name__', 'in', chunk)))
                         )
                     );
-                    const otherGroups = snaps.flatMap(snap =>
-                        snap.docs.map(d => ({ id: d.id, ...d.data() }))
-                    );
-                    allGroups = [...allGroups, ...otherGroups];
+                    allGroups = [...allGroups, ...snaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))];
                 }
-
+                if (!active) return;
                 setGroups(allGroups);
-                localStorage.setItem(groupsCacheKey, JSON.stringify(allGroups));
+                try { localStorage.setItem(groupsCacheKey, JSON.stringify(allGroups)); } catch (e) {}
             } catch (e) {
+                lastGroupKey = null; // retry on the next snapshot
                 console.error("Error fetching groups:", e);
             }
+        };
 
+        const publish = () => {
+            if (!active || upcomingDocs === null) return;
+            const liveIds = new Set(upcomingDocs.map(r => r.id));
+            const rest = (restDocs !== null ? restDocs : cachedRest).filter(r => !liveIds.has(r.id));
+            const merged = [...upcomingDocs, ...rest];
+
+            merged.sort((a, b) => {
+                const diff = new Date(a.date) - new Date(b.date);
+                if (diff === 0) return (a.time || "").localeCompare(b.time || "");
+                return diff;
+            });
+
+            setRunsheets(merged);
+            setRunsheetsLoaded(true);
             setIsSyncing(false);
+
+            // Cache list fields only: notes can hold inline images and blow the 5MB quota.
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(merged.map(({ notes, _stale, ...r }) => r)));
+            } catch (e) {
+                try { localStorage.removeItem(cacheKey); } catch (e2) {}
+            }
+
+            fetchGroups(merged);
+        };
+
+        const base = [collection(db, 'runsheets'), where('memberEmails', 'array-contains', user.email)];
+
+        // Fallback: one listener for everything (used if the composite index isn't deployed yet).
+        const subscribeAll = () => {
+            unsubs.push(onSnapshot(query(...base), (snapshot) => {
+                upcomingDocs = snapshot.docs.map(toRunsheet);
+                restDocs = [];
+                publish();
+            }, (error) => {
+                console.error("Runsheets listener error:", error);
+                setIsSyncing(false);
+            }));
+        };
+
+        let fellBack = false;
+        const onIndexMissing = (error) => {
+            if (error?.code === 'failed-precondition' && !fellBack) {
+                fellBack = true;
+                console.warn('Runsheet date index missing; loading all runsheets in one listener.');
+                unsubs.splice(0).forEach(u => u());
+                subscribeAll();
+                return true;
+            }
+            return false;
+        };
+
+        // 2. Upcoming runsheets (always)
+        unsubs.push(onSnapshot(query(...base, where('date', '>=', boundary)), (snapshot) => {
+            if (fellBack) return;
+            upcomingDocs = snapshot.docs.map(toRunsheet);
+            publish();
         }, (error) => {
+            if (onIndexMissing(error)) return;
             console.error("Runsheets listener error:", error);
             setIsSyncing(false);
-        });
+        }));
 
-        // 3. Background self-healing migration
+        // 3. Everything older (only once something asks for it)
+        let restStarted = false;
+        const startRest = () => {
+            if (restStarted || fellBack || !active) return;
+            restStarted = true;
+            unsubs.push(onSnapshot(query(...base, where('date', '<', boundary)), (snapshot) => {
+                if (fellBack) return;
+                restDocs = snapshot.docs.map(toRunsheet);
+                publish();
+            }, (error) => {
+                if (onIndexMissing(error)) return;
+                console.error("Past runsheets listener error:", error);
+            }));
+        };
+        startRestRef.current = startRest;
+        if (loadRestRef.current) startRest();
+
+        // 4. Background self-healing migration
         runMigration();
 
-        return () => unsubscribe();
+        return () => {
+            active = false;
+            startRestRef.current = null;
+            unsubs.forEach(u => u());
+        };
     }, [user, userHash, runMigration]);
 
     const refresh = useCallback(() => {
         // Realtime listener handles updates, but we re-run migration as a sanity check
-        runMigration();
+        hasMigratedRef.current = false;
+        runMigration(true);
     }, [runMigration]);
 
     return (
         <DashboardContext.Provider value={{
             runsheets, setRunsheets,
+            runsheetsLoaded, loadAllRunsheets,
             groups, setGroups,
             isSyncing, setIsSyncing,
             activeFilter, setActiveFilter,

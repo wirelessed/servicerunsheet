@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
+import { subscribeSharedRunsheet } from '../../../../lib/sharedRunsheet';
 import moment from 'moment';
 import { QRCodeSVG } from 'qrcode.react';
 import DOMPurify from 'isomorphic-dompurify';
@@ -43,24 +44,36 @@ export default function RunsheetPrintPage() {
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
 
+        let active = true;
+        // Fallback for non-members holding a share token: server-validated snapshot.
+        let unsubShared = null;
+        const loadViaToken = () => {
+            const token = sessionStorage.getItem(`runsheetToken_${id}`);
+            if (!token || unsubShared) { setLoading(false); return; }
+            unsubShared = subscribeSharedRunsheet(id, token, {
+                onMeta: (meta) => { if (active) { setRunsheet(meta); setLoading(false); } },
+                onProgramme: (items) => { if (active) setProgramme(items); },
+                onDenied: () => { if (active) setLoading(false); },
+            });
+        };
+
         const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
             if (docSnap.exists()) {
                 setRunsheet({ id: docSnap.id, ...docSnap.data() });
             }
             setLoading(false); // Found or not found, we know the definitive status now.
+        }, (error) => {
+            if (error?.code === 'permission-denied') loadViaToken();
+            else setLoading(false);
         });
 
         const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
         const unsubProgramme = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setProgramme(items);
-        });
+        }, () => {});
 
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 3000); // Failsafe timeout
-
-        return () => { unsubRunsheet(); unsubProgramme(); clearTimeout(timer); };
+        return () => { active = false; unsubRunsheet(); unsubProgramme(); if (unsubShared) unsubShared(); };
     }, [id]);
 
     useEffect(() => {

@@ -1,9 +1,11 @@
 'use client';
 import { useParams, usePathname } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
-import { doc, onSnapshot, collection, query, orderBy, getDoc, writeBatch } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { useState, useEffect } from 'react';
+import { doc, onSnapshot, collection, query, orderBy } from 'firebase/firestore';
+import { db, getSharedRunsheet } from '../../../lib/firebase';
+import { subscribeSharedRunsheet } from '../../../lib/sharedRunsheet';
 import { useAuth } from '../../../context/AuthContext';
+import { useDashboard } from '../../../context/DashboardContext';
 import LoginBanner from '../../../components/LoginBanner';
 import RunsheetEditor from '../../../components/Runsheet/RunsheetEditor';
 
@@ -17,9 +19,11 @@ export default function RunsheetPage() {
     const [metaLoading, setMetaLoading] = useState(true);
     const [programmeLoading, setProgrammeLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
-    const accessCheckedRef = useRef({ id: null, email: null });
 
     const [accessDenied, setAccessDenied] = useState(false);
+    const [memberReady, setMemberReady] = useState(false);
+    const [dashWaited, setDashWaited] = useState(false);
+    const { runsheets, runsheetsLoaded } = useDashboard();
 
     // Resolve the real ID from params or URL
     useEffect(() => {
@@ -34,113 +38,134 @@ export default function RunsheetPage() {
         setId(currentId);
     }, [params, pathname]);
 
-    // Client-side access gating
-    useEffect(() => {
-        if (authLoading || !runsheet) return;
-
-        let hasAccess = false;
-
-        // 1. Logged in member
-        if (user?.email && runsheet.memberEmails?.includes(user.email)) {
-            hasAccess = true;
-        }
-
-        // 2. Query param ?token=
-        if (typeof window !== 'undefined') {
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlToken = urlParams.get('token');
-            if (urlToken && runsheet.shareToken && urlToken === runsheet.shareToken) {
-                hasAccess = true;
-                sessionStorage.setItem(`runsheetToken_${runsheet.id}`, urlToken);
-            }
-
-            // 3. sessionStorage runsheet token
-            const cachedToken = sessionStorage.getItem(`runsheetToken_${runsheet.id}`);
-            if (cachedToken && runsheet.shareToken && cachedToken === runsheet.shareToken) {
-                hasAccess = true;
-            }
-
-            // 4. sessionStorage group token
-            if (runsheet.groupId) {
-                const cachedGroupToken = sessionStorage.getItem(`groupToken_${runsheet.groupId}`);
-                if (cachedGroupToken) {
-                    hasAccess = true;
-                }
-            }
-        }
-
-        if (!hasAccess) {
-            setAccessDenied(true);
-        } else {
-            setAccessDenied(false);
-        }
-    }, [runsheet, user, authLoading]);
-
     useEffect(() => {
         if (!id || id === 'fallback' || id === '[id]' || id === '%5Bid%5D') return;
+        if (authLoading) return;
 
-        // ── Phase 1: Runsheet metadata ──
-        let metaSnapshotFired = false;
-        let notFoundTimer = null;
+        // Share token from the URL (runsheet or group token), else one cached this session.
+        let token = null;
+        if (typeof window !== 'undefined') {
+            token = new URLSearchParams(window.location.search).get('token')
+                || sessionStorage.getItem(`runsheetToken_${id}`);
+        }
 
-        const unsubRunsheet = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
-            if (docSnap.exists()) {
-                if (notFoundTimer) clearTimeout(notFoundTimer);
-                setRunsheet({ id: docSnap.id, ...docSnap.data() });
-                setNotFound(false);
-            } else if (metaSnapshotFired) {
-                // Only show not-found after first successful resolution (doc deleted)
-                setNotFound(true);
-            } else {
-                // Give Firestore generous time to connect on cold starts / slow networks
-                notFoundTimer = setTimeout(() => {
-                    setNotFound(true);
-                }, 5000);
-            }
-            if (!metaSnapshotFired) {
-                metaSnapshotFired = true;
-                setMetaLoading(false);
-            }
-        }, (error) => {
-            console.error("Runsheet metadata listener error:", error);
-            setNotFound(true);
+        let active = true;
+        let unsubs = [];
+
+        const finishDenied = () => {
+            if (!active) return;
+            setAccessDenied(true);
             setMetaLoading(false);
-        });
-
-        // ── Phase 2: Programme items (independent) ──
-        let programmeSnapshotFired = false;
-        const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
-        const unsubProgramme = onSnapshot(q, (snapshot) => {
-            const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setProgramme(items);
-            if (!programmeSnapshotFired) {
-                programmeSnapshotFired = true;
-                setProgrammeLoading(false);
-            }
-        }, (error) => {
-            console.error("Programme listener error:", error);
             setProgrammeLoading(false);
-        });
+        };
 
-        // Failsafe timeouts — must be longer than the notFoundTimer (5s)
-        const metaTimer = setTimeout(() => {
-            setMetaLoading(false);
-        }, 8000);
-        const progTimer = setTimeout(() => setProgrammeLoading(false), 10000);
+        // Token holders: data comes only from the server after it validates the token.
+        const loadViaToken = async () => {
+            try {
+                const res = await getSharedRunsheet(id, token);
+                if (!active) return null;
+                sessionStorage.setItem(`runsheetToken_${id}`, token);
+                setAccessDenied(false);
+                return res;
+            } catch (err) {
+                if (err?.code !== 'functions/permission-denied') console.error('Shared runsheet error:', err);
+                return null;
+            }
+        };
+
+        // Members: live programme listener. Firestore rules reject non-members.
+        // (The runsheet doc itself comes from the dashboard listener when it has it — see below.)
+        const subscribeLive = () => {
+            setMemberReady(true);
+            const q = query(collection(db, `runsheets/${id}/programme`), orderBy('orderCount', 'asc'));
+            unsubs.push(onSnapshot(q, (snapshot) => {
+                setProgramme(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+                setProgrammeLoading(false);
+            }, (error) => {
+                if (error?.code !== 'permission-denied') console.error("Programme listener error:", error);
+                setProgrammeLoading(false);
+            }));
+        };
+
+        const run = async () => {
+            if (token && !user) {
+                // Logged-out link holder: live, email-free view via anonymous viewer pass.
+                unsubs.push(subscribeSharedRunsheet(id, token, {
+                    onMeta: (meta) => {
+                        sessionStorage.setItem(`runsheetToken_${id}`, token);
+                        setAccessDenied(false);
+                        setRunsheet(meta);
+                        setMetaLoading(false);
+                    },
+                    onProgramme: (items) => { setProgramme(items); setProgrammeLoading(false); },
+                    onDenied: finishDenied,
+                }));
+                return;
+            }
+            if (token) {
+                // Signed in: the call enrolls us (if the token is valid), then go live as a member.
+                await loadViaToken();
+                if (!active) return;
+            }
+            if (user) subscribeLive();
+            else finishDenied();
+        };
+        run();
 
         return () => {
-            unsubRunsheet();
-            unsubProgramme();
-            if (notFoundTimer) clearTimeout(notFoundTimer);
-            clearTimeout(metaTimer);
-            clearTimeout(progTimer);
+            active = false;
+            setMemberReady(false);
+            unsubs.forEach(u => u());
         };
-    }, [id]);
+    }, [id, user, authLoading]);
 
+    // Give the dashboard listener a moment to deliver before falling back to our own doc listener.
+    useEffect(() => {
+        if (runsheetsLoaded) return;
+        const t = setTimeout(() => setDashWaited(true), 1500);
+        return () => clearTimeout(t);
+    }, [runsheetsLoaded]);
 
+    // The dashboard already listens to the member's upcoming runsheets; reuse that copy
+    // instead of paying for a second listener on the same doc.
+    const dashEntry = (user && runsheetsLoaded && id)
+        ? (runsheets.find(r => r.id === id && !r._stale) || null)
+        : null;
+    const inDashboard = !!dashEntry;
+    const dashReady = runsheetsLoaded || dashWaited;
+
+    useEffect(() => {
+        if (!id || !user || !memberReady || !dashReady || inDashboard) return;
+
+        let fired = false;
+        const unsub = onSnapshot(doc(db, 'runsheets', id), (docSnap) => {
+            if (docSnap.exists()) {
+                setRunsheet({ id: docSnap.id, ...docSnap.data() });
+                setNotFound(false);
+            } else {
+                setNotFound(true);
+            }
+            if (!fired) { fired = true; setMetaLoading(false); }
+        }, (error) => {
+            if (error?.code === 'permission-denied') {
+                setAccessDenied(true);
+                setProgrammeLoading(false);
+            } else {
+                console.error("Runsheet metadata listener error:", error);
+                setNotFound(true);
+            }
+            setMetaLoading(false);
+        });
+        return () => unsub();
+    }, [id, user, memberReady, dashReady, inDashboard]);
+
+    const shownRunsheet = inDashboard ? dashEntry : runsheet;
+    const denied = accessDenied && !inDashboard;
+    const missing = notFound && !inDashboard;
+    const stillLoading = !inDashboard && (metaLoading || (!runsheet && !notFound));
 
     // Show spinner while loading OR while waiting for the first snapshot to arrive
-    if (metaLoading || (!runsheet && !notFound)) {
+    if (!denied && stillLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
                 <div className="w-10 h-10 rounded-full border-[3px] border-muted animate-spin border-t-primary"></div>
@@ -149,7 +174,7 @@ export default function RunsheetPage() {
         );
     }
 
-    if (notFound) {
+    if (missing) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
@@ -161,7 +186,7 @@ export default function RunsheetPage() {
         );
     }
 
-    if (accessDenied) {
+    if (denied) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 gap-6">
                 <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive">
@@ -188,7 +213,7 @@ export default function RunsheetPage() {
         <>
             {!authLoading && !user && <LoginBanner />}
             <RunsheetEditor
-                runsheet={runsheet}
+                runsheet={shownRunsheet}
                 initialProgramme={programme}
                 programmeLoading={programmeLoading}
                 isAuthenticated={!!user}

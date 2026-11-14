@@ -1,8 +1,7 @@
 'use client';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, getDocs, query, where, collection, setDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { getSharedGroup } from '../../../lib/firebase';
 import { useAuth } from '../../../context/AuthContext';
 import LoginBanner from '../../../components/LoginBanner';
 import Link from 'next/link';
@@ -36,12 +35,15 @@ export default function GroupPageClient() {
     const [resolving, setResolving] = useState(true);
     const [redirected, setRedirected] = useState(false);
     const [tokenInvalid, setTokenInvalid] = useState(false);
+    const [sharedGroup, setSharedGroup] = useState(null);
 
     useEffect(() => {
         if (!rawSegment || rawSegment === 'fallback' || rawSegment === '[token]') {
             setResolving(false);
             return;
         }
+        // Wait for auth so the server call knows who to enroll.
+        if (authLoading) return;
 
         setResolving(true);
         setResolvedGroupId(null);
@@ -49,47 +51,41 @@ export default function GroupPageClient() {
 
         const resolveToken = async () => {
             try {
-                // 1. Check if legacy link (rawSegment is a short token)
-                const tokenDoc = await getDoc(doc(db, 'groupTokens', rawSegment));
-                if (tokenDoc.exists()) {
-                    const groupId = tokenDoc.data().groupId;
-                    if (typeof window !== 'undefined') {
-                        sessionStorage.setItem(`groupToken_${groupId}`, rawSegment);
-                    }
-                    router.replace(`/group/${groupId}?token=${rawSegment}`);
-                    return;
-                }
-
-                // 2. Otherwise, rawSegment is the groupId
-                const groupDoc = await getDoc(doc(db, 'groups', rawSegment));
-                if (!groupDoc.exists()) {
-                    setResolving(false);
-                    return;
-                }
-
-                const expectedToken = groupDoc.data().shareToken;
                 const cachedToken = typeof window !== 'undefined' ? sessionStorage.getItem(`groupToken_${rawSegment}`) : null;
-                const activeToken = tokenQuery || cachedToken;
+                const activeToken = tokenQuery || cachedToken || null;
 
-                if (expectedToken && activeToken === expectedToken) {
-                    setResolvedGroupId(rawSegment);
-                    if (typeof window !== 'undefined' && tokenQuery) {
-                        sessionStorage.setItem(`groupToken_${rawSegment}`, tokenQuery);
-                    }
-                } else {
-                    setTokenInvalid(true);
+                // Validated server-side. Also enrolls signed-in users in the group's runsheets.
+                // Legacy short links (/group/{token}) resolve to the real group id here too.
+                const res = await getSharedGroup(rawSegment, activeToken);
+                const groupId = res.group.id;
+                const token = res.token || activeToken;
+                if (typeof window !== 'undefined' && token) {
+                    sessionStorage.setItem(`groupToken_${groupId}`, token);
+                    // Lets the dashboard pick up runsheets added to this group later.
+                    if (user) localStorage.setItem(`groupToken_${groupId}`, token);
                 }
+                if (groupId !== rawSegment) {
+                    router.replace(`/group/${groupId}?token=${token}`);
+                    return;
+                }
+                setSharedGroup({ ...res, token });
+                setResolvedGroupId(groupId);
             } catch (err) {
-                console.error("Failed to resolve group token", err);
+                if (err?.code === 'functions/permission-denied') {
+                    setTokenInvalid(true);
+                } else {
+                    console.error("Failed to resolve group token", err);
+                }
             } finally {
                 setResolving(false);
             }
         };
 
         resolveToken();
-    }, [rawSegment, tokenQuery, router]);
+    }, [rawSegment, tokenQuery, router, authLoading, user]);
 
-    const activeId = resolvedGroupId || rawSegment;
+    // Only a server-validated group id is ever trusted.
+    const activeId = resolvedGroupId;
 
     // Save filter immediately when resolved, regardless of auth state
     useEffect(() => {
@@ -158,83 +154,7 @@ export default function GroupPageClient() {
     }
 
     // ── LOGGED-OUT: public group listing ──
-    return <PublicGroupView id={activeId} />;
-}
-
-function PublicGroupView({ id }) {
-    const [group, setGroup] = useState(null);
-    const [runsheets, setRunsheets] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [shareGroupDialog, setShareGroupDialog] = useState(false);
-
-    useEffect(() => {
-        if (!id || id === 'fallback' || id === '[token]') return;
-
-        const cacheKeyGroup = `public_group_${id}`;
-        const cacheKeyRunsheets = `public_group_runsheets_${id}`;
-
-        let hasCache = false;
-        try {
-            const cachedGroup = localStorage.getItem(cacheKeyGroup);
-            const cachedRunsheets = localStorage.getItem(cacheKeyRunsheets);
-            if (cachedGroup && cachedRunsheets) {
-                setGroup(JSON.parse(cachedGroup));
-                setRunsheets(JSON.parse(cachedRunsheets));
-                setLoading(false);
-                hasCache = true;
-            }
-        } catch (e) {
-            console.error('Failed to parse public group cache', e);
-        }
-
-        if (!hasCache) {
-            setLoading(true);
-        }
-
-        const fetchData = async () => {
-            try {
-                // First try: id is a direct groupId
-                let groupId = id;
-                let groupSnap = await getDoc(doc(db, 'groups', id));
-
-                // Second try: id is a shareToken — look up via groupTokens index
-                if (!groupSnap.exists()) {
-                    const tokenDoc = await getDoc(doc(db, 'groupTokens', id));
-                    if (!tokenDoc.exists()) { setLoading(false); return; }
-                    groupId = tokenDoc.data().groupId;
-                    groupSnap = await getDoc(doc(db, 'groups', groupId));
-                    if (!groupSnap.exists()) { setLoading(false); return; }
-                }
-
-                const groupData = { id: groupId, ...groupSnap.data() };
-                setGroup(groupData);
-                localStorage.setItem(cacheKeyGroup, JSON.stringify(groupData));
-
-                const rsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
-                const rsSnap = await getDocs(rsQuery);
-                const rsData = rsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                rsData.sort((a, b) => {
-                    const diff = new Date(a.date) - new Date(b.date);
-                    if (diff === 0) {
-                        const timeA = a.time || "";
-                        const timeB = b.time || "";
-                        return timeA.localeCompare(timeB);
-                    }
-                    return diff;
-                });
-                setRunsheets(rsData);
-                localStorage.setItem(cacheKeyRunsheets, JSON.stringify(rsData));
-            } catch (err) {
-                console.error('Error loading public group page', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [id]);
-
-    if (loading) {
+    if (resolving) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen gap-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -242,6 +162,18 @@ function PublicGroupView({ id }) {
             </div>
         );
     }
+    return <PublicGroupView data={sharedGroup} />;
+}
+
+function PublicGroupView({ data }) {
+    const group = data?.group || null;
+    const token = data?.token || null;
+    const [shareGroupDialog, setShareGroupDialog] = useState(false);
+    const runsheets = [...(data?.runsheets || [])].sort((a, b) => {
+        const diff = new Date(a.date) - new Date(b.date);
+        if (diff === 0) return (a.time || "").localeCompare(b.time || "");
+        return diff;
+    });
 
     if (!group) {
         return (
@@ -298,7 +230,7 @@ function PublicGroupView({ id }) {
                                     return (
                                         <Link
                                             key={rs.id}
-                                            href={`/runsheet/${rs.id}`}
+                                            href={`/runsheet/${rs.id}?token=${encodeURIComponent(token || '')}`}
                                             className="flex items-center gap-4 p-4 rounded-2xl bg-background border border-border/50 hover:border-primary/30 hover:shadow-md transition-all group"
                                         >
                                             <div className={`
@@ -347,6 +279,7 @@ function PublicGroupView({ id }) {
                     open={shareGroupDialog}
                     onClose={() => setShareGroupDialog(false)}
                     group={group}
+                    token={token}
                 />
             )}
         </div>

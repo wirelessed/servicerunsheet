@@ -20,7 +20,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 import moment from 'moment';
-import { doc, updateDoc, writeBatch, collection, addDoc, deleteDoc, deleteField } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, writeBatch, collection, deleteDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboard } from '../../context/DashboardContext';
@@ -46,9 +46,19 @@ import { useRouter } from 'next/navigation';
 
 const AdvancedGrid = dynamic(() => import('./AdvancedGrid'), { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center bg-card rounded-xl border border-border/50 animate-pulse text-muted-foreground"><span className="material-symbols-outlined text-4xl mb-4 p-4 bg-muted rounded-full">grid_on</span></div> });
 
+// Ticks every second on its own so the editor doesn't re-render with it.
+function LiveClock() {
+    const [clock, setClock] = useState(() => moment());
+    useEffect(() => {
+        const interval = setInterval(() => setClock(moment()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+    return <>{clock.format("h:mm:ss A")}</>;
+}
+
 export default function RunsheetEditor({ runsheet, initialProgramme, programmeLoading = false, isAuthenticated = true }) {
     const { user, logOut } = useAuth();
-    const { runsheets, groups, activeFilter, setActiveFilter } = useDashboard();
+    const { runsheets, groups, activeFilter, setActiveFilter, loadAllRunsheets } = useDashboard();
     const router = useRouter();
     const [items, setItems] = useState(initialProgramme);
     const [timings, setTimings] = useState({});
@@ -72,7 +82,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
     };
     const [now, setNow] = useState(moment());
-    const [clock, setClock] = useState(moment());
     const [isEditor, setIsEditor] = useState(false);
     const [userRole, setUserRole] = useState(null); // 'owner' | 'editor' | 'ops' | 'viewer' | null
 
@@ -106,6 +115,11 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
             setHasGroupAccess(!!token);
         }
     }, [runsheet?.groupId]);
+
+    // The sidebar lists group siblings / past runsheets, which aren't loaded by default.
+    useEffect(() => {
+        if (user && (runsheet?.groupId || activeFilter !== 'upcoming')) loadAllRunsheets();
+    }, [user, runsheet?.groupId, activeFilter, loadAllRunsheets]);
 
     useEffect(() => {
         setHasEntered(false);
@@ -193,10 +207,6 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         return () => clearInterval(interval);
     }, []);
 
-    useEffect(() => {
-        const interval = setInterval(() => setClock(moment()), 1000);
-        return () => clearInterval(interval);
-    }, []);
 
     const reorder = (list, startIndex, endIndex) => {
         const result = Array.from(list);
@@ -213,14 +223,19 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         setIsDragging(false);
         if (!isEditor) return;
         if (!result.destination) return;
-        const newItems = reorder(items, result.source.index, result.destination.index);
+        const moved = reorder(items, result.source.index, result.destination.index);
+        // Only write the items whose position actually changed.
+        const batch = writeBatch(db);
+        let writes = 0;
+        const newItems = moved.map((item, index) => {
+            if (item.orderCount === index) return item;
+            batch.update(doc(db, `runsheets/${runsheet.id}/programme`, item.id), { orderCount: index });
+            writes++;
+            return { ...item, orderCount: index };
+        });
         setItems(newItems);
         calculateTimings(newItems, runsheet.time);
-        const batch = writeBatch(db);
-        newItems.forEach((item, index) => {
-            batch.update(doc(db, `runsheets/${runsheet.id}/programme`, item.id), { orderCount: index });
-        });
-        await batch.commit();
+        if (writes > 0) await batch.commit();
     };
 
     const handleAddItem = async (data) => {
@@ -228,26 +243,25 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
         try {
             let insertIndex = items.length;
             if (currentItem && typeof currentItem.insertAtIndex === 'number') insertIndex = currentItem.insertAtIndex;
-            const tempId = `temp-${Date.now()}`;
-            const newNode = { id: tempId, text: data.text, remarks: data.remarks || '', duration: parseInt(data.duration, 10) || 0, location: data.location || '', links: data.links || [] };
-            const newItems = [...items];
-            newItems.splice(insertIndex, 0, newNode);
+            // Pre-generate the id so the new item and the shifted positions land in one commit.
+            const newRef = doc(collection(db, `runsheets/${runsheet.id}/programme`));
+            const newNode = { id: newRef.id, text: data.text, remarks: data.remarks || '', duration: parseInt(data.duration, 10) || 0, location: data.location || '', links: data.links || [], orderCount: insertIndex };
+            const spliced = [...items];
+            spliced.splice(insertIndex, 0, newNode);
+
+            const batch = writeBatch(db);
+            const { id, ...nodeData } = newNode;
+            batch.set(newRef, nodeData);
+            const newItems = spliced.map((item, index) => {
+                if (item.id === newRef.id || item.orderCount === index) return item;
+                batch.update(doc(db, `runsheets/${runsheet.id}/programme`, item.id), { orderCount: index });
+                return { ...item, orderCount: index };
+            });
+
             setItems(newItems);
             calculateTimings(newItems, runsheet.time);
             setIsItemDialogOpen(false);
             setCurrentItem(null);
-            const { id, ...nodeData } = newNode;
-            const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), nodeData);
-            setItems(prevItems => {
-                const updated = prevItems.map(item => item.id === tempId ? { ...item, id: docRef.id } : item);
-                calculateTimings(updated, runsheet.time);
-                return updated;
-            });
-            const batch = writeBatch(db);
-            newItems.forEach((item, index) => {
-                const itemId = item.id === tempId ? docRef.id : item.id;
-                batch.update(doc(db, `runsheets/${runsheet.id}/programme`, itemId), { orderCount: index });
-            });
             await batch.commit();
         } catch (error) {
             console.error("Error adding item:", error);
@@ -514,20 +528,15 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     size="sm"
                     className="rounded-full shadow-sm bg-background border-dashed hover:border-primary hover:text-primary transition-colors pr-4 py-5"
                     onClick={async () => {
-                        // add a blank row immediately
-                        const tempId = `temp-${Date.now()}`;
-                        const newNode = { id: tempId, text: '', remarks: '', duration: 0, location: '' };
-                        const newItems = [...items, newNode];
+                        // add a blank row immediately (id generated client-side, so no temp row)
+                        const newRef = doc(collection(db, `runsheets/${runsheet.id}/programme`));
+                        // After deletes there can be gaps, so go past the highest position, not the count.
+                        const orderCount = items.reduce((max, i) => Math.max(max, (i.orderCount ?? -1) + 1), items.length);
+                        const nodeData = { text: '', remarks: '', duration: 0, location: '', orderCount };
+                        const newItems = [...items, { id: newRef.id, ...nodeData }];
                         setItems(newItems);
                         calculateTimings(newItems, runsheet.time);
-
-                        const { id, ...nodeData } = newNode;
-                        const docRef = await addDoc(collection(db, `runsheets/${runsheet.id}/programme`), { ...nodeData, orderCount: items.length });
-                        setItems(prev => {
-                            const updated = prev.map(i => i.id === tempId ? { ...i, id: docRef.id } : i);
-                            calculateTimings(updated, runsheet.time);
-                            return updated;
-                        });
+                        await setDoc(newRef, nodeData);
                     }}
                 >
                     <AddIcon className="mr-1 text-[16px]" /> Add new item
@@ -1250,7 +1259,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">Current Time</span>
                             <div className="text-3xl font-mono font-bold text-foreground leading-none tracking-tight">
-                                {clock.format("h:mm:ss A")}
+                                <LiveClock />
                             </div>
                         </div>
                     </div>
@@ -1399,7 +1408,7 @@ export default function RunsheetEditor({ runsheet, initialProgramme, programmeLo
                     <div className="flex flex-col items-center">
                         <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">Current Time</span>
                         <div className="text-3xl font-mono font-bold text-foreground leading-none tracking-tight">
-                            {clock.format("h:mm:ss A")}
+                            <LiveClock />
                         </div>
                     </div>
                 </div>

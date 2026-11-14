@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { collection, query, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, orderBy, where } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, generateShareToken } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import moment from 'moment';
@@ -40,6 +40,7 @@ export default function RunsheetList() {
         activeFilter, setActiveFilter,
         refresh,
         enrollInGroup,
+        loadAllRunsheets,
         migrationState, setMigrationState,
         showGroupToast, setShowGroupToast
     } = useDashboard();
@@ -77,6 +78,13 @@ export default function RunsheetList() {
     const [sortOrder, setSortOrder] = useState('asc');
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Only upcoming runsheets are loaded by default; anything else needs the full list.
+    useEffect(() => {
+        if (showSearch || (activeFilter && activeFilter !== 'upcoming')) {
+            loadAllRunsheets();
+        }
+    }, [activeFilter, showSearch, loadAllRunsheets]);
     const [isActionLoading, setIsActionLoading] = useState(false);
 
     const [metadataDialog, setMetadataDialog] = useState({ open: false, data: null });
@@ -188,11 +196,10 @@ export default function RunsheetList() {
             navigateToFilter('archived_groups');
 
             // Background updates
-            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
-            const groupRsSnap = await getDocs(groupRsQuery);
+            // Only runsheets we're a member of (rules deny the rest).
             const batch = writeBatch(db);
-            groupRsSnap.docs.forEach(rsDoc => {
-                batch.update(rsDoc.ref, { category: 'archive' });
+            originalRunsheets.filter(r => r.groupId === groupId).forEach(r => {
+                batch.update(doc(db, 'runsheets', r.id), { category: 'archive' });
             });
             batch.set(doc(db, 'groups', groupId), { archived: true }, { merge: true });
             await batch.commit();
@@ -219,11 +226,10 @@ export default function RunsheetList() {
             navigateToFilter(groupId);
 
             // Background updates
-            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
-            const groupRsSnap = await getDocs(groupRsQuery);
+            // Only runsheets we're a member of (rules deny the rest).
             const batch = writeBatch(db);
-            groupRsSnap.docs.forEach(rsDoc => {
-                batch.update(rsDoc.ref, { category: 'active' });
+            originalRunsheets.filter(r => r.groupId === groupId).forEach(r => {
+                batch.update(doc(db, 'runsheets', r.id), { category: 'active' });
             });
             batch.set(doc(db, 'groups', groupId), { archived: false }, { merge: true });
             await batch.commit();
@@ -254,11 +260,10 @@ export default function RunsheetList() {
             }
 
             // Database updates
-            const groupRsQuery = query(collection(db, 'runsheets'), where('groupId', '==', groupId));
-            const groupRsSnap = await getDocs(groupRsQuery);
+            // Only runsheets we're a member of (rules deny the rest).
             const batch = writeBatch(db);
-            groupRsSnap.docs.forEach(rsDoc => {
-                batch.update(rsDoc.ref, { groupId: null });
+            originalRunsheets.filter(r => r.groupId === groupId).forEach(r => {
+                batch.update(doc(db, 'runsheets', r.id), { groupId: null });
             });
             batch.delete(doc(db, 'groups', groupId));
             await batch.commit();
@@ -349,11 +354,7 @@ export default function RunsheetList() {
                 const runsheetRef = doc(collection(db, 'runsheets'));
                 const newId = runsheetRef.id;
 
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                let shareToken = '';
-                for (let i = 0; i < 6; i++) {
-                    shareToken += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
+                const shareToken = generateShareToken();
 
                 const newRunsheet = {
                     name: formData.name,
@@ -395,7 +396,7 @@ export default function RunsheetList() {
             const groupId = groupRef.id;
 
             // Optimistic Update
-            setGroups(prev => [...prev, { id: groupId, name }]);
+            setGroups(prev => [...prev, { id: groupId, name, createdBy: user.email }]);
 
             // Background write
             setDoc(groupRef, {
@@ -484,11 +485,7 @@ export default function RunsheetList() {
             const newDocRef = doc(collection(db, 'runsheets'));
             const newId = newDocRef.id;
 
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let shareToken = '';
-            for (let i = 0; i < 6; i++) {
-                shareToken += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
+            const shareToken = generateShareToken();
 
             const newRunsheet = {
                 name: runsheet.name + (runsheet.name.endsWith(' (Copy)') ? '' : ' (Copy)'),
