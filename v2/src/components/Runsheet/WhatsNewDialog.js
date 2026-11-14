@@ -36,7 +36,7 @@ export default function WhatsNewDialog({ open, onClose }) {
                         <div className="flex flex-col">
                             <span className="font-bold text-foreground text-sm tracking-tight leading-snug">Safer Sharing</span>
                             <span className="text-muted-foreground text-xs font-medium leading-relaxed mt-1">
-                                Share links for runsheets have been regenerated for security reasons. Please share your runsheets again from the Share tab.
+                                Runsheets are now visible only to their members and to people with a share link. Your existing share links still work.
                             </span>
                         </div>
                     </div>
