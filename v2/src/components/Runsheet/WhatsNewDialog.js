@@ -11,6 +11,7 @@ import {
 export default function WhatsNewDialog({ open, onClose }) {
     const [showPrevious, setShowPrevious] = useState(false);
     const features = [
+        { icon: "link", title: "New Sharing Links", desc: "Generate links to runsheets and groups using the Share button." },
         { icon: "dark_mode", title: "Dark Mode", desc: "Toggle between light and dark themes." },
         { icon: "folder_shared", title: "Groups & Sharing", desc: "Organize and secure access to multiple runsheets." },
         { icon: "search", title: "Search & Sort", desc: "Quickly filter services on your dashboard." },
@@ -20,9 +21,9 @@ export default function WhatsNewDialog({ open, onClose }) {
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md bg-background border border-border sm:rounded-3xl p-6">
                 <DialogHeader className="mb-4">
-                    <DialogTitle className="text-3xl font-extrabold tracking-tighter">What&apos;s New in v4.1</DialogTitle>
+                    <DialogTitle className="text-3xl font-extrabold tracking-tighter">What&apos;s New in v4.2</DialogTitle>
                     <DialogDescription className="text-muted-foreground font-medium text-sm">
-                        Last Updated: July 2026
+                        Last Updated: 14 Nov 2026
                     </DialogDescription>
                 </DialogHeader>
 
@@ -33,9 +34,21 @@ export default function WhatsNewDialog({ open, onClose }) {
                             <span className="material-symbols-outlined text-xl">security</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-bold text-foreground text-sm tracking-tight leading-snug">New Sharing Links</span>
+                            <span className="font-bold text-foreground text-sm tracking-tight leading-snug">Safer Sharing</span>
                             <span className="text-muted-foreground text-xs font-medium leading-relaxed mt-1">
-                                For better security, generate links to runsheets and groups using the Share button. Links generated before 6 July 2026 will no longer work.
+                                Share links for runsheets have been regenerated for security reasons. Please share your runsheets again from the Share tab.
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-4 px-3.5 group">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary shrink-0 transition-transform group-hover:scale-105 mt-0.5">
+                            <span className="material-symbols-outlined text-xl">bolt</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-foreground text-sm tracking-tight leading-snug">Faster Dashboard</span>
+                            <span className="text-muted-foreground text-xs font-medium leading-relaxed mt-1">
+                                Upcoming runsheets load first. Past and archived ones load when you open them.
                             </span>
                         </div>
                     </div>
