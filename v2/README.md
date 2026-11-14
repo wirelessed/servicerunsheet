@@ -283,5 +283,5 @@ npx -y firebase-tools@latest hosting:channel:deploy runsheetprobeta --expires 30
 - Members-only Firestore rules: no public reads; writes are limited by role.
 - Client-side role checks: the UI checks roles before firing state mutations or Firestore calls. These are for UX only; the rules are the enforcement.
 - XSS sanitization: user-generated HTML rendered via `dangerouslySetInnerHTML` is sanitized with isomorphic-dompurify.
-- Clickjacking & MIME protection: `X-Frame-Options` and `X-Content-Type-Options` headers are set in `firebase.json`.
+- Clickjacking & MIME protection: `X-Frame-Options: SAMEORIGIN` and `X-Content-Type-Options` headers are set in `firebase.json`. The one exception is `/share/**`, which sends `Content-Security-Policy: frame-ancestors *` instead so share links can be embedded in an iframe on any site.
 - Share tokens are generated with `crypto.getRandomValues` (16 characters). Tokens created before this change are 6 characters and were publicly readable; rotate them.
