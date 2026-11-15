@@ -69,7 +69,7 @@ async function enrollInBatch(batch, rsRef, data, email) {
     const mapRole = data.roles?.[email] || data.roles?.[email.toLowerCase()] || null;
     const inMembers = Array.isArray(data.memberEmails) && data.memberEmails.includes(email);
     if (KNOWN_ROLES.includes(mapRole) && data.roles?.[email] && inMembers) {
-        return { role: mapRole, changed: false };
+        return { role: mapRole, changed: false, added: false };
     }
 
     let role = KNOWN_ROLES.includes(mapRole) ? mapRole : null;
@@ -85,7 +85,8 @@ async function enrollInBatch(batch, rsRef, data, email) {
     batch.update(rsRef, ...updateArgs);
     batch.set(rsRef.collection('users').doc(email), { id: email, email, role }, { merge: true });
     batch.set(db.doc(`users/${email}/runsheets/${rsRef.id}`), { id: rsRef.id }, { merge: true });
-    return { role, changed: true };
+    // `added` is true only when the runsheet is new to this person's list.
+    return { role, changed: true, added: !inMembers };
 }
 
 async function groupTokenValid(groupId, token) {
@@ -119,7 +120,8 @@ exports.getSharedRunsheet = onCall(async (request) => {
         const res = await enrollInBatch(batch, rsRef, data, email);
         if (res.changed) await batch.commit();
         role = res.role;
-        enrolled = true;
+        // Drives the "Saved to your runsheet list" toast: only for people it was just added for.
+        enrolled = res.added;
     }
 
     // Anonymous visitors get a viewer pass so they can live-listen to the
@@ -186,8 +188,8 @@ exports.getSharedGroup = onCall(async (request) => {
         let ops = 0;
         for (const d of rsSnap.docs) {
             const res = await enrollInBatch(batch, d.ref, d.data(), email);
+            if (res.added) newlyEnrolled++;
             if (res.changed) {
-                newlyEnrolled++;
                 ops += 3;
                 if (ops >= 450) {
                     await batch.commit();
