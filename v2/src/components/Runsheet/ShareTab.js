@@ -58,20 +58,41 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
 
     useEffect(() => {
         if (!runsheetId || !runsheet) return;
+        let active = true;
 
         const checkToken = async () => {
             let token = runsheet?.shareToken;
-            
-            if (!token && !hasAttemptedRef.current) {
-                hasAttemptedRef.current = true;
-                const newToken = generateShareToken();
+
+            // Share-link visitors get an email-free copy of the runsheet with no token in it,
+            // so a missing token here does not mean the runsheet has none. Ask the real
+            // document before ever creating one — otherwise each visit would replace it.
+            if (!token) {
+                let realDoc = null;
                 try {
-                    await updateDoc(doc(db, 'runsheets', runsheetId), { shareToken: newToken });
-                    token = newToken;
+                    const snap = await getDoc(doc(db, 'runsheets', runsheetId));
+                    if (snap.exists()) realDoc = snap.data();
                 } catch (e) {
-                    console.error("Failed to generate runsheet token", e);
+                    // Not a member (e.g. logged-out link visitor): fall through to the link they came with.
+                }
+                if (!active) return;
+                token = realDoc?.shareToken;
+
+                if (realDoc && !token && isEditor && !hasAttemptedRef.current) {
+                    hasAttemptedRef.current = true;
+                    const newToken = generateShareToken();
+                    try {
+                        await updateDoc(doc(db, 'runsheets', runsheetId), { shareToken: newToken });
+                        token = newToken;
+                    } catch (e) {
+                        console.error("Failed to generate runsheet token", e);
+                    }
+                }
+
+                if (!token) {
+                    try { token = sessionStorage.getItem(`runsheetToken_${runsheetId}`); } catch (e) {}
                 }
             }
+            if (!active) return;
 
             if (token) {
                 setShareUrl(`${origin}/share/${runsheetId}?token=${token}`);
@@ -82,7 +103,8 @@ export default function ShareTab({ runsheetId, runsheetName, isEditor, runsheet,
         };
 
         checkToken();
-    }, [runsheetId, runsheet?.shareToken, origin]);
+        return () => { active = false; };
+    }, [runsheetId, runsheet?.shareToken, origin, isEditor]);
 
     const [plainTextDialog, setPlainTextDialog] = useState(false);
     const [includeDescriptions, setIncludeDescriptions] = useState(true);
