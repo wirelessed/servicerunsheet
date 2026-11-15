@@ -58,16 +58,30 @@ function callerEmail(request) {
     return t.email;
 }
 
-/** Adds `email` as a viewer of the runsheet (keeps any existing role). Returns the role. */
-function enrollInBatch(batch, rsRef, data, email) {
-    const existingRole = data.roles?.[email] || null;
+const KNOWN_ROLES = ['owner', 'editor', 'viewer'];
+
+/**
+ * Adds `email` as a member of the runsheet. Never lowers a role the person already
+ * holds: the roles map is checked first, then the legacy users subcollection (older
+ * runsheets kept the creator's role only there). New members become viewers.
+ */
+async function enrollInBatch(batch, rsRef, data, email) {
+    const mapRole = data.roles?.[email] || data.roles?.[email.toLowerCase()] || null;
     const inMembers = Array.isArray(data.memberEmails) && data.memberEmails.includes(email);
-    const role = existingRole || 'viewer';
-    if (existingRole && inMembers) return { role, changed: false };
+    if (KNOWN_ROLES.includes(mapRole) && data.roles?.[email] && inMembers) {
+        return { role: mapRole, changed: false };
+    }
+
+    let role = KNOWN_ROLES.includes(mapRole) ? mapRole : null;
+    if (!role) {
+        const sub = await rsRef.collection('users').doc(email).get();
+        const subRole = sub.exists ? sub.data().role : null;
+        role = KNOWN_ROLES.includes(subRole) ? subRole : 'viewer';
+    }
 
     const updateArgs = ['memberEmails', FieldValue.arrayUnion(email)];
     // FieldPath handles the dots in email addresses.
-    if (!existingRole) updateArgs.push(new FieldPath('roles', email), 'viewer');
+    if (data.roles?.[email] !== role) updateArgs.push(new FieldPath('roles', email), role);
     batch.update(rsRef, ...updateArgs);
     batch.set(rsRef.collection('users').doc(email), { id: email, email, role }, { merge: true });
     batch.set(db.doc(`users/${email}/runsheets/${rsRef.id}`), { id: rsRef.id }, { merge: true });
@@ -102,7 +116,7 @@ exports.getSharedRunsheet = onCall(async (request) => {
     const email = callerEmail(request);
     if (email) {
         const batch = db.batch();
-        const res = enrollInBatch(batch, rsRef, data, email);
+        const res = await enrollInBatch(batch, rsRef, data, email);
         if (res.changed) await batch.commit();
         role = res.role;
         enrolled = true;
@@ -171,7 +185,7 @@ exports.getSharedGroup = onCall(async (request) => {
         let batch = db.batch();
         let ops = 0;
         for (const d of rsSnap.docs) {
-            const res = enrollInBatch(batch, d.ref, d.data(), email);
+            const res = await enrollInBatch(batch, d.ref, d.data(), email);
             if (res.changed) {
                 newlyEnrolled++;
                 ops += 3;
