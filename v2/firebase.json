@@ -1,0 +1,79 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22"
+  },
+  "hosting": {
+    "target": "beta",
+    "public": "out",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          }
+        ]
+      },
+      {
+        "source": "!/share/**",
+        "headers": [
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          }
+        ]
+      },
+      {
+        "source": "/share/**",
+        "headers": [
+          {
+            "key": "Content-Security-Policy",
+            "value": "frame-ancestors *"
+          }
+        ]
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/services/:runsheetId/:title/Programme",
+        "destination": "/runsheet/:runsheetId",
+        "type": 301
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/runsheet/*/print",
+        "destination": "/runsheet/fallback/print.html"
+      },
+      {
+        "source": "/runsheet/*",
+        "destination": "/runsheet/fallback.html"
+      },
+      {
+        "source": "/share/*",
+        "destination": "/share/fallback.html"
+      },
+      {
+        "source": "/group/*",
+        "destination": "/group/fallback.html"
+      }
+    ]
+  }
+}
