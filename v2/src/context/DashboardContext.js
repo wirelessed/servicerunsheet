@@ -295,16 +295,13 @@ export const DashboardContextProvider = ({ children }) => {
 
                 let allGroups = [...ownedGroups];
                 if (remainingGroupIds.length > 0) {
-                    const chunks = [];
-                    for (let i = 0; i < remainingGroupIds.length; i += 30) {
-                        chunks.push(remainingGroupIds.slice(i, i + 30));
-                    }
+                    // One get per group: rules only allow listing groups you created.
                     const snaps = await Promise.all(
-                        chunks.map(chunk =>
-                            getDocs(query(collection(db, 'groups'), where('__name__', 'in', chunk)))
-                        )
+                        remainingGroupIds.map(id => getDoc(doc(db, 'groups', id)).catch(() => null))
                     );
-                    allGroups = [...allGroups, ...snaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))];
+                    allGroups = [...allGroups, ...snaps
+                        .filter(snap => snap && snap.exists())
+                        .map(snap => ({ id: snap.id, ...snap.data() }))];
                 }
                 if (!active) return;
                 setGroups(allGroups);

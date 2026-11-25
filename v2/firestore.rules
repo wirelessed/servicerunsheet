@@ -106,10 +106,19 @@ service cloud.firestore {
       );
     }
 
+    // Groups: no one can list them all. A single group is readable by id (ids are
+    // random and only reach people in one of its runsheets, its owner, or link holders);
+    // queries must be limited to groups the caller created.
     match /groups/{groupId} {
-      allow read: if signedIn();
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.get('createdBy', null) == email();
       allow create: if signedIn() && request.resource.data.createdBy == email();
-      allow update, delete: if signedIn() && resource.data.get('createdBy', email()) == email();
+      // Owner only. Legacy groups without createdBy stay editable by members as before,
+      // but nobody can claim or reassign ownership.
+      allow update: if signedIn()
+        && resource.data.get('createdBy', email()) == email()
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null);
+      allow delete: if signedIn() && resource.data.get('createdBy', email()) == email();
     }
 
     // Legacy group short-link index. Resolved only by the getSharedGroup function.
